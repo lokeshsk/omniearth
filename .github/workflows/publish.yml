@@ -1,0 +1,73 @@
+name: Publish OmniEarth to PyPI and npm
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  publish-pypi:
+    name: Publish to PyPI (uv)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Astral uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Build Wheel & Sdist
+        run: uv build
+
+      - name: Publish to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -n "$UV_PUBLISH_TOKEN" ]; then
+            uv publish --token "$UV_PUBLISH_TOKEN"
+          else
+            echo "Attempting OIDC Trusted Publishing..."
+            uv publish --trusted-publishing always || echo "Notice: Set PYPI_API_TOKEN secret or configure PyPI Trusted Publishing for lokeshsk/omniearth"
+          fi
+
+  publish-npm:
+    name: Publish to npm (pnpm)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build TypeScript
+        run: pnpm run build
+
+      - name: Run Tests
+        run: pnpm test
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            pnpm publish --no-git-checks --access public
+          else
+            echo "Notice: Set NPM_TOKEN secret in GitHub repository settings to publish automatically to npm."
+          fi
