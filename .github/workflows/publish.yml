@@ -3,11 +3,18 @@ name: Publish OmniEarth to PyPI and npm
 on:
   release:
     types: [ published ]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   publish-pypi:
-    name: Publish to PyPI (uv)
+    name: Publish to PyPI (uv / Trusted Publishing)
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
@@ -29,15 +36,19 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           if [ -n "$UV_PUBLISH_TOKEN" ]; then
+            echo "Publishing to PyPI using token..."
             uv publish --token "$UV_PUBLISH_TOKEN"
           else
-            echo "Attempting OIDC Trusted Publishing..."
-            uv publish --trusted-publishing always || echo "Notice: Set PYPI_API_TOKEN secret or configure PyPI Trusted Publishing for lokeshsk/omniearth"
+            echo "Publishing to PyPI using Trusted Publishing (OIDC)..."
+            uv publish --trusted-publishing always
           fi
 
   publish-npm:
-    name: Publish to npm (pnpm)
+    name: Publish to npm (Trusted Publishing / OIDC)
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Mandatory for npm Trusted Publishing (OIDC)
+      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -50,24 +61,29 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build TypeScript
+      - name: Build TypeScript SDK & CLI
         run: pnpm run build
 
-      - name: Run Tests
+      - name: Run Test Suite
         run: pnpm test
 
-      - name: Publish to npm
+      - name: Ensure latest npm for OIDC Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Publish to npm using Trusted Publishing
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -n "$NODE_AUTH_TOKEN" ]; then
+            echo "Publishing to npm using token..."
             pnpm publish --no-git-checks --access public
           else
-            echo "Notice: Set NPM_TOKEN secret in GitHub repository settings to publish automatically to npm."
+            echo "Publishing to npm using Trusted Publishing (OIDC + Provenance)..."
+            npm publish --provenance --access public
           fi
