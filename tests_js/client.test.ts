@@ -13,15 +13,38 @@ test("OmniEarth initializes and lists categories", () => {
   assert.ok(categories.includes("soil"));
 });
 
-test("OmniEarth resolves bounding boxes correctly", async () => {
+test("OmniEarth resolves bounding boxes correctly and parses search results", async () => {
   const client = new OmniEarth();
-  const weather = await client.search({
-    category: Category.WEATHER,
-    bbox: [78.50, 20.65, 78.60, 20.72]
-  });
-  assert.equal(weather.length, 1);
-  assert.equal(weather[0].category, Category.WEATHER);
-  assert.ok(weather[0].assets["data"]);
+
+  // Mock global fetch for reliable, instant CI execution without external network latency
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url: any) => {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        latitude: 20.68,
+        longitude: 78.55,
+        elevation: 254.0,
+        hourly: {
+          time: ["2026-10-27T00:00"],
+          temperature_2m: [25.0]
+        }
+      })
+    } as any;
+  };
+
+  try {
+    const weather = await client.search({
+      category: Category.WEATHER,
+      bbox: [78.50, 20.65, 78.60, 20.72]
+    });
+    assert.equal(weather.length, 1);
+    assert.equal(weather[0].category, Category.WEATHER);
+    assert.ok(weather[0].assets["data"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("OmniEarth rejects invalid bounding boxes", async () => {
@@ -36,4 +59,3 @@ test("OmniEarth rejects invalid bounding boxes", async () => {
     /Invalid bbox bounds/
   );
 });
-
