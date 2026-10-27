@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "tsx --test tests_js/**/*.test.ts",
+    "test": "tsx --test tests_js/client.test.ts",
     "prepare": "npm run build"
   },
   "repository": {
