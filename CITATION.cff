@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use OmniEarth in your research or commercial application, please cite it as below."
+authors:
+  - family-names: "Kumar"
+    given-names: "Lokesh"
+    email: "lokesh.skshukla@gmail.com"
+    website: "https://lokeshsk.github.io"
+title: "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine"
+version: 1.0.0
+date-released: 2026-10-27
+url: "https://github.com/lokeshsk/omniearth"
+repository-code: "https://github.com/lokeshsk/omniearth"
+license: "Custom (Attribution & Citation)"
+keywords:
+  - earth-observation
+  - remote-sensing
+  - hyperspectral
+  - stac
+  - weather
+  - soilgrids
+  - sentinel-2
+  - enmap
+  - prisma
+  - landsat
+  - copernicus
+  - open-meteo
+abstract: "OmniEarth is a universal, open-source multi-modal data engine, CLI, and dual SDK (Python & Node.js) for discovering, streaming, and downloading optical, SAR, hyperspectral, weather, soil, and elevation datasets across global open repositories."

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniEarth — Universal Multi-Modal Earth Observation & Environmental Data Engine</title>
+  <meta name="description" content="Open-source Python & Node.js SDK and CLI for Optical, Hyperspectral (EnMAP, EMIT, PRISMA), SAR, Weather, and 3D Soil data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1d;
+      --card-bg: #111827;
+      --card-border: #1f293d;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #10b981;
+      --primary-light: #34d399;
+      --primary-glow: rgba(16, 185, 129, 0.2);
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-orange: #f59e0b;
+      --code-bg: #0d1322;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a { color: var(--primary-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header {
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, var(--bg) 70%);
+      padding: 5rem 1.5rem 3rem;
+      text-align: center;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge-bar img { height: 22px; }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #ffffff 30%, var(--primary-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .tagline {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin: 0 auto 2rem;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none !important;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #000;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+    .btn-primary:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pill {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--primary-light);
+    }
+
+    pre, code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: rgba(255,255,255,0.03);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    td { color: var(--text-muted); }
+    td strong { color: var(--text-main); }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge-bar">
+    <img src="https://img.shields.io/pypi/v/omniearth.svg?color=blue" alt="PyPI">
+    <img src="https://img.shields.io/npm/v/omniearth.svg?color=green" alt="npm">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.1089204.svg" alt="Zenodo DOI">
+    <img src="https://img.shields.io/badge/managed%20with-uv-purple.svg" alt="uv">
+    <img src="https://img.shields.io/badge/managed%20with-pnpm-cc00ff.svg" alt="pnpm">
+  </div>
+  <h1>OmniEarth</h1>
+  <p class="tagline">Universal Open Multi-Modal Earth Observation, Hyperspectral Data Cube & Environmental Intelligence Engine.</p>
+  <div class="cta-buttons">
+    <a href="https://github.com/lokeshsk/omniearth" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      GitHub Repository
+    </a>
+    <a href="#quickstart" class="btn btn-secondary">Get Started</a>
+    <a href="https://lokeshsk.github.io" class="btn btn-secondary">Author: Lokesh Kumar</a>
+  </div>
+</header>
+
+<main class="container">
+  <section id="quickstart">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Python SDK <span class="pill">Astral uv / pip</span></h3>
+        <p>Ultra-fast search and streaming downloads for satellite cubes and environmental feeds.</p>
+        <pre><code># Install with uv
+uv add omniearth
+
+# Python Usage
+import omniearth as oe
+
+client = oe.OmniEarth()
+
+# Search DLR EnMAP Hyperspectral 224-band cubes
+scenes = client.search(
+    category="hyperspectral",
+    bbox=[78.50, 20.65, 78.60, 20.72],
+    max_cloud_cover=20
+)
+
+# Download 224-band Cloud-Optimized GeoTIFF
+client.download(scenes[0], asset_key="SPECTRAL_IMAGE_COG")</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>Node.js & TypeScript <span class="pill">pnpm / npm</span></h3>
+        <p>Full-featured ESM TypeScript client for cloud functions, backends, and full-stack web applications.</p>
+        <pre><code># Install with pnpm
+pnpm add omniearth
+
+// TypeScript / ESM Usage
+import { OmniEarth, Category } from "omniearth";
+
+const client = new OmniEarth();
+
+// Search Optical Sentinel-2 10m COGs
+const scenes = await client.search({
+  category: Category.OPTICAL,
+  bbox: [78.50, 20.65, 78.60, 20.72],
+  maxCloudCover: 10
+});
+
+// Download Visual RGB COG
+await client.download(scenes[0], "visual", "./downloads");</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Universal Command-Line Interface (CLI)</h2>
+    <pre><code># Instant provider status & credential diagnostic
+omniearth info
+
+# Search Sentinel-2 L2A optical scenes
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --max-cloud 10
+
+# Search EnMAP Hyperspectral 224-band scenes
+omniearth search --category hyperspectral --bbox 78.50 20.65 78.60 20.72
+
+# Zero-config hourly weather & 3D soil moisture profile
+omniearth search --category weather --point 78.55 20.68 --json</code></pre>
+  </section>
+
+  <section style="margin-top: 3rem;">
+    <h2>🛰️ Multi-Modal Data Matrix</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Modality</th>
+          <th>Sensors</th>
+          <th>Resolution</th>
+          <th>Backend Provider</th>
+          <th>Authentication</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Optical Multispectral</strong></td>
+          <td>Sentinel-2 L2A, Landsat-8/9</td>
+          <td>10m – 30m</td>
+          <td>AWS Earth Search STAC</td>
+          <td><span class="pill">Zero-Config</span> Public COGs</td>
+        </tr>
+        <tr>
+          <td><strong>Hyperspectral Cubes</strong></td>
+          <td>DLR EnMAP (224 bands)</td>
+          <td>30m</td>
+          <td>DLR EOC STAC + Geoservice</td>
+          <td>Free DLR Account</td>
+        </tr>
+        <tr>
+          <td><strong>Hyperspectral Cubes</strong></td>
+          <td>NASA EMIT (285 bands)</td>
+          <td>60m</td>
+          <td>NASA CMR STAC</td>
+          <td>Free Earthdata Account</td>
+        </tr>
+        <tr>
+          <td><strong>Hyperspectral Cubes</strong></td>
+          <td>ASI PRISMA (240 bands)</td>
+          <td>30m</td>
+          <td>ASI PRISMA Portal</td>
+          <td>Free ASI Account</td>
+        </tr>
+        <tr>
+          <td><strong>Radar (SAR)</strong></td>
+          <td>Sentinel-1 GRD / RTC</td>
+          <td>10m dual-pol</td>
+          <td>AWS Earth Search STAC</td>
+          <td><span class="pill">Zero-Config</span> Public COGs</td>
+        </tr>
+        <tr>
+          <td><strong>Weather & Climate</strong></td>
+          <td>Open-Meteo, ERA5 Reanalysis</td>
+          <td>1–11km hourly</td>
+          <td>Open-Meteo REST API</td>
+          <td><span class="pill">Zero-Config</span> Open API</td>
+        </tr>
+        <tr>
+          <td><strong>Soil Composition</strong></td>
+          <td>ISRIC SoilGrids v2.0</td>
+          <td>250m 3D profiles</td>
+          <td>ISRIC REST API</td>
+          <td><span class="pill">Zero-Config</span> Open API</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section style="margin-top: 3rem;">
+    <h2>Academic Citation & Licensing</h2>
+    <p style="color: var(--text-muted); margin-top: 0.5rem;">
+      OmniEarth is open-source with mandatory corporate attribution (<em>"Powered by OmniEarth"</em>) and research citation.
+    </p>
+    <pre><code>@software{omniearth2026,
+  author       = {Lokesh Kumar},
+  title        = {OmniEarth: Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine},
+  year         = 2026,
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.1089204},
+  url          = {https://github.com/lokeshsk/omniearth}
+}</code></pre>
+  </section>
+</main>
+
+<footer>
+  <p>© 2026 <strong>Lokesh Kumar</strong> (<a href="mailto:lokesh.skshukla@gmail.com">lokesh.skshukla@gmail.com</a>) — <a href="https://lokeshsk.github.io">lokeshsk.github.io</a></p>
+  <p style="margin-top: 0.5rem; font-size: 0.8rem;">OmniEarth is an open-source data orchestration engine. All satellite and sensor data remain the property and copyright of their respective upstream agencies (ESA, NASA, USGS, DLR, ASI, Open-Meteo, ISRIC).</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "title": "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine",
+  "description": "An open-source, decentralized Python and Node.js SDK and CLI for discovering, streaming, and downloading optical, SAR, hyperspectral, weather, soil, and elevation datasets across global open repositories.",
+  "creators": [
+    {
+      "name": "Kumar, Lokesh",
+      "affiliation": "Independent Researcher",
+      "orcid": ""
+    }
+  ],
+  "keywords": [
+    "earth-observation",
+    "remote-sensing",
+    "hyperspectral",
+    "stac",
+    "weather",
+    "soilgrids",
+    "sentinel-2",
+    "enmap",
+    "prisma",
+    "landsat",
+    "copernicus",
+    "open-meteo"
+  ],
+  "license": "other-open",
+  "upload_type": "software",
+  "access_right": "open"
+}

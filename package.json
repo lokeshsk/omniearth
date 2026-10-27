@@ -1,0 +1,58 @@
+{
+  "name": "omniearth",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "omniearth": "./bin/omniearth.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test tests_js/**/*.test.ts",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lokeshsk/omniearth.git"
+  },
+  "keywords": [
+    "earth-observation",
+    "remote-sensing",
+    "hyperspectral",
+    "sentinel-2",
+    "landsat",
+    "enmap",
+    "prisma",
+    "sentinel-1",
+    "stac",
+    "weather",
+    "soilgrids"
+  ],
+  "author": "Lokesh Kumar <lokesh.skshukla@gmail.com> (https://lokeshsk.github.io)",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/lokeshsk/omniearth/issues"
+  },
+  "homepage": "https://lokeshsk.github.io/omniearth/",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

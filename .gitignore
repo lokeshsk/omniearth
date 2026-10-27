@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+*.tgz
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment variables & credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Data & downloads cache
+downloads/
+*_downloads/
+*.tif
+*.jp2
+*.nc
+*.zip
+*.tar.gz
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
