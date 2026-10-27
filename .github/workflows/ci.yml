@@ -97,3 +97,47 @@ jobs:
           test -f .zenodo.json || exit 1
           test -f .env.example || exit 1
 
+  # Language-specific PR merge gates
+  python-tests-gate:
+    name: "Python Checks Passed"
+    needs: [test-python]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Python Test Matrix Results
+        run: |
+          if [ "${{ needs.test-python.result }}" != "success" ]; then
+            echo "❌ Python test suite failed on one or more Python versions!"
+            exit 1
+          fi
+          echo "✅ All Python test matrix checks (3.10, 3.11, 3.12) passed!"
+
+  node-tests-gate:
+    name: "Node.js Checks Passed"
+    needs: [test-node]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Node.js Test Matrix Results
+        run: |
+          if [ "${{ needs.test-node.result }}" != "success" ]; then
+            echo "❌ Node.js test suite failed on one or more Node versions!"
+            exit 1
+          fi
+          echo "✅ All Node.js test matrix checks (18, 20, 22) passed!"
+
+  ci-passed:
+    name: "All CI Checks Passed"
+    needs: [test-python, test-node, metadata-and-citations]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Enforce Complete CI Success
+        run: |
+          if [ "${{ needs.test-python.result }}" != "success" ] || \
+             [ "${{ needs.test-node.result }}" != "success" ] || \
+             [ "${{ needs.metadata-and-citations.result }}" != "success" ]; then
+            echo "❌ Pull Request cannot be merged: Required tests failed."
+            exit 1
+          fi
+          echo "🎉 All language tests, packaging, metadata, and citation checks passed!"
