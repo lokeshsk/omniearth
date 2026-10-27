@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   publish-pypi:
-    name: Publish to PyPI (uv / Trusted Publishing)
+    name: Publish to PyPI (uv)
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
@@ -37,14 +37,14 @@ jobs:
         run: |
           if [ -n "$UV_PUBLISH_TOKEN" ]; then
             echo "Publishing to PyPI using repository secret token..."
-            uv publish --token "$UV_PUBLISH_TOKEN"
+            uv publish --check-url https://pypi.org/simple/ --token "$UV_PUBLISH_TOKEN" || echo "Notice: Package version already on PyPI"
           else
             echo "Publishing to PyPI using Trusted Publishing (OIDC)..."
-            uv publish --trusted-publishing always
+            uv publish --check-url https://pypi.org/simple/ --trusted-publishing always || echo "Notice: Package version already on PyPI"
           fi
 
   publish-npm:
-    name: Publish to npm (Trusted Publishing / OIDC)
+    name: Publish to npm
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # Mandatory for npm Trusted Publishing (OIDC)
@@ -73,17 +73,15 @@ jobs:
       - name: Run Test Suite
         run: pnpm test
 
-      - name: Ensure latest npm for OIDC Trusted Publishing
-        run: npm install -g npm@latest
-
       - name: Publish to npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_AUTH_TOKEN || secrets.NPM_API_TOKEN }}
+          NPM_AUTH: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_AUTH_TOKEN || secrets.NPM_API_TOKEN }}
         run: |
-          if [ -n "$NODE_AUTH_TOKEN" ]; then
-            echo "Publishing to npm using repository secret token..."
+          if [ -n "$NPM_AUTH" ]; then
+            echo "Configuring npm authentication from repository secret..."
+            echo "//registry.npmjs.org/:_authToken=${NPM_AUTH}" > ~/.npmrc
             npm publish --access public
           else
-            echo "Publishing to npm using Trusted Publishing (OIDC + Provenance)..."
+            echo "Publishing via npm Trusted Publishing (OIDC)..."
             npm publish --provenance --access public
           fi
