@@ -59,3 +59,139 @@ test("OmniEarth rejects invalid bounding boxes", async () => {
     /Invalid bbox bounds/
   );
 });
+
+test("OmniEarth searches Optical STAC and parses items", async () => {
+  const client = new OmniEarth();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      type: "FeatureCollection",
+      features: [
+        {
+          id: "S2B_20261022_MOCK",
+          properties: { datetime: "2026-10-22T05:30:00Z", "eo:cloud_cover": 3.2 },
+          bbox: [78.5, 20.65, 78.6, 20.72],
+          assets: {
+            visual: { href: "https://aws.com/s2/visual.tif", type: "image/tiff" }
+          }
+        }
+      ]
+    })
+  }) as any;
+
+  try {
+    const results = await client.search({
+      category: Category.OPTICAL,
+      bbox: [78.50, 20.65, 78.60, 20.72],
+      maxCloudCover: 20
+    });
+    assert.equal(results.length, 1);
+    assert.equal(results[0].id, "S2B_20261022_MOCK");
+    assert.equal(results[0].category, Category.OPTICAL);
+    assert.ok(results[0].assets["visual"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth searches SAR STAC and parses items", async () => {
+  const client = new OmniEarth();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      type: "FeatureCollection",
+      features: [
+        {
+          id: "S1_GRD_MOCK",
+          properties: { datetime: "2026-10-20T00:00:00Z", "sar:polarizations": ["VV", "VH"] },
+          bbox: [78.5, 20.65, 78.6, 20.72],
+          assets: {
+            vv: { href: "https://aws.com/s1/vv.tif", type: "image/tiff" }
+          }
+        }
+      ]
+    })
+  }) as any;
+
+  try {
+    const results = await client.search({
+      category: Category.SAR,
+      bbox: [78.50, 20.65, 78.60, 20.72]
+    });
+    assert.equal(results.length, 1);
+    assert.equal(results[0].id, "S1_GRD_MOCK");
+    assert.equal(results[0].category, Category.SAR);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth searches SoilGrids and parses profile", async () => {
+  const client = new OmniEarth();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url: any) => ({
+    ok: true,
+    status: 200,
+    url: "https://rest.isric.org/soilgrids/v2.0/properties/query",
+    json: async () => ({
+      properties: {
+        layers: [
+          {
+            name: "clay",
+            depths: [{ label: "0-5cm", values: { mean: 412 } }]
+          }
+        ]
+      }
+    })
+  }) as any;
+
+  try {
+    const results = await client.search({
+      category: Category.SOIL,
+      bbox: [78.50, 20.65, 78.60, 20.72],
+      depth: "0-5cm"
+    });
+    assert.equal(results.length, 1);
+    assert.equal(results[0].category, Category.SOIL);
+    assert.ok(results[0].properties["summary_topsoil"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth searches Hyperspectral and parses DLR EnMAP", async () => {
+  const client = new OmniEarth();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      features: [
+        {
+          id: "ENMAP_HSI_MOCK",
+          properties: { datetime: "2026-10-15T00:00:00Z" },
+          bbox: [78.5, 20.65, 78.6, 20.72],
+          assets: {
+            image: { href: "https://dlr.de/enmap.tif", type: "image/tiff" }
+          }
+        }
+      ]
+    })
+  }) as any;
+
+  try {
+    const results = await client.search({
+      category: Category.HYPERSPECTRAL,
+      bbox: [78.50, 20.65, 78.60, 20.72]
+    });
+    assert.ok(results.length >= 1);
+    assert.equal(results[0].id, "ENMAP_HSI_MOCK");
+    assert.equal(results[0].category, Category.HYPERSPECTRAL);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

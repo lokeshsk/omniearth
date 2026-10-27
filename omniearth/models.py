@@ -106,6 +106,10 @@ class SearchResult(BaseModel):
             return next(iter(self.assets.values())).href
         return None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a JSON-serializable dictionary representation."""
+        return self.model_dump(mode="json")
+
 
 class FilterOptions(BaseModel):
     """Universal filter options for search queries."""

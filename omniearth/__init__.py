@@ -11,12 +11,13 @@ __version__ = "1.0.0"
 __author__ = "Lokesh Kumar"
 
 from omniearth.client import OmniEarth
-from omniearth.models import AOI, SearchResult, Category, FilterOptions
+from omniearth.models import AOI, SearchResult, Asset, Category, FilterOptions
 
 __all__ = [
     "OmniEarth",
     "AOI",
     "SearchResult",
+    "Asset",
     "Category",
     "FilterOptions",
 ]

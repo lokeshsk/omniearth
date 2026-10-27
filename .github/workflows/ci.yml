@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Python Test Suite (pytest)
         run: |
-          uv run pytest -v --cov=omniearth tests/
+          uv run pytest -v --cov=omniearth --cov-report=term-missing tests/
 
       - name: Build Python Package (Wheel & sdist)
         run: |
@@ -141,3 +141,4 @@ jobs:
             exit 1
           fi
           echo "🎉 All language tests, packaging, metadata, and citation checks passed!"
+

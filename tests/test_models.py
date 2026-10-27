@@ -22,8 +22,15 @@ def test_aoi_from_point():
 
 
 def test_aoi_validation_failure():
-    with pytest.raises(ValueError):
-        AOI(bbox=[78.60, 20.72, 78.50, 20.65])  # min > max
+    # min_lon > max_lon
+    with pytest.raises(ValueError, match="min_lon"):
+        AOI(bbox=[78.60, 20.65, 78.50, 20.72])
+    # min_lat > max_lat
+    with pytest.raises(ValueError, match="min_lat"):
+        AOI(bbox=[78.50, 20.75, 78.60, 20.65])
+    # length != 4
+    with pytest.raises(ValueError, match="must contain exactly 4 coordinates"):
+        AOI(bbox=[78.50, 20.65, 78.60])
 
 
 def test_asset_creation():
@@ -55,6 +62,24 @@ def test_search_result_properties_and_download_url():
     assert result.cloud_cover == 2.5
     assert result.get_download_url("visual") == "https://example.com/visual.tif"
     assert result.get_download_url("nonexistent") == "https://example.com/data.tif"
+
+    # Fallback to image
+    res_image = SearchResult(
+        id="s2", collection="c", category=Category.OPTICAL, provider="p",
+        assets={"image": Asset(key="image", href="https://example.com/image.png")}
+    )
+    assert res_image.get_download_url("missing") == "https://example.com/image.png"
+
+    # Fallback to next(iter(assets))
+    res_other = SearchResult(
+        id="s3", collection="c", category=Category.OPTICAL, provider="p",
+        assets={"arbitrary_key": Asset(key="arbitrary_key", href="https://example.com/custom.bin")}
+    )
+    assert res_other.get_download_url("missing") == "https://example.com/custom.bin"
+
+    # Empty assets
+    res_empty = SearchResult(id="s4", collection="c", category=Category.OPTICAL, provider="p")
+    assert res_empty.get_download_url("missing") is None
 
 
 def test_filter_options():
