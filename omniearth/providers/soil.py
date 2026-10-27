@@ -21,7 +21,7 @@ class SoilProvider(BaseProvider):
     name = "soil"
 
     SOILGRIDS_QUERY_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
-    DEFAULT_PROPERTIES = ["clay", "sand", "soc", "phh2o"]
+    DEFAULT_PROPERTIES = ["clay", "phh2o"]
     DEFAULT_DEPTHS = ["0-5cm"]
 
     def search(

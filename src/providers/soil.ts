@@ -9,7 +9,7 @@ export class SoilProvider extends BaseProvider {
   name = "soil";
 
   private soilgridsUrl = "https://rest.isric.org/soilgrids/v2.0/properties/query";
-  private defaultProperties = ["clay", "sand", "soc", "phh2o"];
+  private defaultProperties = ["clay", "phh2o"];
   private defaultDepths = ["0-5cm"];
 
   async search(
