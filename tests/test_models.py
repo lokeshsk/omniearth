@@ -62,3 +62,4 @@ def test_filter_options():
     assert filters.max_cloud_cover == 20.0
     assert filters.limit == 5
     assert filters.depth == "0-5cm"
+

@@ -41,3 +41,4 @@ def test_invalid_category():
     client = OmniEarth()
     with pytest.raises(ValueError):
         client.search(category="invalid_category", bbox=[10, 20, 11, 21])
+

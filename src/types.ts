@@ -56,3 +56,4 @@ export interface SearchParams {
   depth?: string;
   limit?: number;
 }
+

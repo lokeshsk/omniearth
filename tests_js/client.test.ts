@@ -36,3 +36,4 @@ test("OmniEarth rejects invalid bounding boxes", async () => {
     /Invalid bbox bounds/
   );
 });
+

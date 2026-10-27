@@ -110,3 +110,4 @@ export class WeatherProvider extends BaseProvider {
     throw new Error(`Could not download weather feed for ${result.id}`);
   }
 }
+

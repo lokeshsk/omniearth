@@ -142,3 +142,4 @@ export class HyperspectralProvider extends BaseProvider {
     return destPath;
   }
 }
+

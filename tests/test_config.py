@@ -22,3 +22,4 @@ def test_config_env_lookup(monkeypatch):
     assert u == "test_dlr_user"
     assert p == "test_dlr_pass"
     assert cfg.get("DLR_USERNAME") == "test_dlr_user"
+

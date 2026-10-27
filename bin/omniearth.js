@@ -2,3 +2,4 @@
 
 import { runCLI } from "../dist/cli.js";
 runCLI();
+

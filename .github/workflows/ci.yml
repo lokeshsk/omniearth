@@ -96,3 +96,4 @@ jobs:
           test -f CITATION.cff || exit 1
           test -f .zenodo.json || exit 1
           test -f .env.example || exit 1
+

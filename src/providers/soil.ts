@@ -107,3 +107,4 @@ export class SoilProvider extends BaseProvider {
     throw new Error(`Could not download soil profile for ${result.id}`);
   }
 }
+

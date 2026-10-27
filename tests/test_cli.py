@@ -25,3 +25,4 @@ def test_cli_info():
     assert res.returncode == 0
     assert "OmniEarth Engine" in res.stdout
     assert "Lokesh Kumar" in res.stdout
+
