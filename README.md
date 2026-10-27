@@ -3,7 +3,7 @@
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
 [![npm version](https://img.shields.io/npm/v/omniearth.svg?color=green)](https://www.npmjs.com/package/omniearth)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1089204.svg)](https://doi.org/10.5281/zenodo.1089204)
+[![DOI](https://img.shields.io/badge/DOI-pending%20zenodo%20sync-blue.svg)](https://zenodo.org/account/settings/github)
 [![Python uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/License-OmniEarth_Attribution_1.0-orange.svg)](LICENSE)
@@ -221,7 +221,6 @@ If you use OmniEarth in your scientific research or software, please cite:
   month        = oct,
   year         = 2026,
   publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.1089204},
   url          = {https://github.com/lokeshsk/omniearth}
 }
 ```
