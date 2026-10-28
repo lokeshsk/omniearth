@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { OmniEarth } from "../src/client.js";
 import { Category } from "../src/types.js";
 
@@ -257,4 +258,176 @@ test("OmniEarth download handles cached files and downloads", async () => {
   const testDir = path.join(os.tmpdir(), "omniearth_js_test");
   const dlPath = await client.download(res, undefined, testDir);
   assert.ok(dlPath.includes("wx_test_dl.json"));
+});
+
+function makeStream(chunks: Uint8Array[]) {
+  return new ReadableStream({
+    start(controller) {
+      for (const c of chunks) {
+        controller.enqueue(c);
+      }
+      controller.close();
+    }
+  });
+}
+
+test("OmniEarth downloadAll and downloadMany", async () => {
+  const client = new OmniEarth();
+  const res1: any = {
+    id: "scene_all_1",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    assets: {
+      visual: { key: "visual", href: "https://example.com/vis1.tif" },
+      data: { key: "data", href: "https://example.com/data1.tif" }
+    }
+  };
+  const res2: any = {
+    id: "scene_all_2",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    assets: {
+      visual: { key: "visual", href: "https://example.com/vis2.tif" }
+    }
+  };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url: any, init?: any) => {
+    if (init?.method === "HEAD") {
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-length": "10", "accept-ranges": "bytes" })
+      } as any;
+    }
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-length": "10" }),
+      body: makeStream([Buffer.from("mockdata10")])
+    } as any;
+  };
+
+  try {
+    const testDir = path.join(os.tmpdir(), "omniearth_js_all_test_" + Date.now());
+    const downloaded = await client.downloadAll(res1, undefined, testDir, { concurrency: 2 });
+    assert.equal(Object.keys(downloaded).length, 2);
+    assert.ok(downloaded["visual"].includes("vis1.tif"));
+    assert.ok(downloaded["data"].includes("data1.tif"));
+
+    const manyDownloaded = await client.downloadMany([res1, res2], "visual", testDir, { concurrency: 2 });
+    assert.equal(manyDownloaded.length, 2);
+
+    const emptyMany = await client.downloadMany([]);
+    assert.deepEqual(emptyMany, []);
+
+    await assert.rejects(
+      async () => client.downloadAll({ ...res1, assets: {} }),
+      /No assets found to download/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth streamDownload resumable (206) and 416 fallback", async () => {
+  const client = new OmniEarth();
+  const testDir = path.join(os.tmpdir(), "omniearth_js_resume_test_" + Date.now());
+  fs.mkdirSync(testDir, { recursive: true });
+
+  const destPath = path.join(testDir, "resumable.tif");
+  const partPath = `${destPath}.part`;
+  fs.writeFileSync(partPath, Buffer.from("existing_part_"));
+
+  const originalFetch = globalThis.fetch;
+  let rangeRequested = "";
+
+  globalThis.fetch = async (url: any, init?: any) => {
+    if (init?.method === "HEAD") {
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-length": "24", "accept-ranges": "bytes" })
+      } as any;
+    }
+    rangeRequested = (init?.headers as any)?.["Range"] || "";
+    return {
+      ok: true,
+      status: 206,
+      headers: new Headers({ "content-length": "10" }),
+      body: makeStream([Buffer.from("appended10")])
+    } as any;
+  };
+
+  const res: any = {
+    id: "resume_scene",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    assets: {
+      visual: { key: "visual", href: "https://example.com/resumable.tif" }
+    }
+  };
+
+  try {
+    const downloaded = await client.download(res, "visual", testDir, { resume: true, multipart: false });
+    assert.ok(rangeRequested.startsWith("bytes="));
+    assert.ok(fs.existsSync(downloaded));
+    const content = fs.readFileSync(downloaded, "utf-8");
+    assert.equal(content, "existing_part_appended10");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth multipartDownload parallel range fetching", async () => {
+  const client = new OmniEarth();
+  const testDir = path.join(os.tmpdir(), "omniearth_js_mp_test_" + Date.now());
+  fs.mkdirSync(testDir, { recursive: true });
+
+  const originalFetch = globalThis.fetch;
+  const requestedRanges: string[] = [];
+
+  globalThis.fetch = async (url: any, init?: any) => {
+    if (init?.method === "HEAD") {
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-length": "4000", "accept-ranges": "bytes" })
+      } as any;
+    }
+    const range = (init?.headers as any)?.["Range"] || "";
+    requestedRanges.push(range);
+    return {
+      ok: true,
+      status: 206,
+      headers: new Headers({ "content-length": "1000" }),
+      body: makeStream([Buffer.from("A".repeat(1000))])
+    } as any;
+  };
+
+  const res: any = {
+    id: "mp_scene",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    assets: {
+      visual: { key: "visual", href: "https://example.com/big_mp.tif" }
+    }
+  };
+
+  try {
+    const downloaded = await client.download(res, "visual", testDir, {
+      multipart: true,
+      concurrency: 4,
+      minMultipartSize: 1000
+    });
+    assert.ok(fs.existsSync(downloaded));
+    assert.equal(requestedRanges.length, 4);
+    assert.ok(requestedRanges[0].startsWith("bytes=0-"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

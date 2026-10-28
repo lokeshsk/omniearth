@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OmniEarth — Universal Multi-Modal Earth Observation & Environmental Data Engine</title>
-  <meta name="description" content="Open-source Python & Node.js SDK and CLI for Optical, Hyperspectral (EnMAP, EMIT, PRISMA), SAR, Weather, and 3D Soil data.">
+  <title>OmniEarth - Universal Multi-Modal Earth Observation and Environmental Data Engine</title>
+  <meta name="description" content="Open-source Python and Node.js SDK, CLI, and REST engine for Optical, Hyperspectral (EnMAP, EMIT, PRISMA), SAR, Weather, and 3D Soil data.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -66,7 +66,7 @@
     .tagline {
       font-size: 1.25rem;
       color: var(--text-muted);
-      max-width: 750px;
+      max-width: 800px;
       margin: 0 auto 2rem;
     }
 
@@ -110,32 +110,50 @@
     }
 
     .container {
-      max-width: 1100px;
+      max-width: 1120px;
       margin: 0 auto;
       padding: 3rem 1.5rem;
     }
 
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 3rem;
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin: 3.5rem 0 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
     }
 
-    .card {
+    .step-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 1.75rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     }
 
-    .card h3 {
-      font-size: 1.25rem;
-      margin-bottom: 0.75rem;
+    .step-card h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.6rem;
+    }
+
+    .step-num {
+      background: var(--primary);
+      color: #000;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
     }
 
     .pill {
@@ -158,9 +176,9 @@
       border-radius: 8px;
       padding: 1rem;
       overflow-x: auto;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
       margin-top: 0.75rem;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     table {
@@ -189,9 +207,18 @@
     td { color: var(--text-muted); }
     td strong { color: var(--text-main); }
 
+    .feature-box {
+      border-left: 4px solid var(--primary);
+      background: rgba(16, 185, 129, 0.05);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 1rem;
+      font-size: 0.92rem;
+    }
+
     footer {
       border-top: 1px solid var(--card-border);
-      padding: 2.5rem 1.5rem;
+      padding: 3rem 1.5rem;
       text-align: center;
       color: var(--text-muted);
       font-size: 0.9rem;
@@ -211,89 +238,29 @@
     <img src="https://img.shields.io/badge/managed%20with-pnpm-cc00ff.svg" alt="pnpm">
   </div>
   <h1>OmniEarth</h1>
-  <p class="tagline">Universal Open Multi-Modal Earth Observation, Hyperspectral Data Cube & Environmental Intelligence Engine.</p>
+  <p class="tagline">Universal Multi-Modal Earth Observation, Hyperspectral Data Cube and Environmental Intelligence Engine across CLI, Python SDK, Node.js SDK, and REST STAC APIs.</p>
   <div class="cta-buttons">
     <a href="https://github.com/lokeshsk/omniearth" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
       GitHub Repository
     </a>
-    <a href="#quickstart" class="btn btn-secondary">Get Started</a>
-    <a href="https://lokeshsk.github.io" class="btn btn-secondary">Author: Lokesh Kumar</a>
+    <a href="#cli-guide" class="btn btn-secondary">CLI Guide</a>
+    <a href="#python-guide" class="btn btn-secondary">Python SDK</a>
+    <a href="#node-guide" class="btn btn-secondary">Node.js SDK</a>
+    <a href="#rest-guide" class="btn btn-secondary">Direct REST / cURL</a>
   </div>
 </header>
 
 <main class="container">
-  <section id="quickstart">
-    <div class="grid-2">
-      <div class="card">
-        <h3>Python SDK <span class="pill">Astral uv / pip</span></h3>
-        <p>Ultra-fast search and streaming downloads for satellite cubes and environmental feeds.</p>
-        <pre><code># Install with uv
-uv add omniearth
 
-# Python Usage
-import omniearth as oe
-
-client = oe.OmniEarth()
-
-# Search DLR EnMAP Hyperspectral 224-band cubes
-scenes = client.search(
-    category="hyperspectral",
-    bbox=[78.50, 20.65, 78.60, 20.72],
-    max_cloud_cover=20
-)
-
-# Download 224-band Cloud-Optimized GeoTIFF
-client.download(scenes[0], asset_key="SPECTRAL_IMAGE_COG")</code></pre>
-      </div>
-
-      <div class="card">
-        <h3>Node.js & TypeScript <span class="pill">pnpm / npm</span></h3>
-        <p>Full-featured ESM TypeScript client for cloud functions, backends, and full-stack web applications.</p>
-        <pre><code># Install with pnpm
-pnpm add omniearth
-
-// TypeScript / ESM Usage
-import { OmniEarth, Category } from "omniearth";
-
-const client = new OmniEarth();
-
-// Search Optical Sentinel-2 10m COGs
-const scenes = await client.search({
-  category: Category.OPTICAL,
-  bbox: [78.50, 20.65, 78.60, 20.72],
-  maxCloudCover: 10
-});
-
-// Download Visual RGB COG
-await client.download(scenes[0], "visual", "./downloads");</code></pre>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Universal Command-Line Interface (CLI)</h2>
-    <pre><code># Instant provider status & credential diagnostic
-omniearth info
-
-# Search Sentinel-2 L2A optical scenes
-omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --max-cloud 10
-
-# Search EnMAP Hyperspectral 224-band scenes
-omniearth search --category hyperspectral --bbox 78.50 20.65 78.60 20.72
-
-# Zero-config hourly weather & 3D soil moisture profile
-omniearth search --category weather --point 78.55 20.68 --json</code></pre>
-  </section>
-
-  <section style="margin-top: 3rem;">
-    <h2>🛰️ Multi-Modal Data Matrix</h2>
+  <!-- MODALITY MATRIX -->
+  <section id="matrix">
+    <h2 class="section-title">Multi-Modal Data Matrix and Zero-Config Backends</h2>
     <table>
       <thead>
         <tr>
           <th>Modality</th>
-          <th>Sensors</th>
-          <th>Resolution</th>
+          <th>Sensors and Bands</th>
+          <th>Spatial Resolution</th>
           <th>Backend Provider</th>
           <th>Authentication</th>
         </tr>
@@ -301,50 +268,50 @@ omniearth search --category weather --point 78.55 20.68 --json</code></pre>
       <tbody>
         <tr>
           <td><strong>Optical Multispectral</strong></td>
-          <td>Sentinel-2 L2A, Landsat-8/9</td>
-          <td>10m – 30m</td>
+          <td>Sentinel-2 L2A (12 bands), Landsat-8/9</td>
+          <td>10m - 30m</td>
           <td>AWS Earth Search STAC</td>
           <td><span class="pill">Zero-Config</span> Public COGs</td>
         </tr>
         <tr>
           <td><strong>Hyperspectral Cubes</strong></td>
-          <td>DLR EnMAP (224 bands)</td>
+          <td>DLR EnMAP (224 bands, 420-2450 nm)</td>
           <td>30m</td>
           <td>DLR EOC STAC + Geoservice</td>
-          <td>Free DLR Account</td>
+          <td>Free DLR Account (Optional)</td>
         </tr>
         <tr>
           <td><strong>Hyperspectral Cubes</strong></td>
-          <td>NASA EMIT (285 bands)</td>
+          <td>NASA EMIT (285 bands, 381-2493 nm)</td>
           <td>60m</td>
           <td>NASA CMR STAC</td>
-          <td>Free Earthdata Account</td>
+          <td>Free Earthdata Login (Optional)</td>
         </tr>
         <tr>
           <td><strong>Hyperspectral Cubes</strong></td>
           <td>ASI PRISMA (240 bands)</td>
           <td>30m</td>
           <td>ASI PRISMA Portal</td>
-          <td>Free ASI Account</td>
+          <td>Free ASI Account (Optional)</td>
         </tr>
         <tr>
-          <td><strong>Radar (SAR)</strong></td>
-          <td>Sentinel-1 GRD / RTC</td>
-          <td>10m dual-pol</td>
+          <td><strong>Synthetic Aperture Radar</strong></td>
+          <td>Sentinel-1 GRD / RTC (VV & VH)</td>
+          <td>10m</td>
           <td>AWS Earth Search STAC</td>
           <td><span class="pill">Zero-Config</span> Public COGs</td>
         </tr>
         <tr>
           <td><strong>Weather & Climate</strong></td>
           <td>Open-Meteo, ERA5 Reanalysis</td>
-          <td>1–11km hourly</td>
+          <td>1-11km hourly</td>
           <td>Open-Meteo REST API</td>
           <td><span class="pill">Zero-Config</span> Open API</td>
         </tr>
         <tr>
           <td><strong>Soil Composition</strong></td>
-          <td>ISRIC SoilGrids v2.0</td>
-          <td>250m 3D profiles</td>
+          <td>ISRIC SoilGrids v2.0 (3D profile 0-200cm)</td>
+          <td>250m</td>
           <td>ISRIC REST API</td>
           <td><span class="pill">Zero-Config</span> Open API</td>
         </tr>
@@ -352,26 +319,242 @@ omniearth search --category weather --point 78.55 20.68 --json</code></pre>
     </table>
   </section>
 
-  <section style="margin-top: 3rem;">
-    <h2>Academic Citation & Licensing</h2>
-    <p style="color: var(--text-muted); margin-top: 0.5rem;">
-      OmniEarth is open-source with mandatory corporate attribution (<em>"Powered by OmniEarth"</em>) and research citation.
+  <!-- CLI GUIDE -->
+  <section id="cli-guide">
+    <h2 class="section-title">Sequential CLI User Guide</h2>
+    
+    <div class="step-card">
+      <h3><span class="step-num">1</span> System Healthcheck and Provider Status</h3>
+      <p>Inspect detected credentials, cache paths, and API readiness:</p>
+      <pre><code>omniearth info</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">2</span> Catalog Exploration</h3>
+      <p>Display all modalities, spectral bands, and backend endpoints:</p>
+      <pre><code>omniearth categories</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">3</span> Spatial Search with Bounding Box or Point</h3>
+      <p>Find intersecting scenes across any sensor modality:</p>
+      <pre><code># Bounding box search: min_lon min_lat max_lon max_lat
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --limit 3
+
+# Point search: lon lat [radius_km]
+omniearth search --category sar --point 78.55 20.68 5.0 --limit 3</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">4</span> Filtering by Date, Cloud Cover, and Soil Depth</h3>
+      <pre><code># Filter Sentinel-2 with max 15% cloud cover within date range
+omniearth search --category optical \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --start 2026-01-01 --end 2026-03-31 \
+  --max-cloud 15 --limit 5
+
+# Query soil texture at 0-5cm depth
+omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">5</span> Single-Asset Resumable Download</h3>
+      <p>Stream Cloud-Optimized GeoTIFFs or hyperspectral cubes with byte-range resumption:</p>
+      <pre><code>omniearth download --category optical \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --asset visual \
+  --outdir ./downloads</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">6</span> High-Speed Multi-Asset Download with Worker Threads</h3>
+      <p>Download all assets associated with a scene concurrently:</p>
+      <pre><code>omniearth download --category optical \
+  --id S2A_32TPT_20260315_0_L2A \
+  --all \
+  --threads 8 \
+  --outdir ./downloads</code></pre>
+      <div class="feature-box">
+        <strong>Resumable Engine:</strong> If interrupted, OmniEarth queries partial files via <code>HTTP 206 Partial Content</code> and resumes from the exact byte offset without re-downloading.
+      </div>
+    </div>
+  </section>
+
+  <!-- PYTHON SDK GUIDE -->
+  <section id="python-guide">
+    <h2 class="section-title">Sequential Python SDK Guide</h2>
+    
+    <div class="step-card">
+      <h3><span class="step-num">1</span> Client Initialization and Environment</h3>
+      <pre><code>import omniearth as oe
+
+# Auto-discovers .env credentials (DLR, NASA Earthdata, ASI PRISMA)
+client = oe.OmniEarth()</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">2</span> Multi-Modal Search and Filtering</h3>
+      <pre><code># 1. Search Optical Sentinel-2 Scenes
+optical_scenes = client.search(
+    category="optical",
+    bbox=[78.50, 20.65, 78.60, 20.72],
+    start_date="2026-01-01",
+    end_date="2026-03-31",
+    max_cloud_cover=20,
+    limit=5
+)
+
+# 2. Search DLR EnMAP Hyperspectral Cubes (224 bands)
+hsi_scenes = client.search(
+    category="hyperspectral",
+    bbox=[78.50, 20.65, 78.60, 20.72],
+    limit=2
+)</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">3</span> Resumable and Parallel Multipart Downloads</h3>
+      <pre><code># Downloads visual RGB COG with automatic multipart chunking and resumption
+scene = optical_scenes[0]
+file_path = client.download(
+    result=scene,
+    asset_key="visual",
+    outdir="./downloads",
+    resume=True,       # Auto-resume partial .part downloads
+    multipart=True,    # Parallel chunked ranges for files >= 10MB
+    max_workers=4
+)
+print(f"Downloaded to: {file_path}")</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">4</span> Multi-Asset and Multi-Scene Concurrency</h3>
+      <pre><code># Concurrently download ALL assets for a scene:
+paths_dict = client.download_all(scene, outdir="./downloads", max_workers=4)
+
+# Concurrently download across multiple scenes:
+all_paths = client.download_many(optical_scenes, asset_key="visual", outdir="./downloads", max_workers=4)</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">5</span> Zero-Config Environmental Shortcuts</h3>
+      <pre><code># Instant Weather & Soil Moisture Feed
+wx = client.get_weather(bbox=[78.50, 20.65, 78.60, 20.72])
+print("Elevation:", wx.properties["elevation"])
+
+# Instant ISRIC SoilGrids 3D Chemistry & Texture Profile
+soil = client.get_soil(bbox=[78.50, 20.65, 78.60, 20.72], depth="0-5cm")
+print("Topsoil Clay/Sand:", soil.properties["summary_topsoil"])</code></pre>
+    </div>
+  </section>
+
+  <!-- NODE SDK GUIDE -->
+  <section id="node-guide">
+    <h2 class="section-title">Sequential Node.js and TypeScript SDK Guide</h2>
+    
+    <div class="step-card">
+      <h3><span class="step-num">1</span> Setup and Client Instantiation</h3>
+      <pre><code>import { OmniEarth, Category } from "omniearth";
+
+const client = new OmniEarth();</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">2</span> Search with Full Type Safety</h3>
+      <pre><code>const scenes = await client.search({
+  category: Category.OPTICAL,
+  bbox: [78.50, 20.65, 78.60, 20.72],
+  startDate: "2026-01-01",
+  endDate: "2026-03-31",
+  maxCloudCover: 15,
+  limit: 5
+});</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">3</span> High-Speed Resumable Streaming and Batching</h3>
+      <pre><code>// 1. Single Asset Download with Resumption and Parallel Chunking
+const visualPath = await client.download(scenes[0], "visual", "./downloads", {
+  resume: true,
+  multipart: true,
+  concurrency: 4
+});
+
+// 2. Download All Assets Concurrently
+const assetMap = await client.downloadAll(scenes[0], undefined, "./downloads", {
+  concurrency: 4
+});
+
+// 3. Batch Download Across Multiple Scenes
+const manyPaths = await client.downloadMany(scenes, "visual", "./downloads", {
+  concurrency: 4
+});</code></pre>
+    </div>
+  </section>
+
+  <!-- REST API GUIDE -->
+  <section id="rest-guide">
+    <h2 class="section-title">Direct Underlying REST and STAC API Calls (cURL)</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+      OmniEarth interacts directly with upstream public STAC and REST standards. You can query these exact backends without any SDK:
+    </p>
+
+    <div class="step-card">
+      <h3>1. Optical Multispectral (AWS Earth Search STAC)</h3>
+      <pre><code>curl -s -X POST "https://earth-search.aws.element84.com/v1/search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collections": ["sentinel-2-l2a"],
+    "bbox": [78.50, 20.65, 78.60, 20.72],
+    "datetime": "2026-01-01T00:00:00Z/2026-03-31T23:59:59Z",
+    "query": { "eo:cloud_cover": { "lte": 20 } },
+    "limit": 3
+  }' | jq '.features[] | {id: .id, visual: .assets.visual.href}'</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3>2. Weather and Solar Climate Profiles (Open-Meteo REST API)</h3>
+      <pre><code>curl -s "https://api.open-meteo.com/v1/forecast?latitude=20.68&longitude=78.55&hourly=temperature_2m,relative_humidity_2m,soil_moisture_0_to_1cm,surface_solar_radiation" \
+  | jq '{elevation: .elevation, current_temp: .hourly.temperature_2m[0]}'</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3>3. Soil Chemistry and 3D Texture (ISRIC SoilGrids REST API)</h3>
+      <pre><code>curl -s "https://rest.isric.org/soilgrids/v2.0/properties/query?lon=78.55&lat=20.68&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm" \
+  | jq '.properties.layers[] | {name: .name, mean_value: .depths[0].values.mean}'</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3>4. Hyperspectral Data Cubes (DLR EOC STAC API)</h3>
+      <pre><code>curl -s "https://geoservice.dlr.de/eoc/ogc/stac/v1/search?collections=ENMAP_L2A&bbox=78.50,20.65,78.60,20.72&limit=2" \
+  | jq '.features[] | {id: .id, datetime: .properties.datetime, assets: .assets | keys}'</code></pre>
+    </div>
+  </section>
+
+  <!-- CITATION -->
+  <section id="citation" style="margin-top: 3.5rem;">
+    <h2 class="section-title">Citation and Licensing</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+      OmniEarth is distributed under the <strong>OmniEarth Open Source License with Mandatory Attribution and Academic Citation</strong>.
     </p>
     <pre><code>@software{omniearth2026,
   author       = {Lokesh Kumar},
   title        = {OmniEarth: Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine},
+  month        = oct,
   year         = 2026,
   publisher    = {Zenodo},
   doi          = {10.5281/zenodo.23689449},
   url          = {https://github.com/lokeshsk/omniearth}
 }</code></pre>
   </section>
+
 </main>
 
 <footer>
-  <p>© 2026 <strong>Lokesh Kumar</strong> (<a href="mailto:lokesh.skshukla@gmail.com">lokesh.skshukla@gmail.com</a>) — <a href="https://lokeshsk.github.io">lokeshsk.github.io</a></p>
-  <p style="margin-top: 0.5rem; font-size: 0.8rem;">OmniEarth is an open-source data orchestration engine. All satellite and sensor data remain the property and copyright of their respective upstream agencies (ESA, NASA, USGS, DLR, ASI, Open-Meteo, ISRIC).</p>
+  <p>&copy; 2026 <strong>Lokesh Kumar</strong> (<a href="mailto:lokesh.skshukla@gmail.com">lokesh.skshukla@gmail.com</a>) - <a href="https://lokeshsk.github.io">lokeshsk.github.io</a></p>
+  <p style="margin-top: 0.5rem; font-size: 0.82rem;">OmniEarth is an open-source orchestration engine. All satellite and sensor imagery remain the copyright of upstream agencies (ESA, NASA, USGS, DLR, ASI, Open-Meteo, ISRIC).</p>
 </footer>
 
 </body>
 </html>
+

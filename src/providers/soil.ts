@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { BaseProvider } from "./base.js";
+import { BaseProvider, DownloadOptions } from "./base.js";
 import { AOI, SearchResult, Category, FilterOptions } from "../types.js";
 import { config } from "../config.js";
 
@@ -83,7 +83,8 @@ export class SoilProvider extends BaseProvider {
   override async download(
     result: SearchResult,
     assetKey?: string,
-    outdir?: string
+    outdir?: string,
+    options?: DownloadOptions
   ): Promise<string> {
     const targetDir = outdir || config.defaultOutdir;
     if (!fs.existsSync(targetDir)) {
@@ -100,7 +101,7 @@ export class SoilProvider extends BaseProvider {
 
     const asset = result.assets["data"] || Object.values(result.assets)[0];
     if (asset?.href) {
-      await this.streamDownload(asset.href, outPath);
+      await this.streamDownload(asset.href, outPath, undefined, options);
       return outPath;
     }
 

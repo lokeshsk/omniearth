@@ -14,57 +14,59 @@ program
   .command("categories")
   .description("List all supported modalities, satellites, and providers")
   .action(() => {
-    console.log("=================================================================");
-    console.log(" OmniEarth Supported Modalities & Data Providers (Node.js SDK)");
-    console.log("=================================================================");
-    console.log("\n📂 [OPTICAL] - Optical Multispectral Imagery");
+    const width = 75;
+    console.log("+" + "-".repeat(width - 2) + "+");
+    console.log("| OmniEarth Supported Modalities & Data Providers (Node.js SDK)".padEnd(width - 1) + "|");
+    console.log("+" + "-".repeat(width - 2) + "+");
+    console.log("\n[OPTICAL] - Optical Multispectral Imagery");
     console.log("   Sensors:  Sentinel-2 L2A (10m), Landsat-8/9 (30m)");
     console.log("   Backend:  AWS Open Data STAC / Element84 Earth Search");
     console.log("   Auth:     Zero-Config (Free public egress COGs)");
 
-    console.log("\n📂 [HYPERSPECTRAL] - Hyperspectral Data Cubes (200+ Bands)");
+    console.log("\n[HYPERSPECTRAL] - Hyperspectral Data Cubes (200+ Bands)");
     console.log("   Sensors:  DLR EnMAP (224 bands), NASA EMIT (285 bands), ASI PRISMA (240 bands)");
     console.log("   Backend:  DLR EOC STAC, NASA CMR STAC, ASI PRISMA Portal");
     console.log("   Auth:     DLR Credentials (Free) / NASA Earthdata (Free)");
 
-    console.log("\n📂 [SAR] - Synthetic Aperture Radar (SAR)");
+    console.log("\n[SAR] - Synthetic Aperture Radar (SAR)");
     console.log("   Sensors:  Sentinel-1 GRD / RTC (10m)");
     console.log("   Backend:  AWS Open Data STAC");
     console.log("   Auth:     Zero-Config (Public COGs)");
 
-    console.log("\n📂 [WEATHER] - Weather & Climate Profiles");
+    console.log("\n[WEATHER] - Weather & Climate Profiles");
     console.log("   Sources:  Open-Meteo Zero-Config Global Model, ERA5 Reanalysis");
     console.log("   Backend:  Open-Meteo REST API");
     console.log("   Auth:     Zero-Config (No API key needed)");
 
-    console.log("\n📂 [SOIL] - Soil Composition & 3D Profiles");
+    console.log("\n[SOIL] - Soil Composition & 3D Profiles");
     console.log("   Sources:  ISRIC SoilGrids v2.0 (250m global)");
     console.log("   Backend:  ISRIC REST API");
     console.log("   Auth:     Zero-Config (Public)");
-    console.log("\n=================================================================");
+    console.log("\n+" + "-".repeat(width - 2) + "+");
   });
 
 program
   .command("info")
   .description("Display engine status, versions, and credential health")
   .action(() => {
-    console.log("=================================================================");
-    console.log(" OmniEarth Engine v1.0.0 (Node.js SDK)");
-    console.log(" Author: Lokesh Kumar (lokesh.skshukla@gmail.com)");
-    console.log(" Homepage: https://lokeshsk.github.io/omniearth/");
-    console.log("=================================================================");
+    const width = 75;
+    console.log("+" + "-".repeat(width - 2) + "+");
+    console.log("| OmniEarth Engine v1.0.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
+    console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
+    console.log("+" + "-".repeat(width - 2) + "+");
     console.log("\n[Credential & Environment Status]");
     const [dlrU] = config.dlrCredentials;
     const [prismaU] = config.prismaCredentials;
     const [edU] = config.earthdataCredentials;
 
-    console.log(`  • DLR Geoservice (EnMAP):     ${dlrU ? "✅ Configured" : "⚪ Optional (Needed for EnMAP raw download)"}`);
-    console.log(`  • ASI PRISMA Portal:          ${prismaU ? "✅ Configured" : "⚪ Optional (Needed for PRISMA download)"}`);
-    console.log(`  • NASA Earthdata (EMIT):       ${edU ? "✅ Configured" : "⚪ Optional (Needed for NASA EMIT direct cubes)"}`);
-    console.log("  • Open-Meteo (Weather):        ✅ Native Zero-Config");
-    console.log("  • ISRIC SoilGrids (Soil):      ✅ Native Zero-Config");
-    console.log("  • AWS Earth Search (S1, S2):   ✅ Native Zero-Config");
-    console.log("=================================================================");
+    console.log(`  • DLR Geoservice (EnMAP):     [${dlrU ? "Configured" : "Optional (Needed for EnMAP raw download)"}]`);
+    console.log(`  • ASI PRISMA Portal:          [${prismaU ? "Configured" : "Optional (Needed for PRISMA download)"}]`);
+    console.log(`  • NASA Earthdata (EMIT):       [${edU ? "Configured" : "Optional (Needed for NASA EMIT direct cubes)"}]`);
+    console.log("  • Open-Meteo (Weather):        [Native Zero-Config]");
+    console.log("  • ISRIC SoilGrids (Soil):      [Native Zero-Config]");
+    console.log("  • AWS Earth Search (S1, S2):   [Native Zero-Config]");
+    console.log("+" + "-".repeat(width - 2) + "+");
   });
 
 program
@@ -111,9 +113,10 @@ program
         return;
       }
 
-      console.log("===========================================================================");
-      console.log(` OmniEarth Search Results [${opts.category.toUpperCase()}] — ${results.length} item(s) found`);
-      console.log("===========================================================================");
+      const width = 75;
+      console.log("+" + "-".repeat(width - 2) + "+");
+      console.log(`| OmniEarth Search Results [${opts.category.toUpperCase()}] - ${results.length} item(s) found`.padEnd(width - 1) + "|");
+      console.log("+" + "-".repeat(width - 2) + "+");
 
       for (let i = 0; i < results.length; i++) {
         const r = results[i];
@@ -128,7 +131,9 @@ program
           console.log(`      - ${k}: [${a.media_type || "asset"}]`);
         }
       }
-      console.log("\n===========================================================================");
+      console.log("\n" + "-".repeat(width));
+      console.log("Tip: Download any scene using: omniearth download --category <cat> --id <ID>");
+      console.log("+" + "-".repeat(width - 2) + "+");
     } catch (err: any) {
       console.error(`Error: ${err.message}`);
       process.exit(1);
@@ -143,6 +148,10 @@ program
   .option("--bbox <coords...>", "Bounding box to find scene for")
   .option("--asset <key>", "Specific asset key")
   .option("-o, --outdir <path>", "Output directory", "./omniearth_downloads")
+  .option("--all", "Download all assets associated with the scene concurrently")
+  .option("-t, --threads <number>", "Number of parallel worker threads", "4")
+  .option("--no-resume", "Disable byte-range download resumption")
+  .option("--no-multipart", "Disable parallel chunked multipart downloading")
   .action(async (opts) => {
     const client = new OmniEarth();
     let bbox: [number, number, number, number] | undefined;
@@ -150,6 +159,12 @@ program
       const parts = opts.bbox.map(Number);
       bbox = [parts[0], parts[1], parts[2], parts[3]];
     }
+
+    const downloadOpts = {
+      resume: opts.resume !== false,
+      multipart: opts.multipart !== false,
+      concurrency: parseInt(opts.threads, 10) || 4
+    };
 
     try {
       let targetResult: any;
@@ -174,10 +189,26 @@ program
         targetResult = results[0];
       }
 
-      const filePath = await client.download(targetResult, opts.asset, opts.outdir);
-      console.log(`✔ Successfully downloaded: ${filePath}`);
+      const width = 75;
+      console.log("+" + "-".repeat(width - 2) + "+");
+      console.log("| OmniEarth Download Dispatch (Node.js)".padEnd(width - 1) + "|");
+      console.log(`| Target ID:  ${targetResult.id || opts.id || "Search Match"}`.padEnd(width - 1) + "|");
+      console.log(`| Category:   ${opts.category}`.padEnd(width - 1) + "|");
+      console.log(`| Directory:  ${opts.outdir}`.padEnd(width - 1) + "|");
+      console.log("+" + "-".repeat(width - 2) + "+");
+
+      if (opts.all) {
+        const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, downloadOpts);
+        console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${opts.outdir}`);
+        for (const [k, p] of Object.entries(downloaded)) {
+          console.log(`  • ${k}: ${p}`);
+        }
+      } else {
+        const filePath = await client.download(targetResult, opts.asset, opts.outdir, downloadOpts);
+        console.log(`Successfully downloaded: ${filePath}`);
+      }
     } catch (err: any) {
-      console.error(`❌ Download failed: ${err.message}`);
+      console.error(`Error: Download failed: ${err.message}`);
       process.exit(1);
     }
   });

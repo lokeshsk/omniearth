@@ -126,3 +126,60 @@ def test_client_download_invalid_provider():
     client._providers = {}
     with pytest.raises(ValueError, match="No provider found for category"):
         client.download(mock_res)
+
+
+def test_client_download_all_and_many(tmp_path):
+    client = OmniEarth()
+    mock_res1 = SearchResult(
+        id="res_multi_1",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={
+            "visual": Asset(key="visual", href="https://example.com/visual.tif"),
+            "data": Asset(key="data", href="https://example.com/data.tif"),
+        }
+    )
+    mock_res2 = SearchResult(
+        id="res_multi_2",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={
+            "visual": Asset(key="visual", href="https://example.com/visual2.tif"),
+        }
+    )
+
+    # 1. download_all with default assets (all)
+    with patch.object(client, "download", side_effect=lambda r, k, outdir, resume, multipart, max_workers: f"/tmp/{r.id}_{k}.tif"):
+        paths = client.download_all(mock_res1, outdir=str(tmp_path), max_workers=2)
+        assert len(paths) == 2
+        assert "visual" in paths
+        assert "data" in paths
+        assert paths["visual"] == "/tmp/res_multi_1_visual.tif"
+        assert paths["data"] == "/tmp/res_multi_1_data.tif"
+
+        # download_all with specific asset_keys
+        sub_paths = client.download_all(mock_res1, asset_keys=["visual"], outdir=str(tmp_path))
+        assert len(sub_paths) == 1
+        assert "visual" in sub_paths
+
+    # 2. download_all on empty assets raises ValueError
+    mock_res_empty = SearchResult(
+        id="empty_assets",
+        collection="c",
+        category=Category.OPTICAL,
+        provider="p",
+        assets={}
+    )
+    with pytest.raises(ValueError, match="No assets found to download"):
+        client.download_all(mock_res_empty)
+
+    # 3. download_many with empty list
+    assert client.download_many([]) == []
+
+    # 4. download_many with items
+    with patch.object(client, "download", side_effect=lambda r, k, outdir, resume, multipart, max_workers: f"/tmp/{r.id}.tif"):
+        many_paths = client.download_many([mock_res1, mock_res2], outdir=str(tmp_path), max_workers=2)
+        assert len(many_paths) == 2
+        assert many_paths == ["/tmp/res_multi_1.tif", "/tmp/res_multi_2.tif"]

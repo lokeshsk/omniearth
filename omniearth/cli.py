@@ -29,9 +29,10 @@ def format_size(bytes_num: int) -> str:
 
 def cmd_categories(args, client: OmniEarth):
     """List supported categories and their capabilities."""
-    print("=" * 65)
-    print(" OmniEarth Supported Modalities & Data Providers")
-    print("=" * 65)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Supported Modalities & Data Providers".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
     categories = {
         "optical": {
             "name": "Optical Multispectral Imagery",
@@ -66,42 +67,43 @@ def cmd_categories(args, client: OmniEarth):
     }
 
     for cat_id, info in categories.items():
-        print(f"\n📂 [{cat_id.upper()}] - {info['name']}")
+        print(f"\n[{cat_id.upper()}] - {info['name']}")
         if "satellites" in info:
             print(f"   Sensors:  {', '.join(info['satellites'])}")
         if "sources" in info:
             print(f"   Sources:  {', '.join(info['sources'])}")
         print(f"   Backend:  {info['backend']}")
         print(f"   Auth:     {info['auth']}")
-    print("\n" + "=" * 65)
+    print("\n+" + "-" * (width - 2) + "+")
 
 
 def cmd_info(args, client: OmniEarth):
     """Display system status, versions, and credential health."""
-    print("=" * 65)
-    print(f" OmniEarth Engine v{omniearth.__version__}")
-    print(f" Author: Lokesh Kumar (lokesh.skshukla@gmail.com)")
-    print(f" Homepage: https://lokeshsk.github.io/omniearth/")
-    print("=" * 65)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Engine v{omniearth.__version__} Diagnostic Dashboard".ljust(width - 1) + "|")
+    print(f"| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".ljust(width - 1) + "|")
+    print(f"| Homepage: https://lokeshsk.github.io/omniearth/".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
 
     print("\n[Credential & Environment Status]")
     dlr_u = config.get("DLR_USERNAME")
     dlr_p = config.get("DLR_PASSWORD")
-    dlr_status = "✅ Configured" if (dlr_u and dlr_p) else "⚪ Optional (Needed for EnMAP raw download)"
+    dlr_status = "Configured" if (dlr_u and dlr_p) else "Optional (Needed for EnMAP raw download)"
 
     prisma_u = config.get("PRISMA_USERNAME")
-    prisma_status = "✅ Configured" if prisma_u else "⚪ Optional (Needed for PRISMA download)"
+    prisma_status = "Configured" if prisma_u else "Optional (Needed for PRISMA download)"
 
     ed_u = config.get("EARTHDATA_USERNAME")
-    ed_status = "✅ Configured" if ed_u else "⚪ Optional (Needed for NASA EMIT direct cubes)"
+    ed_status = "Configured" if ed_u else "Optional (Needed for NASA EMIT direct cubes)"
 
-    print(f"  • DLR Geoservice (EnMAP):     {dlr_status}")
-    print(f"  • ASI PRISMA Portal:          {prisma_status}")
-    print(f"  • NASA Earthdata (EMIT):       {ed_status}")
-    print(f"  • Open-Meteo (Weather):        ✅ Native Zero-Config")
-    print(f"  • ISRIC SoilGrids (Soil):      ✅ Native Zero-Config")
-    print(f"  • AWS Earth Search (S1, S2):   ✅ Native Zero-Config")
-    print("=" * 65)
+    print(f"  • DLR Geoservice (EnMAP):     [{dlr_status}]")
+    print(f"  • ASI PRISMA Portal:          [{prisma_status}]")
+    print(f"  • NASA Earthdata (EMIT):       [{ed_status}]")
+    print(f"  • Open-Meteo (Weather):        [Native Zero-Config]")
+    print(f"  • ISRIC SoilGrids (Soil):      [Native Zero-Config]")
+    print(f"  • AWS Earth Search (S1, S2):   [Native Zero-Config]")
+    print("+" + "-" * (width - 2) + "+")
 
 
 def cmd_search(args, client: OmniEarth):
@@ -146,9 +148,10 @@ def cmd_search(args, client: OmniEarth):
         print(json.dumps(data, indent=2))
         return
 
-    print("=" * 75)
-    print(f" OmniEarth Search Results [{args.category.upper()}] — {len(results)} item(s) found")
-    print("=" * 75)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Search Results [{args.category.upper()}] - {len(results)} item(s) found".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
 
     if not results:
         print("No items found matching the specified criteria.")
@@ -169,8 +172,9 @@ def cmd_search(args, client: OmniEarth):
             sz = f" ({format_size(a.size_bytes)})" if a.size_bytes else ""
             mtype = f" [{a.media_type}]" if a.media_type else ""
             print(f"      - {k}:{mtype}{sz}")
-    print("\n" + "=" * 75)
+    print("\n" + "-" * width)
     print("Tip: Download any scene using: omniearth download --category <cat> --id <ID>")
+    print("+" + "-" * (width - 2) + "+")
 
 
 def cmd_download(args, client: OmniEarth):
@@ -224,12 +228,39 @@ def cmd_download(args, client: OmniEarth):
         print("Error: Must specify either --id or --bbox to download.", file=sys.stderr)
         sys.exit(1)
 
-    outdir = args.outdir or "./omniearth_downloads"
+    outdir = getattr(args, "outdir", None) or "./omniearth_downloads"
+    resume = getattr(args, "no_resume", False) is not True
+    multipart = getattr(args, "no_multipart", False) is not True
+    threads_val = getattr(args, "threads", 4)
+    threads = threads_val if isinstance(threads_val, int) and threads_val > 0 else 4
+
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Download Dispatch".ljust(width - 1) + "|")
+    print(f"| Target ID:  {target_result.id}".ljust(width - 1) + "|")
+    print(f"| Category:   {target_result.category.value}".ljust(width - 1) + "|")
+    print(f"| Directory:  {outdir}".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
+
     try:
-        path = client.download(target_result, asset_key=args.asset, outdir=outdir)
-        print(f"\n Successfully downloaded: {path}")
+        if getattr(args, "all", False) is True:
+            print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
+            paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
+            print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
+            for k, p in paths.items():
+                print(f"  • {k}: {p}")
+        else:
+            path = client.download(
+                target_result,
+                asset_key=getattr(args, "asset", None),
+                outdir=outdir,
+                resume=resume,
+                multipart=multipart,
+                max_workers=threads
+            )
+            print(f"\nSuccessfully downloaded: {path}")
     except Exception as e:
-        print(f"\n❌ Download failed: {e}", file=sys.stderr)
+        print(f"\nError: Download failed: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -272,6 +303,10 @@ def main():
     dl_p.add_argument("--start", type=str, help="Start date filter if using bbox")
     dl_p.add_argument("--end", type=str, help="End date filter if using bbox")
     dl_p.add_argument("--max-cloud", type=float, help="Max cloud cover if using bbox")
+    dl_p.add_argument("--all", action="store_true", help="Download all assets associated with the scene concurrently")
+    dl_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
+    dl_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")
+    dl_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
 
     args = parser.parse_args()
 

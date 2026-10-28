@@ -6,7 +6,7 @@ import {
   FilterOptions
 } from "./types.js";
 import { config } from "./config.js";
-import { BaseProvider } from "./providers/base.js";
+import { BaseProvider, DownloadOptions } from "./providers/base.js";
 import { OpticalProvider } from "./providers/optical.js";
 import { HyperspectralProvider } from "./providers/hyperspectral.js";
 import { SARProvider } from "./providers/sar.js";
@@ -81,13 +81,61 @@ export class OmniEarth {
   public async download(
     result: SearchResult,
     assetKey?: string,
-    outdir?: string
+    outdir?: string,
+    options?: DownloadOptions
   ): Promise<string> {
     const provider = this.providers.get(result.category);
     if (!provider) {
       throw new Error(`No provider adapter found for category '${result.category}'`);
     }
-    return provider.download(result, assetKey, outdir);
+    return provider.download(result, assetKey, outdir, options);
+  }
+
+  public async downloadAll(
+    result: SearchResult,
+    assetKeys?: string[],
+    outdir?: string,
+    options?: DownloadOptions
+  ): Promise<Record<string, string>> {
+    const keys = assetKeys || Object.keys(result.assets);
+    if (keys.length === 0) {
+      throw new Error(`No assets found to download for item '${result.id}'`);
+    }
+
+    const downloaded: Record<string, string> = {};
+    const concurrency = options?.concurrency || 4;
+
+    // Process in batches according to concurrency
+    for (let i = 0; i < keys.length; i += concurrency) {
+      const batch = keys.slice(i, i + concurrency);
+      await Promise.all(
+        batch.map(async (k) => {
+          const filePath = await this.download(result, k, outdir, { ...options, multipart: false });
+          downloaded[k] = filePath;
+        })
+      );
+    }
+    return downloaded;
+  }
+
+  public async downloadMany(
+    results: SearchResult[],
+    assetKey?: string,
+    outdir?: string,
+    options?: DownloadOptions
+  ): Promise<string[]> {
+    if (results.length === 0) return [];
+    const concurrency = options?.concurrency || 4;
+    const paths: string[] = [];
+
+    for (let i = 0; i < results.length; i += concurrency) {
+      const batch = results.slice(i, i + concurrency);
+      const batchPaths = await Promise.all(
+        batch.map((r) => this.download(r, assetKey, outdir, { ...options, multipart: false }))
+      );
+      paths.push(...batchPaths);
+    }
+    return paths;
   }
 
   public async getWeather(
