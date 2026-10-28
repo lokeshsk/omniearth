@@ -224,10 +224,29 @@ def cmd_download(args, client: OmniEarth):
         print("Error: Must specify either --id or --bbox to download.", file=sys.stderr)
         sys.exit(1)
 
-    outdir = args.outdir or "./omniearth_downloads"
+    outdir = getattr(args, "outdir", None) or "./omniearth_downloads"
+    resume = getattr(args, "no_resume", False) is not True
+    multipart = getattr(args, "no_multipart", False) is not True
+    threads_val = getattr(args, "threads", 4)
+    threads = threads_val if isinstance(threads_val, int) and threads_val > 0 else 4
+
     try:
-        path = client.download(target_result, asset_key=args.asset, outdir=outdir)
-        print(f"\n Successfully downloaded: {path}")
+        if getattr(args, "all", False) is True:
+            print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
+            paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
+            print(f"\n Successfully downloaded {len(paths)} asset(s) to: {outdir}")
+            for k, p in paths.items():
+                print(f"  • {k}: {p}")
+        else:
+            path = client.download(
+                target_result,
+                asset_key=getattr(args, "asset", None),
+                outdir=outdir,
+                resume=resume,
+                multipart=multipart,
+                max_workers=threads
+            )
+            print(f"\n Successfully downloaded: {path}")
     except Exception as e:
         print(f"\n❌ Download failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -272,6 +291,10 @@ def main():
     dl_p.add_argument("--start", type=str, help="Start date filter if using bbox")
     dl_p.add_argument("--end", type=str, help="End date filter if using bbox")
     dl_p.add_argument("--max-cloud", type=float, help="Max cloud cover if using bbox")
+    dl_p.add_argument("--all", action="store_true", help="Download all assets associated with the scene concurrently")
+    dl_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
+    dl_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")
+    dl_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
 
     args = parser.parse_args()
 

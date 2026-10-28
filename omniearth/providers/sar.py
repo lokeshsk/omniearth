@@ -82,7 +82,10 @@ class SARProvider(BaseProvider):
         self,
         result: SearchResult,
         asset_key: Optional[str] = None,
-        outdir: Optional[str] = None
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
         chosen_key = asset_key or ("vv" if "vv" in result.assets else "vh" if "vh" in result.assets else next(iter(result.assets.keys())))
@@ -95,5 +98,8 @@ class SARProvider(BaseProvider):
         return self._stream_download(
             url=url,
             outpath=outpath,
-            desc=f"{result.id[:18]} [{chosen_key}]"
+            desc=f"{result.id[:18]} [{chosen_key}]",
+            resume=resume,
+            multipart=multipart,
+            max_workers=max_workers
         )

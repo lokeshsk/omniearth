@@ -206,7 +206,10 @@ class HyperspectralProvider(BaseProvider):
         self,
         result: SearchResult,
         asset_key: Optional[str] = None,
-        outdir: Optional[str] = None
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
 
@@ -226,7 +229,10 @@ class HyperspectralProvider(BaseProvider):
                 url=url,
                 outpath=outpath,
                 auth=(u, p),
-                desc=f"{result.id[:18]} [{chosen_key}]"
+                desc=f"{result.id[:18]} [{chosen_key}]",
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers
             )
 
         elif result.provider == "asi_prisma":
@@ -243,7 +249,10 @@ class HyperspectralProvider(BaseProvider):
                 url=url,
                 outpath=outpath,
                 auth=auth,
-                desc=f"PRISMA {result.id[:16]}"
+                desc=f"PRISMA {result.id[:16]}",
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers
             )
 
         elif result.provider == "nasa_lpdaac":
@@ -264,7 +273,10 @@ class HyperspectralProvider(BaseProvider):
                 url=url,
                 outpath=outpath,
                 auth=auth,
-                desc=f"{result.id[:18]} [{chosen_key}]"
+                desc=f"{result.id[:18]} [{chosen_key}]",
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers
             )
 
         raise ValueError(f"Unknown hyperspectral provider: {result.provider}")

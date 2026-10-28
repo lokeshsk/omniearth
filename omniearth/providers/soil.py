@@ -93,7 +93,10 @@ class SoilProvider(BaseProvider):
         self,
         result: SearchResult,
         asset_key: Optional[str] = None,
-        outdir: Optional[str] = None
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
         os.makedirs(target_dir, exist_ok=True)
@@ -110,5 +113,8 @@ class SoilProvider(BaseProvider):
         return self._stream_download(
             url=target_asset.href,
             outpath=outpath,
-            desc=f"{result.id[:20]}"
+            desc=f"{result.id[:20]}",
+            resume=resume,
+            multipart=multipart,
+            max_workers=max_workers
         )

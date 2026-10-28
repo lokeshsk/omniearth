@@ -4,6 +4,7 @@ OmniEarth Main Client
 The primary interface for searching and downloading multi-modal Earth data.
 """
 
+import concurrent.futures
 from typing import List, Optional, Union, Dict, Any
 from omniearth.models import AOI, SearchResult, Category, FilterOptions
 from omniearth.config import config
@@ -102,10 +103,13 @@ class OmniEarth:
         self,
         result: SearchResult,
         asset_key: Optional[str] = None,
-        outdir: Optional[str] = None
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4
     ) -> str:
         """
-        Downloads a search result asset to local storage.
+        Downloads a search result asset to local storage with multipart and resumable support.
         """
         provider = self._providers.get(result.category)
         if not provider:
@@ -114,8 +118,66 @@ class OmniEarth:
         return provider.download(
             result=result,
             asset_key=asset_key,
-            outdir=outdir
+            outdir=outdir,
+            resume=resume,
+            multipart=multipart,
+            max_workers=max_workers
         )
+
+    def download_all(
+        self,
+        result: SearchResult,
+        asset_keys: Optional[List[str]] = None,
+        outdir: Optional[str] = None,
+        max_workers: int = 4,
+        resume: bool = True,
+        multipart: bool = True
+    ) -> Dict[str, str]:
+        """
+        Downloads multiple or all assets of a search result concurrently.
+        Returns a dictionary mapping asset_key -> downloaded absolute file path.
+        """
+        keys_to_download = asset_keys or list(result.assets.keys())
+        if not keys_to_download:
+            raise ValueError(f"No assets found to download for result '{result.id}'")
+
+        results_dict: Dict[str, str] = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(keys_to_download))) as executor:
+            future_to_key = {
+                executor.submit(self.download, result, k, outdir, resume, multipart, 1): k
+                for k in keys_to_download
+            }
+            for future in concurrent.futures.as_completed(future_to_key):
+                k = future_to_key[future]
+                results_dict[k] = future.result()
+        return results_dict
+
+    def download_many(
+        self,
+        results: List[SearchResult],
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        max_workers: int = 4,
+        resume: bool = True,
+        multipart: bool = True
+    ) -> List[str]:
+        """
+        Downloads assets for multiple search results concurrently across worker threads.
+        Returns list of downloaded absolute file paths.
+        """
+        if not results:
+            return []
+
+        paths: List[Optional[str]] = [None] * len(results)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(results))) as executor:
+            future_to_idx = {
+                executor.submit(self.download, r, asset_key, outdir, resume, multipart, 1): idx
+                for idx, r in enumerate(results)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                paths[idx] = future.result()
+        return [p for p in paths if p is not None]
 
     # Convenience shortcuts
     def get_weather(self, bbox: List[float], start_date: Optional[str] = None, end_date: Optional[str] = None, variables: Optional[List[str]] = None) -> SearchResult:

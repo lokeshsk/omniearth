@@ -82,7 +82,7 @@ def test_optical_provider_date_filters_and_errors(tmp_path):
     mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
     mock_dl.__enter__.return_value = mock_dl
     mock_dl.iter_content.return_value = [b"data"]
-    with patch("requests.get", return_value=mock_dl):
+    with patch("requests.head", return_value=mock_dl), patch("requests.get", return_value=mock_dl):
         out = provider.download(res_other, outdir=str(tmp_path))
         assert os.path.exists(out)
 
@@ -181,7 +181,7 @@ def test_weather_provider_search_and_download(tmp_path):
     mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
     mock_dl.__enter__.return_value = mock_dl
     mock_dl.iter_content.return_value = [b"json"]
-    with patch("requests.get", return_value=mock_dl):
+    with patch("requests.head", return_value=mock_dl), patch("requests.get", return_value=mock_dl):
         dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
         assert os.path.exists(dl_uncached)
 
@@ -240,7 +240,7 @@ def test_soil_provider_search_and_download(tmp_path):
     mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
     mock_dl.__enter__.return_value = mock_dl
     mock_dl.iter_content.return_value = [b"json"]
-    with patch("requests.get", return_value=mock_dl):
+    with patch("requests.head", return_value=mock_dl), patch("requests.get", return_value=mock_dl):
         dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
         assert os.path.exists(dl_uncached)
 
@@ -368,13 +368,14 @@ def test_base_provider_download_stream(tmp_path):
     )
 
     data_bytes = b"mock_tif_bytes_12345"
+    mock_head = MagicMock(status_code=200, headers={"content-length": str(len(data_bytes)), "accept-ranges": "bytes"})
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.headers = {"content-length": str(len(data_bytes))}
     mock_resp.__enter__.return_value = mock_resp
     mock_resp.iter_content.return_value = [data_bytes]
 
-    with patch("requests.get", return_value=mock_resp):
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out_file = provider.download(res, asset_key="visual", outdir=str(tmp_path))
         assert os.path.exists(out_file)
         with open(out_file, "rb") as f:
@@ -385,10 +386,176 @@ def test_base_provider_download_stream(tmp_path):
         assert cached_file == out_file
 
 
+def test_base_provider_multipart_download(tmp_path):
+    provider = OpticalProvider()
+    part_path = str(tmp_path / "multipart_test.tif.part")
+    outpath = str(tmp_path / "multipart_test.tif")
+    total_size = 120
+
+    # Mock chunk ranges response
+    def fake_get_range(url, **kwargs):
+        range_header = kwargs.get("headers", {}).get("Range", "")
+        # format bytes=start-end
+        start, end = range_header.replace("bytes=", "").split("-")
+        s, e = int(start), int(end)
+        length = e - s + 1
+        chunk_data = b"X" * length
+        m = MagicMock()
+        m.status_code = 206
+        m.__enter__.return_value = m
+        m.iter_content.return_value = [chunk_data]
+        return m
+
+    with patch("requests.get", side_effect=fake_get_range):
+        provider._multipart_download(
+            url="https://example.com/multipart_test.tif",
+            part_path=part_path,
+            total_size=total_size,
+            max_workers=3,
+            desc="Testing Multipart"
+        )
+        assert os.path.exists(part_path)
+        assert os.path.getsize(part_path) == total_size
+        with open(part_path, "rb") as f:
+            assert f.read() == b"X" * total_size
+
+    # Test full download_stream triggering multipart
+    outpath_stream_mp = str(tmp_path / "stream_big_mp.tif")
+    mock_head = MagicMock(
+        status_code=200,
+        headers={"content-length": "20000000", "accept-ranges": "bytes"}
+    )
+    def fake_mp(*args, **kwargs):
+        part = kwargs.get("part_path")
+        with open(part, "wb") as f:
+            f.write(b"M" * 20000000)
+
+    with patch("requests.head", return_value=mock_head), \
+         patch.object(provider, "_multipart_download", side_effect=fake_mp):
+        res_file = provider._stream_download(
+            url="https://example.com/big_mp.tif",
+            outpath=outpath_stream_mp,
+            multipart=True,
+            max_workers=4
+        )
+        assert os.path.exists(res_file)
+        assert os.path.getsize(res_file) == 20000000
+
+    # Test requests.head raising exception (lines 165-166)
+    outpath_no_head = str(tmp_path / "stream_no_head.tif")
+    single_mock_head_fail = MagicMock(status_code=200, headers={"content-length": "5"})
+    single_mock_head_fail.__enter__.return_value = single_mock_head_fail
+    single_mock_head_fail.iter_content.return_value = [b"nohead"]
+    with patch("requests.head", side_effect=requests.exceptions.ConnectionError("HEAD failed")), \
+         patch("requests.get", return_value=single_mock_head_fail):
+        res_nh = provider._stream_download(
+            url="https://example.com/no_head.tif",
+            outpath=outpath_no_head,
+            multipart=True
+        )
+        assert os.path.exists(res_nh)
+
+    # Test multipart exception fallback to single-stream
+    outpath_fallback = str(tmp_path / "mp_fallback.tif")
+    single_mock = MagicMock(status_code=200, headers={"content-length": "5"})
+    single_mock.__enter__.return_value = single_mock
+    single_mock.iter_content.return_value = [b"hello"]
+
+    def fail_after_part_created(*args, **kwargs):
+        part = kwargs.get("part_path")
+        with open(part, "wb") as f:
+            f.write(b"part_garbage")
+        raise RuntimeError("Worker error")
+
+    with patch("requests.head", return_value=mock_head), \
+         patch.object(provider, "_multipart_download", side_effect=fail_after_part_created), \
+         patch("requests.get", return_value=single_mock):
+        res_fallback = provider._stream_download(
+            url="https://example.com/fail_mp.tif",
+            outpath=outpath_fallback,
+            multipart=True,
+            max_workers=2
+        )
+        assert os.path.exists(res_fallback)
+        with open(res_fallback, "rb") as f:
+            assert f.read() == b"hello"
+
+    # Test multipart exception when os.remove raises OSError
+    outpath_oserr = str(tmp_path / "mp_oserr.tif")
+    with patch("requests.head", return_value=mock_head), \
+         patch.object(provider, "_multipart_download", side_effect=fail_after_part_created), \
+         patch("os.remove", side_effect=OSError("Permission denied")), \
+         patch("requests.get", return_value=single_mock):
+        res_oserr = provider._stream_download(
+            url="https://example.com/oserr_mp.tif",
+            outpath=outpath_oserr,
+            multipart=True,
+            max_workers=2
+        )
+        assert os.path.exists(res_oserr)
+
+
+def test_base_provider_resumable_and_416(tmp_path):
+    provider = OpticalProvider()
+    outpath = str(tmp_path / "resume_test.tif")
+    part_path = f"{outpath}.part"
+
+    # 1. Existing partial file -> HTTP 206 resume
+    with open(part_path, "wb") as f:
+        f.write(b"initial_bytes_")  # 14 bytes
+
+    mock_head = MagicMock(status_code=200, headers={"content-length": "24", "accept-ranges": "bytes"})
+    mock_206 = MagicMock(status_code=206, headers={"content-length": "10"})
+    mock_206.__enter__.return_value = mock_206
+    mock_206.iter_content.return_value = [b"appended10"]
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_206) as mock_g:
+        res = provider._stream_download("https://example.com/resumable.tif", outpath, resume=True, multipart=False)
+        assert os.path.exists(res)
+        with open(res, "rb") as f:
+            assert f.read() == b"initial_bytes_appended10"
+        assert mock_g.call_args[1]["headers"]["Range"] == "bytes=14-"
+
+    # 2. HTTP 416 Range Not Satisfiable -> fresh download from scratch
+    outpath_416 = str(tmp_path / "err_416.tif")
+    part_path_416 = f"{outpath_416}.part"
+    with open(part_path_416, "wb") as f:
+        f.write(b"corrupted_stale_bytes")
+
+    mock_416 = MagicMock(status_code=416)
+    mock_416.__enter__.return_value = mock_416
+    mock_fresh = MagicMock(status_code=200, headers={"content-length": "7"})
+    mock_fresh.__enter__.return_value = mock_fresh
+    mock_fresh.iter_content.return_value = [b"freshOK"]
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", side_effect=[mock_416, mock_fresh]):
+        res_416 = provider._stream_download("https://example.com/416.tif", outpath_416, resume=True, multipart=False)
+        assert os.path.exists(res_416)
+        with open(res_416, "rb") as f:
+            assert f.read() == b"freshOK"
+
+    # 3. Server does not support ranges (returns 200 instead of 206) -> overwrites cleanly
+    outpath_200 = str(tmp_path / "server_200.tif")
+    part_path_200 = f"{outpath_200}.part"
+    with open(part_path_200, "wb") as f:
+        f.write(b"old_data")
+
+    mock_200 = MagicMock(status_code=200, headers={"content-length": "8"})
+    mock_200.__enter__.return_value = mock_200
+    mock_200.iter_content.return_value = [b"full_200"]
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_200):
+        res_200 = provider._stream_download("https://example.com/no_range.tif", outpath_200, resume=True, multipart=False)
+        assert os.path.exists(res_200)
+        with open(res_200, "rb") as f:
+            assert f.read() == b"full_200"
+
+
 def test_hyperspectral_downloads_all_sources(tmp_path):
     import pytest
     provider = HyperspectralProvider()
 
+    mock_head = MagicMock(status_code=200, headers={"content-length": "10", "accept-ranges": "bytes"})
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.headers = {"content-length": "10"}
@@ -407,7 +574,7 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         provider.download(dlr_res, outdir=str(tmp_path))
 
     # DLR EnMAP download with credentials
-    with patch.dict(os.environ, {"DLR_USERNAME": "test_dlr_user", "DLR_PASSWORD": "test_dlr_pass"}), patch("requests.get", return_value=mock_resp):
+    with patch.dict(os.environ, {"DLR_USERNAME": "test_dlr_user", "DLR_PASSWORD": "test_dlr_pass"}), patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out = provider.download(dlr_res, outdir=str(tmp_path))
         assert os.path.exists(out)
 
@@ -419,7 +586,7 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         provider="nasa_lpdaac",
         assets={"browse": Asset(key="browse", href="https://data.lpdaac.nasa.gov/emit.png")}
     )
-    with patch("requests.get", return_value=mock_resp):
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out = provider.download(emit_res, outdir=str(tmp_path))
         assert os.path.exists(out)
 
@@ -431,7 +598,7 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         provider="nasa_lpdaac",
         assets={"data": Asset(key="data", href="https://data.lpdaac.nasa.gov/protected/emit.nc")}
     )
-    with patch.dict(os.environ, {"EARTHDATA_USERNAME": "test_nasa_user", "EARTHDATA_PASSWORD": "test_nasa_pass"}), patch("requests.get", return_value=mock_resp) as mock_get_prot:
+    with patch.dict(os.environ, {"EARTHDATA_USERNAME": "test_nasa_user", "EARTHDATA_PASSWORD": "test_nasa_pass"}), patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp) as mock_get_prot:
         out_prot = provider.download(emit_prot_res, outdir=str(tmp_path))
         assert os.path.exists(out_prot)
         assert mock_get_prot.call_args[1]["auth"] == ("test_nasa_user", "test_nasa_pass")
@@ -444,7 +611,7 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         provider="asi_prisma",
         assets={"he5": Asset(key="he5", href="https://prisma.asi.it/data.he5")}
     )
-    with patch("requests.get", return_value=mock_resp):
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out = provider.download(prisma_res, outdir=str(tmp_path))
         assert os.path.exists(out)
 
@@ -465,13 +632,14 @@ def test_sar_download(tmp_path):
         provider="element84_earth_search",
         assets={"vv": Asset(key="vv", href="https://sentinel-s1.s3.amazonaws.com/vv.tif")}
     )
+    mock_head = MagicMock(status_code=200, headers={"content-length": "10", "accept-ranges": "bytes"})
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.headers = {"content-length": "10"}
     mock_resp.__enter__.return_value = mock_resp
     mock_resp.iter_content.return_value = [b"mock_sar_data"]
 
-    with patch("requests.get", return_value=mock_resp):
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out = sar_prov.download(res, asset_key="vv", outdir=str(tmp_path))
         assert os.path.exists(out)
 

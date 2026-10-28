@@ -229,6 +229,40 @@ def test_cmd_download_by_id_and_fallbacks(capsys, tmp_path):
         cmd_download(args_found, client)
 
 
+def test_cmd_download_all_and_flags(capsys, tmp_path):
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="SCENE_ALL_TEST",
+        collection="s2",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={
+            "visual": Asset(key="visual", href="https://example.com/vis.tif"),
+            "data": Asset(key="data", href="https://example.com/data.tif"),
+        }
+    )
+
+    args = MagicMock()
+    args.category = "optical"
+    args.id = "SCENE_ALL_TEST"
+    args.bbox = None
+    args.asset = None
+    args.outdir = str(tmp_path)
+    args.all = True
+    args.threads = 4
+    args.no_resume = True
+    args.no_multipart = True
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch.object(client, "download_all", return_value={"visual": str(tmp_path / "vis.tif"), "data": str(tmp_path / "data.tif")}) as mock_dl_all:
+        cmd_download(args, client)
+        captured = capsys.readouterr()
+        assert "Downloading all assets" in captured.out
+        assert "Successfully downloaded 2 asset(s)" in captured.out
+        assert "visual:" in captured.out
+        mock_dl_all.assert_called_once_with(mock_res, outdir=str(tmp_path), max_workers=4, resume=False, multipart=False)
+
+
 def test_cmd_search_error_and_cloud_formatting(capsys):
     import pytest
     client = OmniEarth()

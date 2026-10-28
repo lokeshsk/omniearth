@@ -143,6 +143,10 @@ program
   .option("--bbox <coords...>", "Bounding box to find scene for")
   .option("--asset <key>", "Specific asset key")
   .option("-o, --outdir <path>", "Output directory", "./omniearth_downloads")
+  .option("--all", "Download all assets associated with the scene concurrently")
+  .option("-t, --threads <number>", "Number of parallel worker threads", "4")
+  .option("--no-resume", "Disable byte-range download resumption")
+  .option("--no-multipart", "Disable parallel chunked multipart downloading")
   .action(async (opts) => {
     const client = new OmniEarth();
     let bbox: [number, number, number, number] | undefined;
@@ -150,6 +154,12 @@ program
       const parts = opts.bbox.map(Number);
       bbox = [parts[0], parts[1], parts[2], parts[3]];
     }
+
+    const downloadOpts = {
+      resume: opts.resume !== false,
+      multipart: opts.multipart !== false,
+      concurrency: parseInt(opts.threads, 10) || 4
+    };
 
     try {
       let targetResult: any;
@@ -174,8 +184,16 @@ program
         targetResult = results[0];
       }
 
-      const filePath = await client.download(targetResult, opts.asset, opts.outdir);
-      console.log(`✔ Successfully downloaded: ${filePath}`);
+      if (opts.all) {
+        const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, downloadOpts);
+        console.log(`✔ Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${opts.outdir}`);
+        for (const [k, p] of Object.entries(downloaded)) {
+          console.log(`  • ${k}: ${p}`);
+        }
+      } else {
+        const filePath = await client.download(targetResult, opts.asset, opts.outdir, downloadOpts);
+        console.log(`✔ Successfully downloaded: ${filePath}`);
+      }
     } catch (err: any) {
       console.error(`❌ Download failed: ${err.message}`);
       process.exit(1);
