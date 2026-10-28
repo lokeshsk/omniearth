@@ -195,3 +195,63 @@ test("OmniEarth searches Hyperspectral and parses DLR EnMAP", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("OmniEarth supports point search resolution and shortcuts", async () => {
+  const client = new OmniEarth();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      latitude: 20.68,
+      longitude: 78.55,
+      elevation: 250,
+      hourly: { time: ["2026-10-27T00:00"], temperature_2m: [25] }
+    })
+  }) as any;
+
+  try {
+    const res = await client.search({
+      category: Category.WEATHER,
+      point: [78.55, 20.68, 5.0]
+    });
+    assert.equal(res.length, 1);
+
+    const wx = await client.getWeather([78.50, 20.65, 78.60, 20.72]);
+    assert.ok(wx);
+    assert.equal(wx.category, Category.WEATHER);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth Config checks credentials and environment", async () => {
+  const { config } = await import("../src/config.js");
+  assert.ok(config.defaultOutdir);
+  assert.ok(config.timeoutMs > 0);
+  assert.equal(config.get("NONEXISTENT_KEY_123", "fallback_val"), "fallback_val");
+
+  const [du, dp] = config.dlrCredentials;
+  const [pu, pp] = config.prismaCredentials;
+  const [eu, ep] = config.earthdataCredentials;
+  assert.ok(Array.isArray(config.dlrCredentials));
+});
+
+test("OmniEarth download handles cached files and downloads", async () => {
+  const client = new OmniEarth();
+  const res = {
+    id: "wx_test_dl",
+    collection: "weather",
+    category: Category.WEATHER,
+    provider: "open_meteo",
+    properties: {
+      _raw_data: { test: "data" }
+    },
+    assets: {
+      data: { key: "data", href: "https://example.com/wx.json" }
+    }
+  };
+
+  const path = await client.download(res, undefined, "/tmp/omniearth_js_test");
+  assert.ok(path.includes("wx_test_dl.json"));
+});

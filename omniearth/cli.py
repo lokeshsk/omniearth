@@ -291,5 +291,5 @@ def main():
         cmd_download(args, client)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

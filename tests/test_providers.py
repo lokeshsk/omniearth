@@ -3,6 +3,7 @@ Comprehensive Unit Tests for All Provider Adapters
 """
 
 import os
+import requests
 from unittest.mock import patch, MagicMock
 from omniearth.models import AOI, FilterOptions, Category, SearchResult, Asset
 from omniearth.providers.optical import OpticalProvider
@@ -42,6 +43,50 @@ def test_optical_provider_search():
         assert "visual" in results[0].assets
 
 
+def test_optical_provider_date_filters_and_errors(tmp_path):
+    provider = OpticalProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"features": []}
+
+    # 1. start_date and end_date
+    with patch("requests.post", return_value=mock_resp) as mock_p:
+        provider.search(aoi=aoi, start_date="2026-01-01", end_date="2026-01-10")
+        assert "2026-01-01T00:00:00Z/2026-01-10T23:59:59Z" in mock_p.call_args[1]["json"]["datetime"]
+
+    # 2. start_date only
+    with patch("requests.post", return_value=mock_resp) as mock_p:
+        provider.search(aoi=aoi, start_date="2026-01-01")
+        assert "2026-01-01T00:00:00Z/.." in mock_p.call_args[1]["json"]["datetime"]
+
+    # 3. end_date only
+    with patch("requests.post", return_value=mock_resp) as mock_p:
+        provider.search(aoi=aoi, end_date="2026-01-10")
+        assert "../2026-01-10T23:59:59Z" in mock_p.call_args[1]["json"]["datetime"]
+
+    # 4. RequestException error branch
+    with patch("requests.post", side_effect=requests.exceptions.ConnectionError("Network Down")):
+        res = provider.search(aoi=aoi)
+        assert res == []
+
+    # 5. Download fallback when neither 'visual' nor 'red' is in assets
+    res_other = SearchResult(
+        id="s2_b08",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws_earth_search",
+        assets={"nir": Asset(key="nir", href="https://example.com/b08.tif")}
+    )
+    mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
+    mock_dl.__enter__.return_value = mock_dl
+    mock_dl.iter_content.return_value = [b"data"]
+    with patch("requests.get", return_value=mock_dl):
+        out = provider.download(res_other, outdir=str(tmp_path))
+        assert os.path.exists(out)
+
+
 def test_sar_provider_search():
     provider = SARProvider()
     aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
@@ -69,6 +114,21 @@ def test_sar_provider_search():
         assert results[0].id == "S1_MOCK_GRD"
         assert results[0].category == Category.SAR
 
+    # 1. start_date only
+    with patch("requests.post", return_value=mock_resp) as mock_p:
+        provider.search(aoi=aoi, start_date="2026-10-01")
+        assert "2026-10-01T00:00:00Z/.." in mock_p.call_args[1]["json"]["datetime"]
+
+    # 2. end_date only
+    with patch("requests.post", return_value=mock_resp) as mock_p:
+        provider.search(aoi=aoi, end_date="2026-10-22")
+        assert "../2026-10-22T23:59:59Z" in mock_p.call_args[1]["json"]["datetime"]
+
+    # 3. RequestException
+    with patch("requests.post", side_effect=requests.exceptions.Timeout("SAR STAC Timeout")):
+        res = provider.search(aoi=aoi)
+        assert res == []
+
 
 def test_weather_provider_search_and_download(tmp_path):
     provider = WeatherProvider()
@@ -94,9 +154,48 @@ def test_weather_provider_search_and_download(tmp_path):
         assert results[0].category == Category.WEATHER
         assert results[0].properties["elevation"] == 250
 
-        # Test download
+        # Test download with _raw_data cached
         dl_path = provider.download(results[0], outdir=str(tmp_path))
         assert os.path.exists(dl_path)
+
+        # 1. Search without dates (line 57: FORECAST_URL)
+        res_nodates = provider.search(aoi=aoi)
+        assert len(res_nodates) == 1
+
+        # 2. Search with recent dates (lines 69-71: FORECAST_URL with dates)
+        res_recent = provider.search(aoi=aoi, start_date="2026-10-25", end_date="2026-10-28")
+        assert len(res_recent) == 1
+
+    # 3. RequestException error branch
+    with patch("requests.get", side_effect=requests.exceptions.HTTPError("OpenMeteo Error")):
+        assert provider.search(aoi=aoi) == []
+
+    # 4. Download without _raw_data (remote streaming)
+    res_uncached = SearchResult(
+        id="weather_uncached",
+        collection="open-meteo-weather",
+        category=Category.WEATHER,
+        provider="open_meteo",
+        assets={"data": Asset(key="data", href="https://example.com/weather.json")}
+    )
+    mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
+    mock_dl.__enter__.return_value = mock_dl
+    mock_dl.iter_content.return_value = [b"json"]
+    with patch("requests.get", return_value=mock_dl):
+        dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
+        assert os.path.exists(dl_uncached)
+
+    # 5. Download without target_asset -> ValueError
+    import pytest
+    res_empty_asset = SearchResult(
+        id="weather_no_asset",
+        collection="open-meteo-weather",
+        category=Category.WEATHER,
+        provider="open_meteo",
+        assets={}
+    )
+    with pytest.raises(ValueError, match="No download asset found"):
+        provider.download(res_empty_asset, outdir=str(tmp_path))
 
 
 def test_soil_provider_search_and_download(tmp_path):
@@ -126,6 +225,25 @@ def test_soil_provider_search_and_download(tmp_path):
         dl_path = provider.download(results[0], outdir=str(tmp_path))
         assert os.path.exists(dl_path)
 
+    # 1. RequestException error branch
+    with patch("requests.get", side_effect=requests.exceptions.ConnectionError("SoilGrids Down")):
+        assert provider.search(aoi=aoi) == []
+
+    # 2. Download without _raw_data (remote streaming)
+    res_uncached = SearchResult(
+        id="soil_uncached",
+        collection="isric-soilgrids-v2",
+        category=Category.SOIL,
+        provider="isric",
+        assets={"data": Asset(key="data", href="https://rest.isric.org/soil.json")}
+    )
+    mock_dl = MagicMock(status_code=200, headers={"content-length": "4"})
+    mock_dl.__enter__.return_value = mock_dl
+    mock_dl.iter_content.return_value = [b"json"]
+    with patch("requests.get", return_value=mock_dl):
+        dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
+        assert os.path.exists(dl_uncached)
+
 
 def test_hyperspectral_enmap_and_emit(tmp_path):
     provider = HyperspectralProvider()
@@ -153,9 +271,90 @@ def test_hyperspectral_enmap_and_emit(tmp_path):
     }
 
     with patch("requests.get", return_value=enmap_resp), patch("requests.post", return_value=emit_resp):
-        results = provider.search(aoi=aoi, filters=FilterOptions(limit=2))
+        results = provider.search(aoi=aoi, start_date="2026-09-01", end_date="2026-09-20", filters=FilterOptions(limit=2))
         assert len(results) >= 1
         assert results[0].id == "EMIT_L2A_MOCK"
+
+
+def test_hyperspectral_search_all_branches_and_filters():
+    provider = HyperspectralProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    # 1. DLR EnMAP date branches & cloud filter
+    mock_dlr = MagicMock()
+    mock_dlr.status_code = 200
+    mock_dlr.json.return_value = {
+        "features": [
+            {
+                "id": "ENMAP_HIGH_CLOUD",
+                "properties": {"eo:cloud_cover": 85.0, "datetime": "2026-05-01T10:00:00Z"},
+                "assets": {"image": {"href": "https://dlr.de/img.tif"}}
+            },
+            {
+                "id": "ENMAP_LOW_CLOUD",
+                "properties": {"eo:cloud_cover": 5.0, "datetime": "2026-05-02T10:00:00Z"},
+                "assets": {"image": {"href": "https://dlr.de/img2.tif"}}
+            }
+        ]
+    }
+
+    # Test cloud filter
+    with patch("requests.get", return_value=mock_dlr):
+        res = provider._search_enmap(aoi, "2026-05-01", "2026-05-10", filters=FilterOptions(max_cloud_cover=20.0), limit=5)
+        assert len(res) == 1
+        assert res[0].id == "ENMAP_LOW_CLOUD"
+
+    # Test DLR start_date only
+    with patch("requests.get", return_value=mock_dlr) as mock_g:
+        provider._search_enmap(aoi, "2026-05-01", None, filters=None, limit=5)
+        assert "2026-05-01T00:00:00Z/.." in mock_g.call_args[1]["params"]["datetime"]
+
+    # Test DLR end_date only
+    with patch("requests.get", return_value=mock_dlr) as mock_g:
+        provider._search_enmap(aoi, None, "2026-05-10", filters=None, limit=5)
+        assert "../2026-05-10T23:59:59Z" in mock_g.call_args[1]["params"]["datetime"]
+
+    # Test DLR status != 200 and RequestException
+    mock_bad = MagicMock(status_code=500)
+    with patch("requests.get", return_value=mock_bad):
+        assert provider._search_enmap(aoi, None, None, filters=None, limit=5) == []
+
+    with patch("requests.get", side_effect=requests.exceptions.ConnectionError):
+        assert provider._search_enmap(aoi, None, None, filters=None, limit=5) == []
+
+    # 2. NASA EMIT error branches
+    mock_emit_bad = MagicMock(status_code=404)
+    with patch("requests.post", return_value=mock_emit_bad):
+        assert provider._search_emit(aoi, None, None, limit=5) == []
+
+    with patch("requests.post", side_effect=requests.exceptions.Timeout):
+        assert provider._search_emit(aoi, None, None, limit=5) == []
+
+    # 3. ASI PRISMA search branches
+    mock_prisma = MagicMock()
+    mock_prisma.status_code = 200
+    mock_prisma.json.return_value = {
+        "features": [
+            {
+                "id": "PRISMA_L2D_01",
+                "properties": {"datetime": "2026-04-12T08:00:00Z"},
+                "assets": {"he5": {"href": "https://prisma.asi.it/p1.he5"}}
+            }
+        ]
+    }
+    with patch("requests.get", return_value=mock_prisma) as mock_p:
+        res_prisma = provider._search_prisma(aoi, "2026-04-01", "2026-04-30", limit=2)
+        assert len(res_prisma) == 1
+        assert res_prisma[0].id == "PRISMA_L2D_01"
+        assert mock_p.call_args[1]["params"]["start"] == "2026-04-01"
+        assert mock_p.call_args[1]["params"]["end"] == "2026-04-30"
+
+    mock_prisma_bad = MagicMock(status_code=503)
+    with patch("requests.get", return_value=mock_prisma_bad):
+        assert provider._search_prisma(aoi, None, None, limit=2) == []
+
+    with patch("requests.get", side_effect=requests.exceptions.HTTPError):
+        assert provider._search_prisma(aoi, None, None, limit=2) == []
 
 
 def test_base_provider_download_stream(tmp_path):
@@ -168,17 +367,18 @@ def test_base_provider_download_stream(tmp_path):
         assets={"visual": Asset(key="visual", href="https://example.com/image.tif")}
     )
 
+    data_bytes = b"mock_tif_bytes_12345"
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.headers = {"content-length": "100"}
+    mock_resp.headers = {"content-length": str(len(data_bytes))}
     mock_resp.__enter__.return_value = mock_resp
-    mock_resp.iter_content.return_value = [b"mock_tif_bytes_12345"]
+    mock_resp.iter_content.return_value = [data_bytes]
 
     with patch("requests.get", return_value=mock_resp):
         out_file = provider.download(res, asset_key="visual", outdir=str(tmp_path))
         assert os.path.exists(out_file)
         with open(out_file, "rb") as f:
-            assert f.read() == b"mock_tif_bytes_12345"
+            assert f.read() == data_bytes
 
         # Test cache hit / file already exists branch
         cached_file = provider.download(res, asset_key="visual", outdir=str(tmp_path))
@@ -223,6 +423,19 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         out = provider.download(emit_res, outdir=str(tmp_path))
         assert os.path.exists(out)
 
+    # 2b. NASA EMIT protected URL download with credentials
+    emit_prot_res = SearchResult(
+        id="EMIT_PROT_002",
+        collection="emit",
+        category=Category.HYPERSPECTRAL,
+        provider="nasa_lpdaac",
+        assets={"data": Asset(key="data", href="https://data.lpdaac.nasa.gov/protected/emit.nc")}
+    )
+    with patch.dict(os.environ, {"EARTHDATA_USERNAME": "test_nasa_user", "EARTHDATA_PASSWORD": "test_nasa_pass"}), patch("requests.get", return_value=mock_resp) as mock_get_prot:
+        out_prot = provider.download(emit_prot_res, outdir=str(tmp_path))
+        assert os.path.exists(out_prot)
+        assert mock_get_prot.call_args[1]["auth"] == ("test_nasa_user", "test_nasa_pass")
+
     # 3. ASI PRISMA download
     prisma_res = SearchResult(
         id="PRISMA_001",
@@ -261,3 +474,25 @@ def test_sar_download(tmp_path):
     with patch("requests.get", return_value=mock_resp):
         out = sar_prov.download(res, asset_key="vv", outdir=str(tmp_path))
         assert os.path.exists(out)
+
+        # Test VH fallback when VV is missing
+        res_vh = SearchResult(
+            id="S1_VH_ONLY",
+            collection="sentinel-1-grd",
+            category=Category.SAR,
+            provider="element84_earth_search",
+            assets={"vh": Asset(key="vh", href="https://sentinel-s1.s3.amazonaws.com/vh.tif")}
+        )
+        out_vh = sar_prov.download(res_vh, outdir=str(tmp_path))
+        assert os.path.exists(out_vh)
+
+        # Test arbitrary fallback when neither VV nor VH is in assets
+        res_other = SearchResult(
+            id="S1_DATA_ONLY",
+            collection="sentinel-1-grd",
+            category=Category.SAR,
+            provider="element84_earth_search",
+            assets={"data": Asset(key="data", href="https://sentinel-s1.s3.amazonaws.com/data.tif")}
+        )
+        out_other = sar_prov.download(res_other, outdir=str(tmp_path))
+        assert os.path.exists(out_other)

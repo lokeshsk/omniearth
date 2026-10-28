@@ -89,6 +89,30 @@ def test_client_env_path_and_empty_shortcuts(tmp_path):
         assert client.get_soil([10, 20, 11, 21]) is None
 
 
+def test_client_search_success_and_unsupported_provider():
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="s2_item", collection="c", category=Category.OPTICAL, provider="p"
+    )
+    with patch.object(client._providers[Category.OPTICAL], "search", return_value=[mock_res]) as mock_s:
+        res = client.search(
+            category="optical",
+            bbox=[10, 20, 11, 21],
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            max_cloud_cover=10.0,
+            limit=2
+        )
+        assert len(res) == 1
+        assert res[0].id == "s2_item"
+        mock_s.assert_called_once()
+
+    # Unsupported provider in client._providers map
+    client._providers = {}
+    with pytest.raises(ValueError, match="Unsupported category"):
+        client.search(category=Category.OPTICAL, bbox=[10, 20, 11, 21])
+
+
 def test_client_download_invalid_provider():
     client = OmniEarth()
     mock_res = SearchResult(

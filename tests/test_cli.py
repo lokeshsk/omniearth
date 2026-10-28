@@ -16,6 +16,7 @@ def test_format_size():
     assert format_size(1024 * 512) == "512.0 KB"
     assert format_size(1024 * 1024 * 10) == "10.0 MB"
     assert format_size(1024 * 1024 * 1024 * 2) == "2.0 GB"
+    assert format_size(1024 ** 5 * 3) == "3.0 PB"
 
 
 def test_cmd_categories(capsys):
@@ -191,6 +192,31 @@ def test_cmd_download_by_id_and_fallbacks(capsys, tmp_path):
         captured = capsys.readouterr()
         assert "Successfully downloaded" in captured.out
 
+    # 1b. ID not found in catalog -> fallback direct synthetic result
+    args_fallback = MagicMock()
+    args_fallback.category = "optical"
+    args_fallback.id = "MISSING_ID_999"
+    args_fallback.bbox = None
+    args_fallback.asset = None
+    args_fallback.outdir = str(tmp_path)
+
+    with patch.object(client, "search", return_value=[]), \
+         patch.object(client, "download", return_value=str(tmp_path / "fallback.tif")):
+        cmd_download(args_fallback, client)
+        captured = capsys.readouterr()
+        assert "attempting direct provider resolution" in captured.out
+
+    # 1c. Bbox search with no scenes found -> exits 1
+    args_bbox_empty = MagicMock()
+    args_bbox_empty.category = "optical"
+    args_bbox_empty.id = None
+    args_bbox_empty.bbox = [10.0, 20.0, 11.0, 21.0]
+    args_bbox_empty.start = None
+    args_bbox_empty.end = None
+    args_bbox_empty.max_cloud = None
+    with patch.object(client, "search", return_value=[]), pytest.raises(SystemExit):
+        cmd_download(args_bbox_empty, client)
+
     # 2. Neither ID nor bbox -> exits
     args_empty = MagicMock(id=None, bbox=None)
     with pytest.raises(SystemExit):
@@ -201,6 +227,41 @@ def test_cmd_download_by_id_and_fallbacks(capsys, tmp_path):
          patch.object(client, "download", side_effect=RuntimeError("Network Error")), \
          pytest.raises(SystemExit):
         cmd_download(args_found, client)
+
+
+def test_cmd_search_error_and_cloud_formatting(capsys):
+    import pytest
+    client = OmniEarth()
+    args = MagicMock()
+    args.category = "optical"
+    args.bbox = [78.5, 20.65, 78.6, 20.72]
+    args.point = None
+    args.start = None
+    args.end = None
+    args.max_cloud = None
+    args.variables = None
+    args.depth = None
+    args.limit = 1
+    args.json = False
+
+    # 1. Search throws exception -> sys.exit(1)
+    with patch.object(client, "search", side_effect=RuntimeError("STAC Timeout")), pytest.raises(SystemExit):
+        cmd_search(args, client)
+
+    # 2. Search result with cloud cover and size_bytes
+    mock_item = SearchResult(
+        id="s2_cloud_test",
+        collection="s2",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={"eo:cloud_cover": 15.6},
+        assets={"visual": Asset(key="visual", href="https://example.com/vis.tif", size_bytes=2048, media_type="image/tiff")}
+    )
+    with patch.object(client, "search", return_value=[mock_item]):
+        cmd_search(args, client)
+        captured = capsys.readouterr()
+        assert "Cloud:      15.6%" in captured.out
+        assert "2.0 KB" in captured.out
 
 
 def test_main_cli_dispatch(capsys):
@@ -216,6 +277,18 @@ def test_main_cli_dispatch(capsys):
         main()
         captured = capsys.readouterr()
         assert "OmniEarth Engine" in captured.out
+
+    # test search dispatch
+    with patch("sys.argv", ["omniearth", "search", "--category", "weather", "--bbox", "78.5", "20.6", "78.6", "20.7", "--limit", "1"]):
+        with patch("omniearth.cli.cmd_search") as mock_s:
+            main()
+            mock_s.assert_called_once()
+
+    # test download dispatch
+    with patch("sys.argv", ["omniearth", "download", "--category", "weather", "--bbox", "78.5", "20.6", "78.6", "20.7"]):
+        with patch("omniearth.cli.cmd_download") as mock_d:
+            main()
+            mock_d.assert_called_once()
 
     # test no args -> exits with help
     with patch("sys.argv", ["omniearth"]), pytest.raises(SystemExit):
