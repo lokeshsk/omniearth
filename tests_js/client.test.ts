@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import * as os from "node:os";
+import * as path from "node:path";
 import { OmniEarth } from "../src/client.js";
 import { Category } from "../src/types.js";
 
@@ -252,6 +254,7 @@ test("OmniEarth download handles cached files and downloads", async () => {
     }
   };
 
-  const path = await client.download(res, undefined, "/tmp/omniearth_js_test");
-  assert.ok(path.includes("wx_test_dl.json"));
+  const testDir = path.join(os.tmpdir(), "omniearth_js_test");
+  const dlPath = await client.download(res, undefined, testDir);
+  assert.ok(dlPath.includes("wx_test_dl.json"));
 });

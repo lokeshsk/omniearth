@@ -8,11 +8,12 @@ on:
 
 jobs:
   test-python:
-    name: Python ${{ matrix.python-version }} (uv)
-    runs-on: ubuntu-latest
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
 
     env:
@@ -45,11 +46,12 @@ jobs:
           uv build
 
   test-node:
-    name: Node.js ${{ matrix.node-version }} (pnpm)
-    runs-on: ubuntu-latest
+    name: Node.js ${{ matrix.node-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: ["18", "20", "22"]
 
     steps:
@@ -107,10 +109,10 @@ jobs:
       - name: Check Python Test Matrix Results
         run: |
           if [ "${{ needs.test-python.result }}" != "success" ]; then
-            echo "❌ Python test suite failed on one or more Python versions!"
+            echo "❌ Python test suite failed on one or more platforms (Linux, macOS, Windows) or Python versions!"
             exit 1
           fi
-          echo "✅ All Python test matrix checks (3.10, 3.11, 3.12) passed!"
+          echo "✅ All Python multi-platform test matrix checks (Linux, macOS, Windows) passed!"
 
   node-tests-gate:
     name: "Node.js Checks Passed"
@@ -121,10 +123,10 @@ jobs:
       - name: Check Node.js Test Matrix Results
         run: |
           if [ "${{ needs.test-node.result }}" != "success" ]; then
-            echo "❌ Node.js test suite failed on one or more Node versions!"
+            echo "❌ Node.js test suite failed on one or more platforms (Linux, macOS, Windows) or Node versions!"
             exit 1
           fi
-          echo "✅ All Node.js test matrix checks (18, 20, 22) passed!"
+          echo "✅ All Node.js multi-platform test matrix checks (Linux, macOS, Windows) passed!"
 
   ci-passed:
     name: "All CI Checks Passed"
@@ -140,5 +142,5 @@ jobs:
             echo "❌ Pull Request cannot be merged: Required tests failed."
             exit 1
           fi
-          echo "🎉 All language tests, packaging, metadata, and citation checks passed!"
+          echo "🎉 All cross-platform tests (Linux, macOS, Windows), packaging, metadata, and citation checks passed!"
 
