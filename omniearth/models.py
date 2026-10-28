@@ -4,6 +4,7 @@ OmniEarth Data Models
 Standardized representations for areas of interest, search results, and assets.
 """
 
+import os
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel, Field, model_validator
@@ -16,6 +17,7 @@ class Category(str, Enum):
     WEATHER = "weather"
     SOIL = "soil"
     ELEVATION = "elevation"
+    LANDCOVER = "landcover"
 
 
 class AOI(BaseModel):
@@ -48,6 +50,57 @@ class AOI(BaseModel):
             round(lon + deg_lon, 5),
             round(lat + deg_lat, 5)
         ])
+
+    @classmethod
+    def from_geojson(cls, geojson_source: Union[str, dict, Any]) -> "AOI":
+        """
+        Derives an AOI from a GeoJSON file path, JSON string, or dict structure.
+        Recursively scans coordinates to find [min_lon, min_lat, max_lon, max_lat].
+        """
+        import json
+        from pathlib import Path
+
+        data = None
+        if isinstance(geojson_source, (str, Path)) and os.path.exists(str(geojson_source)):
+            with open(str(geojson_source), "r", encoding="utf-8") as f:
+                data = json.load(f)
+        elif isinstance(geojson_source, str):
+            data = json.loads(geojson_source)
+        elif isinstance(geojson_source, dict):
+            data = geojson_source
+        else:
+            raise ValueError(f"Invalid GeoJSON source: {type(geojson_source)}")
+
+        coords: List[List[float]] = []
+
+        def extract_coords(obj):
+            if isinstance(obj, dict):
+                if "coordinates" in obj:
+                    extract_coords(obj["coordinates"])
+                elif "features" in obj:
+                    for feat in obj["features"]:
+                        extract_coords(feat.get("geometry", {}))
+                elif "geometry" in obj:
+                    extract_coords(obj["geometry"])
+                elif "geometries" in obj:
+                    for g in obj["geometries"]:
+                        extract_coords(g)
+            elif isinstance(obj, (list, tuple)):
+                if len(obj) >= 2 and isinstance(obj[0], (int, float)) and isinstance(obj[1], (int, float)):
+                    coords.append([float(obj[0]), float(obj[1])])
+                else:
+                    for item in obj:
+                        extract_coords(item)
+
+        extract_coords(data)
+        if not coords:
+            raise ValueError("No valid coordinates found in GeoJSON structure")
+
+        min_lon = min(c[0] for c in coords)
+        max_lon = max(c[0] for c in coords)
+        min_lat = min(c[1] for c in coords)
+        max_lat = max(c[1] for c in coords)
+        return cls.from_bounds(min_lon, min_lat, max_lon, max_lat)
 
     @property
     def min_lon(self) -> float:
@@ -117,4 +170,6 @@ class FilterOptions(BaseModel):
     bands: Optional[List[str]] = None
     variables: Optional[List[str]] = None
     depth: Optional[str] = None
+    dataset: Optional[str] = None
+    year: Optional[int] = None
     limit: int = 10

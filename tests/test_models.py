@@ -76,6 +76,7 @@ def test_search_result_properties_and_download_url():
         assets={"arbitrary_key": Asset(key="arbitrary_key", href="https://example.com/custom.bin")}
     )
     assert res_other.get_download_url("missing") == "https://example.com/custom.bin"
+    assert "arbitrary_key" in res_other.to_dict()["assets"]
 
     # Empty assets
     res_empty = SearchResult(id="s4", collection="c", category=Category.OPTICAL, provider="p")
@@ -87,4 +88,75 @@ def test_filter_options():
     assert filters.max_cloud_cover == 20.0
     assert filters.limit == 5
     assert filters.depth == "0-5cm"
+
+
+def test_aoi_from_geojson(tmp_path):
+    import json
+
+    # 1. FeatureCollection dict
+    geo_fc = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [[78.0, 20.0], [78.5, 20.0], [78.5, 20.5], [78.0, 20.5], [78.0, 20.0]]
+                    ]
+                }
+            }
+        ]
+    }
+    aoi_fc = AOI.from_geojson(geo_fc)
+    assert aoi_fc.bbox == [78.0, 20.0, 78.5, 20.5]
+
+    # 2. String JSON
+    aoi_str = AOI.from_geojson(json.dumps(geo_fc))
+    assert aoi_str.bbox == [78.0, 20.0, 78.5, 20.5]
+
+    # 3. File path
+    file_p = tmp_path / "test.geojson"
+    file_p.write_text(json.dumps(geo_fc))
+    aoi_file = AOI.from_geojson(str(file_p))
+    assert aoi_file.bbox == [78.0, 20.0, 78.5, 20.5]
+
+    # 4. GeometryCollection
+    geo_gc = {
+        "type": "GeometryCollection",
+        "geometries": [
+            {"type": "Point", "coordinates": [10.0, 15.0]},
+            {"type": "Point", "coordinates": [12.0, 18.0]}
+        ]
+    }
+    aoi_gc = AOI.from_geojson(geo_gc)
+    assert aoi_gc.bbox == [10.0, 15.0, 12.0, 18.0]
+
+    # 5. Direct Geometry dict
+    geo_poly = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [1.0, 1.0]]]
+    }
+    aoi_poly = AOI.from_geojson(geo_poly)
+    assert aoi_poly.bbox == [0.0, 0.0, 1.0, 1.0]
+
+    # 5b. Single Feature dict
+    geo_feat = {
+        "type": "Feature",
+        "geometry": {
+            "type": "Point",
+            "coordinates": [5.0, 6.0]
+        }
+    }
+    aoi_feat = AOI.from_geojson(geo_feat)
+    assert aoi_feat.bbox == [5.0, 6.0, 5.0, 6.0]
+
+    # 6. No coordinates found
+    with pytest.raises(ValueError, match="No valid coordinates found"):
+        AOI.from_geojson({"type": "FeatureCollection", "features": []})
+
+    # 7. Invalid type
+    with pytest.raises(ValueError, match="Invalid GeoJSON source"):
+        AOI.from_geojson(12345)
+
 

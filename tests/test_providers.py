@@ -664,3 +664,167 @@ def test_sar_download(tmp_path):
         )
         out_other = sar_prov.download(res_other, outdir=str(tmp_path))
         assert os.path.exists(out_other)
+
+
+def test_elevation_provider_search_and_download(tmp_path):
+    from omniearth.providers.elevation import ElevationProvider
+    import pytest
+
+    provider = ElevationProvider()
+    aoi = AOI.from_bounds(78.2, 20.1, 79.5, 21.2)
+
+    # 1. Search Copernicus
+    res_cop = provider.search(aoi, filters=FilterOptions(dataset="copernicus", limit=10))
+    assert len(res_cop) >= 1
+    assert res_cop[0].category == Category.ELEVATION
+    assert "Copernicus_DSM_COG" in res_cop[0].id
+    assert "dem" in res_cop[0].assets
+
+    # 2. Search SRTM
+    res_srtm = provider.search(aoi, filters=FilterOptions(dataset="srtm", limit=1))
+    assert len(res_srtm) == 1
+    assert "SRTM_GL1" in res_srtm[0].id
+
+    # 3. Search ALOS
+    res_alos = provider.search(aoi, filters=FilterOptions(dataset="alos", limit=1))
+    assert len(res_alos) == 1
+    assert "ALPSMLC30" in res_alos[0].id
+
+    # 4. Search fallback and negative coordinates + narrow bbox
+    aoi_narrow = AOI.from_bounds(10.0, 20.0, 10.0, 20.0)
+    res_narrow = provider.search(aoi_narrow, filters=FilterOptions(dataset="copernicus", limit=5))
+    assert len(res_narrow) >= 1
+
+    aoi_neg = AOI.from_bounds(-10.5, -20.5, -9.5, -19.5)
+    res_neg = provider.search(aoi_neg, filters=FilterOptions(dataset="unknown_dem", limit=2))
+    assert len(res_neg) >= 1
+    assert "S21" in res_neg[0].id or "S20" in res_neg[0].id
+
+    # 5. Download test
+    mock_head = MagicMock(status_code=200, headers={"content-length": "10", "accept-ranges": "bytes"})
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"content-length": "10"}
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.iter_content.return_value = [b"mock_dem_data"]
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        # dem key via default without passing asset_key
+        out1 = provider.download(res_cop[0], outdir=str(tmp_path))
+        assert os.path.exists(out1)
+
+        # explicit custom asset_key
+        res_custom_key = SearchResult(
+            id="DEM_CUSTOM", collection="c", category=Category.ELEVATION, provider="p",
+            assets={"custom_dem": Asset(key="custom_dem", href="https://example.com/c.tif")}
+        )
+        out_custom = provider.download(res_custom_key, asset_key="custom_dem", outdir=str(tmp_path))
+        assert os.path.exists(out_custom)
+
+        # data key fallback
+        res_data_only = SearchResult(
+            id="DEM_DATA_ONLY",
+            collection="c",
+            category=Category.ELEVATION,
+            provider="p",
+            assets={"data": Asset(key="data", href="https://example.com/tile.tif")}
+        )
+        out2 = provider.download(res_data_only, outdir=str(tmp_path))
+        assert os.path.exists(out2)
+
+        # non-tif extension fallback naming
+        res_nontif = SearchResult(
+            id="DEM_RAW",
+            collection="c",
+            category=Category.ELEVATION,
+            provider="p",
+            assets={"other": Asset(key="other", href="https://example.com/tile.bin")}
+        )
+        out3 = provider.download(res_nontif, outdir=str(tmp_path))
+        assert out3.endswith("DEM_RAW.tif")
+        assert os.path.exists(out3)
+
+        # missing asset error
+        empty_res = SearchResult(id="E", collection="c", category=Category.ELEVATION, provider="p", assets={})
+        with pytest.raises(ValueError, match="No valid DEM asset found"):
+            provider.download(empty_res)
+
+
+def test_landcover_provider_search_and_download(tmp_path):
+    from omniearth.providers.landcover import LandcoverProvider
+    import pytest
+
+    provider = LandcoverProvider()
+    aoi = AOI.from_bounds(78.2, 20.1, 80.5, 22.2)
+
+    # 1. Search 2021 (v200)
+    res_2021 = provider.search(aoi, filters=FilterOptions(year=2021, limit=5))
+    assert len(res_2021) >= 1
+    assert res_2021[0].category == Category.LANDCOVER
+    assert "2021_v200" in res_2021[0].id
+    assert "map" in res_2021[0].assets
+
+    # 2. Search 2020 (v100) via start_date
+    res_2020 = provider.search(aoi, start_date="2020-05-01", filters=FilterOptions(limit=1))
+    assert len(res_2020) == 1
+    assert "2020_v100" in res_2020[0].id
+
+    # 3. Search via end_date and negative coordinates + narrow bbox
+    aoi_narrow = AOI.from_bounds(12.0, 21.0, 12.0, 21.0)
+    res_narrow = provider.search(aoi_narrow, filters=FilterOptions(limit=5))
+    assert len(res_narrow) >= 1
+
+    aoi_neg = AOI.from_bounds(-15.0, -12.0, -14.0, -11.0)
+    res_neg = provider.search(aoi_neg, end_date="2020-12-31", filters=FilterOptions(limit=1))
+    assert len(res_neg) == 1
+    assert "S12W015" in res_neg[0].id
+
+    # 4. Download test
+    mock_head = MagicMock(status_code=200, headers={"content-length": "10", "accept-ranges": "bytes"})
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"content-length": "10"}
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.iter_content.return_value = [b"mock_landcover_data"]
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        # map key via default without passing asset_key
+        out1 = provider.download(res_2021[0], outdir=str(tmp_path))
+        assert os.path.exists(out1)
+
+        # explicit custom asset_key
+        res_custom_key = SearchResult(
+            id="LC_CUSTOM", collection="c", category=Category.LANDCOVER, provider="p",
+            assets={"custom_map": Asset(key="custom_map", href="https://example.com/c_map.tif")}
+        )
+        out_custom = provider.download(res_custom_key, asset_key="custom_map", outdir=str(tmp_path))
+        assert os.path.exists(out_custom)
+
+        # data key fallback
+        res_data_only = SearchResult(
+            id="LC_DATA_ONLY",
+            collection="c",
+            category=Category.LANDCOVER,
+            provider="p",
+            assets={"data": Asset(key="data", href="https://example.com/lc_map.tif")}
+        )
+        out2 = provider.download(res_data_only, outdir=str(tmp_path))
+        assert os.path.exists(out2)
+
+        # non-tif extension naming
+        res_nontif = SearchResult(
+            id="LC_RAW",
+            collection="c",
+            category=Category.LANDCOVER,
+            provider="p",
+            assets={"other": Asset(key="other", href="https://example.com/raw.bin")}
+        )
+        out3 = provider.download(res_nontif, outdir=str(tmp_path))
+        assert out3.endswith("LC_RAW.tif")
+        assert os.path.exists(out3)
+
+        # missing asset error
+        empty_res = SearchResult(id="E", collection="c", category=Category.LANDCOVER, provider="p", assets={})
+        with pytest.raises(ValueError, match="No valid Landcover asset found"):
+            provider.download(empty_res)
+

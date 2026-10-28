@@ -75,7 +75,7 @@ class SARProvider(BaseProvider):
                 ))
             return results
         except requests.exceptions.RequestException as e:
-            print(f"❌ SAR STAC search error: {e}")
+            print(f"[ERROR] SAR STAC search error: {e}")
             return []
 
     def download(

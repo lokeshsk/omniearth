@@ -107,7 +107,7 @@ class WeatherProvider(BaseProvider):
             result.properties["_raw_data"] = data
             return [result]
         except requests.exceptions.RequestException as e:
-            print(f"❌ Weather API query error: {e}")
+            print(f"[ERROR] Weather API query error: {e}")
             return []
 
     def download(
@@ -128,7 +128,7 @@ class WeatherProvider(BaseProvider):
         if "_raw_data" in result.properties:
             with open(outpath, "w") as f:
                 json.dump(result.properties["_raw_data"], f, indent=2)
-            print(f"✔ Saved weather data to: {os.path.abspath(outpath)}")
+            print(f"[OK] Saved weather data to: {os.path.abspath(outpath)}")
             return os.path.abspath(outpath)
 
         # Otherwise fetch from URL
