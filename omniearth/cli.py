@@ -66,7 +66,7 @@ def cmd_categories(args, client: OmniEarth):
     }
 
     for cat_id, info in categories.items():
-        print(f"\n📂 [{cat_id.upper()}] - {info['name']}")
+        print(f"\n[{cat_id.upper()}] - {info['name']}")
         if "satellites" in info:
             print(f"   Sensors:  {', '.join(info['satellites'])}")
         if "sources" in info:
@@ -87,20 +87,20 @@ def cmd_info(args, client: OmniEarth):
     print("\n[Credential & Environment Status]")
     dlr_u = config.get("DLR_USERNAME")
     dlr_p = config.get("DLR_PASSWORD")
-    dlr_status = "✅ Configured" if (dlr_u and dlr_p) else "⚪ Optional (Needed for EnMAP raw download)"
+    dlr_status = "Configured" if (dlr_u and dlr_p) else "Optional (Needed for EnMAP raw download)"
 
     prisma_u = config.get("PRISMA_USERNAME")
-    prisma_status = "✅ Configured" if prisma_u else "⚪ Optional (Needed for PRISMA download)"
+    prisma_status = "Configured" if prisma_u else "Optional (Needed for PRISMA download)"
 
     ed_u = config.get("EARTHDATA_USERNAME")
-    ed_status = "✅ Configured" if ed_u else "⚪ Optional (Needed for NASA EMIT direct cubes)"
+    ed_status = "Configured" if ed_u else "Optional (Needed for NASA EMIT direct cubes)"
 
     print(f"  • DLR Geoservice (EnMAP):     {dlr_status}")
     print(f"  • ASI PRISMA Portal:          {prisma_status}")
     print(f"  • NASA Earthdata (EMIT):       {ed_status}")
-    print(f"  • Open-Meteo (Weather):        ✅ Native Zero-Config")
-    print(f"  • ISRIC SoilGrids (Soil):      ✅ Native Zero-Config")
-    print(f"  • AWS Earth Search (S1, S2):   ✅ Native Zero-Config")
+    print(f"  • Open-Meteo (Weather):        Native Zero-Config")
+    print(f"  • ISRIC SoilGrids (Soil):      Native Zero-Config")
+    print(f"  • AWS Earth Search (S1, S2):   Native Zero-Config")
     print("=" * 65)
 
 
@@ -234,7 +234,7 @@ def cmd_download(args, client: OmniEarth):
         if getattr(args, "all", False) is True:
             print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
             paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
-            print(f"\n Successfully downloaded {len(paths)} asset(s) to: {outdir}")
+            print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
             for k, p in paths.items():
                 print(f"  • {k}: {p}")
         else:
@@ -246,9 +246,9 @@ def cmd_download(args, client: OmniEarth):
                 multipart=multipart,
                 max_workers=threads
             )
-            print(f"\n Successfully downloaded: {path}")
+            print(f"\nSuccessfully downloaded: {path}")
     except Exception as e:
-        print(f"\n❌ Download failed: {e}", file=sys.stderr)
+        print(f"\nError: Download failed: {e}", file=sys.stderr)
         sys.exit(1)
 
 

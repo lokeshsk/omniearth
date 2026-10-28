@@ -169,7 +169,7 @@ class BaseProvider(ABC):
         if os.path.exists(outpath):
             existing_complete = os.path.getsize(outpath)
             if (total_size > 0 and existing_complete == total_size) or (total_size == 0 and existing_complete > 0):
-                print(f"✔ File already fully downloaded: {os.path.basename(outpath)}")
+                print(f"File already fully downloaded: {os.path.basename(outpath)}")
                 return os.path.abspath(outpath)
 
         # 3. Check partial download for resumption

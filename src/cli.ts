@@ -17,27 +17,27 @@ program
     console.log("=================================================================");
     console.log(" OmniEarth Supported Modalities & Data Providers (Node.js SDK)");
     console.log("=================================================================");
-    console.log("\n📂 [OPTICAL] - Optical Multispectral Imagery");
+    console.log("\n[OPTICAL] - Optical Multispectral Imagery");
     console.log("   Sensors:  Sentinel-2 L2A (10m), Landsat-8/9 (30m)");
     console.log("   Backend:  AWS Open Data STAC / Element84 Earth Search");
     console.log("   Auth:     Zero-Config (Free public egress COGs)");
 
-    console.log("\n📂 [HYPERSPECTRAL] - Hyperspectral Data Cubes (200+ Bands)");
+    console.log("\n[HYPERSPECTRAL] - Hyperspectral Data Cubes (200+ Bands)");
     console.log("   Sensors:  DLR EnMAP (224 bands), NASA EMIT (285 bands), ASI PRISMA (240 bands)");
     console.log("   Backend:  DLR EOC STAC, NASA CMR STAC, ASI PRISMA Portal");
     console.log("   Auth:     DLR Credentials (Free) / NASA Earthdata (Free)");
 
-    console.log("\n📂 [SAR] - Synthetic Aperture Radar (SAR)");
+    console.log("\n[SAR] - Synthetic Aperture Radar (SAR)");
     console.log("   Sensors:  Sentinel-1 GRD / RTC (10m)");
     console.log("   Backend:  AWS Open Data STAC");
     console.log("   Auth:     Zero-Config (Public COGs)");
 
-    console.log("\n📂 [WEATHER] - Weather & Climate Profiles");
+    console.log("\n[WEATHER] - Weather & Climate Profiles");
     console.log("   Sources:  Open-Meteo Zero-Config Global Model, ERA5 Reanalysis");
     console.log("   Backend:  Open-Meteo REST API");
     console.log("   Auth:     Zero-Config (No API key needed)");
 
-    console.log("\n📂 [SOIL] - Soil Composition & 3D Profiles");
+    console.log("\n[SOIL] - Soil Composition & 3D Profiles");
     console.log("   Sources:  ISRIC SoilGrids v2.0 (250m global)");
     console.log("   Backend:  ISRIC REST API");
     console.log("   Auth:     Zero-Config (Public)");
@@ -58,12 +58,12 @@ program
     const [prismaU] = config.prismaCredentials;
     const [edU] = config.earthdataCredentials;
 
-    console.log(`  • DLR Geoservice (EnMAP):     ${dlrU ? "✅ Configured" : "⚪ Optional (Needed for EnMAP raw download)"}`);
-    console.log(`  • ASI PRISMA Portal:          ${prismaU ? "✅ Configured" : "⚪ Optional (Needed for PRISMA download)"}`);
-    console.log(`  • NASA Earthdata (EMIT):       ${edU ? "✅ Configured" : "⚪ Optional (Needed for NASA EMIT direct cubes)"}`);
-    console.log("  • Open-Meteo (Weather):        ✅ Native Zero-Config");
-    console.log("  • ISRIC SoilGrids (Soil):      ✅ Native Zero-Config");
-    console.log("  • AWS Earth Search (S1, S2):   ✅ Native Zero-Config");
+    console.log(`  • DLR Geoservice (EnMAP):     ${dlrU ? "Configured" : "Optional (Needed for EnMAP raw download)"}`);
+    console.log(`  • ASI PRISMA Portal:          ${prismaU ? "Configured" : "Optional (Needed for PRISMA download)"}`);
+    console.log(`  • NASA Earthdata (EMIT):       ${edU ? "Configured" : "Optional (Needed for NASA EMIT direct cubes)"}`);
+    console.log("  • Open-Meteo (Weather):        Native Zero-Config");
+    console.log("  • ISRIC SoilGrids (Soil):      Native Zero-Config");
+    console.log("  • AWS Earth Search (S1, S2):   Native Zero-Config");
     console.log("=================================================================");
   });
 
@@ -186,16 +186,16 @@ program
 
       if (opts.all) {
         const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, downloadOpts);
-        console.log(`✔ Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${opts.outdir}`);
+        console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${opts.outdir}`);
         for (const [k, p] of Object.entries(downloaded)) {
           console.log(`  • ${k}: ${p}`);
         }
       } else {
         const filePath = await client.download(targetResult, opts.asset, opts.outdir, downloadOpts);
-        console.log(`✔ Successfully downloaded: ${filePath}`);
+        console.log(`Successfully downloaded: ${filePath}`);
       }
     } catch (err: any) {
-      console.error(`❌ Download failed: ${err.message}`);
+      console.error(`Error: Download failed: ${err.message}`);
       process.exit(1);
     }
   });

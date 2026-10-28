@@ -1,4 +1,4 @@
-# OmniEarth 🌍
+# OmniEarth
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
@@ -15,42 +15,43 @@
 - **Optical Multispectral**: Sentinel-2 (L2A 10m COGs), Landsat-8/9 (30m) via AWS Open Data STAC.
 - **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands), NASA EMIT (285 bands), and ASI PRISMA (240 bands).
 - **Synthetic Aperture Radar (SAR)**: Sentinel-1 (GRD / RTC VV/VH 10m COGs).
-- **Weather & Climate Profiles**: Open-Meteo zero-config global forecasts, hourly soil moisture (0–9cm), and ERA5 historical reanalysis.
+- **Weather & Climate Profiles**: Open-Meteo zero-config global forecasts, hourly soil moisture (0-9cm), and ERA5 historical reanalysis.
 - **Soil & 3D Topography**: ISRIC SoilGrids v2.0 (250m global physical & chemical soil profiles) and Copernicus DEM GLO-30.
 
 ---
 
-## 📑 Table of Contents
-1. [Supported Modalities & Provider Matrix](#-supported-modalities--provider-matrix)
-2. [Installation & Setup](#-installation--setup)
-3. [Sequential CLI User Guide](#-sequential-cli-user-guide)
-4. [Sequential Python SDK Guide](#-sequential-python-sdk-guide)
-5. [Sequential Node.js / TypeScript SDK Guide](#-sequential-nodejs--typescript-sdk-guide)
-6. [Direct Underlying REST & STAC API Calls (cURL)](#-direct-underlying-rest--stac-api-calls-curl)
-7. [High-Performance Engine Features](#-high-performance-engine-features)
-8. [Authentication & Environment Configuration](#-authentication--environment-configuration)
-9. [License & Mandatory Attribution](#-license--mandatory-attribution)
-10. [Citation](#-citation)
+## Table of Contents
+1. [Supported Modalities and Provider Matrix](#supported-modalities-and-provider-matrix)
+2. [Installation and Setup](#installation-and-setup)
+3. [Sequential CLI User Guide](#sequential-cli-user-guide)
+4. [Sequential Python SDK Guide](#sequential-python-sdk-guide)
+5. [Sequential Node.js / TypeScript SDK Guide](#sequential-nodejs--typescript-sdk-guide)
+6. [Direct Underlying REST and STAC API Calls (cURL)](#direct-underlying-rest-and-stac-api-calls-curl)
+7. [High-Performance Engine Features](#high-performance-engine-features)
+8. [Authentication and Environment Configuration](#authentication-and-environment-configuration)
+9. [License and Mandatory Attribution](#license-and-mandatory-attribution)
+10. [Citation](#citation)
+11. [Author and Maintainer](#author-and-maintainer)
 
 ---
 
-## 🛰 Supported Modalities & Provider Matrix
+## Supported Modalities and Provider Matrix
 
 | Modality | Sensor / Dataset | Spatial / Spectral | Backend Architecture | Authentication |
 | :--- | :--- | :--- | :--- | :--- |
-| **Optical** | Sentinel-2 L2A, Landsat-8/9 | 10m–30m, 12 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
+| **Optical** | Sentinel-2 L2A, Landsat-8/9 | 10m-30m, 12 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
 | **SAR** | Sentinel-1 GRD / RTC | 10m, VV / VH dual-pol | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
-| **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420–2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
-| **Hyperspectral** | NASA EMIT | 60m, 285 bands (381–2493 nm) | NASA CMR STAC | Free Earthdata Login (Optional) |
+| **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420-2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
+| **Hyperspectral** | NASA EMIT | 60m, 285 bands (381-2493 nm) | NASA CMR STAC | Free Earthdata Login (Optional) |
 | **Hyperspectral** | ASI PRISMA | 30m, 240 bands | ASI PRISMA Portal | Free ASI Account (Optional) |
-| **Weather** | Open-Meteo, ERA5 Reanalysis | Global 1–11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
-| **Soil & 3D** | ISRIC SoilGrids v2.0 | 250m 3D profiles (0–200cm) | ISRIC REST API | **Zero-Config** (Public open API) |
+| **Weather** | Open-Meteo, ERA5 Reanalysis | Global 1-11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
+| **Soil & 3D** | ISRIC SoilGrids v2.0 | 250m 3D profiles (0-200cm) | ISRIC REST API | **Zero-Config** (Public open API) |
 
-> **Note**: Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials** and work out of the box with zero setup!
+> **Note**: Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials** and work out of the box with zero setup.
 
 ---
 
-## ⚡ Installation & Setup
+## Installation and Setup
 
 OmniEarth is maintained using modern package workflows: **Astral `uv`** for Python and **`pnpm`** for Node.js.
 
@@ -80,17 +81,17 @@ npm install -g omniearth
 
 ---
 
-## 💻 Sequential CLI User Guide
+## Sequential CLI User Guide
 
 OmniEarth provides an identical, cross-platform CLI in both Python and Node.js environments.
 
-### Step 1: Healthcheck & System Diagnostics
+### Step 1: Healthcheck and System Diagnostics
 Verify your environment, detected credentials, and cache directory:
 ```bash
 omniearth info
 ```
 
-### Step 2: Explore Supported Categories & Modalities
+### Step 2: Explore Supported Categories and Modalities
 List all available sensor modalities, spectral resolutions, and backend STAC endpoints:
 ```bash
 omniearth categories
@@ -106,7 +107,7 @@ omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --limit 3
 omniearth search --category sar --point 78.55 20.68 5.0 --limit 3
 ```
 
-### Step 4: Apply Temporal & Cloud Cover Filters
+### Step 4: Apply Temporal and Cloud Cover Filters
 Narrow your search to specific acquisition windows or cloud thresholds:
 ```bash
 omniearth search --category optical \
@@ -117,7 +118,7 @@ omniearth search --category optical \
   --limit 5
 ```
 
-### Step 5: Output Raw JSON for Automation & Scripting
+### Step 5: Output Raw JSON for Automation and Scripting
 Pipe search results directly to `jq` or downstream pipelines:
 ```bash
 omniearth search --category weather --point 78.55 20.68 --json | jq .
@@ -133,7 +134,7 @@ omniearth download --category optical \
 ```
 
 ### Step 7: High-Speed Multi-Threaded All-Asset Download
-Download **all** assets associated with a scene concurrently using worker threads:
+Download all assets associated with a scene concurrently using worker threads:
 ```bash
 omniearth download --category optical \
   --id S2A_32TPT_20260315_0_L2A \
@@ -143,15 +144,15 @@ omniearth download --category optical \
 ```
 
 ### Step 8: Network Interruption Resumption
-If a connection drops during a large download, simply re-run the same command. OmniEarth detects the `<file>.part` file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting.
+If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
 
 ---
 
-## 🐍 Sequential Python SDK Guide
+## Sequential Python SDK Guide
 
 The Python SDK exposes a clean, synchronous interface with full type hints, thread pools, and zero-config shortcuts.
 
-### Step 1: Import & Initialize Client
+### Step 1: Import and Initialize Client
 ```python
 import omniearth as oe
 
@@ -198,7 +199,7 @@ sar_scenes = client.search(
 )
 ```
 
-### Step 4: Inspect Search Results & STAC Assets
+### Step 4: Inspect Search Results and STAC Assets
 ```python
 for scene in optical_scenes:
     print(f"ID: {scene.id}")
@@ -209,7 +210,7 @@ for scene in optical_scenes:
         print(f"  - {key}: {asset.href} ({asset.media_type})")
 ```
 
-### Step 5: Download Single Asset (Resumable & Parallel Multipart)
+### Step 5: Download Single Asset (Resumable and Parallel Multipart)
 ```python
 # Downloads the visual RGB Cloud-Optimized GeoTIFF with automatic resumption
 if optical_scenes:
@@ -219,13 +220,13 @@ if optical_scenes:
         asset_key="visual",
         outdir="./downloads",
         resume=True,       # Auto-resume partial .part downloads
-        multipart=True,    # Use parallel chunked ranges for files >= 10MB
+        multipart=True,    # Parallel chunked ranges for files >= 10MB
         max_workers=4      # Parallel chunk threads
     )
     print(f"Downloaded to: {file_path}")
 ```
 
-### Step 6: Concurrent Multi-Asset Download (`download_all`)
+### Step 6: Concurrent Multi-Asset Download (download_all)
 ```python
 # Concurrently download all assets (B02, B03, B04, B08, visual) for a scene:
 downloaded_map = client.download_all(
@@ -237,7 +238,7 @@ for asset_key, path in downloaded_map.items():
     print(f"Asset '{asset_key}' saved to: {path}")
 ```
 
-### Step 7: Bulk Downloading Across Multiple Scenes (`download_many`)
+### Step 7: Bulk Downloading Across Multiple Scenes (download_many)
 ```python
 # Concurrently download assets across an entire list of search results:
 all_paths = client.download_many(
@@ -263,11 +264,11 @@ print("Topsoil Summary:", soil.properties["summary_topsoil"])
 
 ---
 
-## 📦 Sequential Node.js / TypeScript SDK Guide
+## Sequential Node.js / TypeScript SDK Guide
 
 The Node.js SDK provides a native ESM / TypeScript interface built on `fetch`, `ReadableStream`, and `node:fs`.
 
-### Step 1: Import & Instantiate
+### Step 1: Import and Instantiate
 ```typescript
 import { OmniEarth, Category } from "omniearth";
 
@@ -291,7 +292,7 @@ for (const scene of results) {
 }
 ```
 
-### Step 3: Resumable & Parallel Multipart Download
+### Step 3: Resumable and Parallel Multipart Download
 ```typescript
 if (results.length > 0) {
   const filePath = await client.download(results[0], "visual", "./downloads", {
@@ -299,11 +300,11 @@ if (results.length > 0) {
     multipart: true,
     concurrency: 4
   });
-  console.log(`✔ Downloaded: ${filePath}`);
+  console.log(`Downloaded: ${filePath}`);
 }
 ```
 
-### Step 4: Concurrent Multi-Asset Download (`downloadAll`)
+### Step 4: Concurrent Multi-Asset Download (downloadAll)
 ```typescript
 // Download all assets for a given scene in concurrent batches:
 const assetMap = await client.downloadAll(results[0], undefined, "./downloads", {
@@ -312,7 +313,7 @@ const assetMap = await client.downloadAll(results[0], undefined, "./downloads", 
 console.log("Downloaded assets:", assetMap);
 ```
 
-### Step 5: Bulk Downloads Across Scenes (`downloadMany`)
+### Step 5: Bulk Downloads Across Scenes (downloadMany)
 ```typescript
 const allPaths = await client.downloadMany(results, "visual", "./downloads", {
   concurrency: 4
@@ -320,7 +321,7 @@ const allPaths = await client.downloadMany(results, "visual", "./downloads", {
 console.log(`Batch downloaded ${allPaths.length} visual rasters.`);
 ```
 
-### Step 6: Zero-Config Weather & Soil Shortcuts
+### Step 6: Zero-Config Weather and Soil Shortcuts
 ```typescript
 // Weather Feed
 const wx = await client.getWeather([78.50, 20.65, 78.60, 20.72]);
@@ -333,12 +334,12 @@ console.log("Topsoil profile:", soil?.properties.summary_topsoil);
 
 ---
 
-## 🌐 Direct Underlying REST & STAC API Calls (cURL)
+## Direct Underlying REST and STAC API Calls (cURL)
 
-OmniEarth orchestrates open, standard STAC and REST APIs under the hood. Any developer can query the exact same data using raw `curl` or any HTTP client:
+OmniEarth orchestrates open standard STAC and REST APIs under the hood. You can query these exact backends directly using raw `curl` or any HTTP client:
 
 ### 1. Optical Multispectral (AWS Earth Search STAC)
-Queries Sentinel-2 L2A Cloud-Optimized GeoTIFFs (zero-config, free egress):
+Queries Sentinel-2 L2A Cloud-Optimized GeoTIFFs (zero-config, free public egress):
 ```bash
 curl -s -X POST "https://earth-search.aws.element84.com/v1/search" \
   -H "Content-Type: application/json" \
@@ -386,12 +387,12 @@ curl -s "https://geoservice.dlr.de/eoc/ogc/stac/v1/search?collections=ENMAP_L2A&
 
 ---
 
-## 🚀 High-Performance Engine Features
+## High-Performance Engine Features
 
 ### 1. Parallel Chunked Multipart Downloading
-For files $\ge 10\,\text{MB}$, OmniEarth probes the server with `HEAD`, determines range support (`Accept-Ranges: bytes`), pre-allocates the local file, and distributes byte intervals across worker threads. Chunk downloads are written via thread-safe seek-write operations, maximizing network saturation.
+For files >= 10MB, OmniEarth probes the server with `HEAD`, determines range support (`Accept-Ranges: bytes`), pre-allocates the local file, and distributes byte intervals across worker threads. Chunk downloads are written via thread-safe seek-write operations, maximizing network saturation.
 
-### 2. Resumable Downloads via `.part` Staging
+### 2. Resumable Downloads via .part Staging
 Downloads stream to `<destination>.part`. If interrupted, OmniEarth queries the file size of the existing partial file and issues a `Range: bytes=<existing_size>-` request. Upon receiving `HTTP 206 Partial Content`, it appends remaining bytes. If the server returns `HTTP 416 Range Not Satisfiable` (e.g. file changed upstream), OmniEarth automatically restarts cleanly from byte 0.
 
 ### 3. Multi-Platform Homogeneity
@@ -400,7 +401,7 @@ Downloads stream to `<destination>.part`. If interrupted, OmniEarth queries the 
 
 ---
 
-## 🔐 Authentication & Environment Configuration
+## Authentication and Environment Configuration
 
 OmniEarth automatically discovers credentials from local `.env` files, parent directories, or system environment variables:
 
@@ -425,11 +426,11 @@ PRISMA_USERNAME=your_prisma_username
 PRISMA_PASSWORD=your_prisma_password
 ```
 
-*(Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials**!)*
+*(Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
 
 ---
 
-## 📜 License & Mandatory Attribution
+## License and Mandatory Attribution
 
 OmniEarth is distributed under the **OmniEarth Open Source License with Mandatory Attribution & Academic Citation**. See [LICENSE](LICENSE) for the full legal text.
 
@@ -445,7 +446,7 @@ OmniEarth is distributed under the **OmniEarth Open Source License with Mandator
 
 ---
 
-## 📚 Citation
+## Citation
 
 If you use OmniEarth in your research or project, please cite:
 
@@ -463,7 +464,7 @@ If you use OmniEarth in your research or project, please cite:
 
 ---
 
-## 👤 Author & Maintainer
+## Author and Maintainer
 
 **Lokesh Kumar**  
 - Email: [lokesh.skshukla@gmail.com](mailto:lokesh.skshukla@gmail.com)  
