@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc",
     "test": "tsx --test tests_js/client.test.ts",
-    "prepare": "npm run build"
+    "prepare": "tsc"
   },
   "repository": {
     "type": "git",
