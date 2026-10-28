@@ -79,7 +79,6 @@ jobs:
         run: pnpm test
 
       - name: Pack npm Distribution Tarball
-        if: runner.os == 'Linux'
         run: pnpm pack
 
   metadata-and-citations:
