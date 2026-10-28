@@ -91,7 +91,7 @@ export class SoilProvider extends BaseProvider {
     }
 
     const outPath = path.join(targetDir, `${result.id}.json`);
-    const rawData = result.properties?.raw_layers;
+    const rawData = result.properties?.raw_layers || result.properties?._raw_data;
 
     if (rawData) {
       fs.writeFileSync(outPath, JSON.stringify(rawData, null, 2), "utf-8");

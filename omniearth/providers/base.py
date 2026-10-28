@@ -27,7 +27,7 @@ class BaseProvider(ABC):
         filters: Optional[FilterOptions] = None
     ) -> List[SearchResult]:
         """Search upstream API for matching data products."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def download(
@@ -37,7 +37,7 @@ class BaseProvider(ABC):
         outdir: Optional[str] = None
     ) -> str:
         """Download asset to local disk and return absolute file path."""
-        pass
+        pass  # pragma: no cover
 
     def _stream_download(
         self,

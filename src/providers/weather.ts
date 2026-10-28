@@ -94,7 +94,7 @@ export class WeatherProvider extends BaseProvider {
     }
 
     const outPath = path.join(targetDir, `${result.id}.json`);
-    const rawData = result.properties?.raw_feed;
+    const rawData = result.properties?.raw_feed || result.properties?._raw_data;
 
     if (rawData) {
       fs.writeFileSync(outPath, JSON.stringify(rawData, null, 2), "utf-8");
