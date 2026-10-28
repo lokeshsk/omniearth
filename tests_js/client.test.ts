@@ -431,3 +431,178 @@ test("OmniEarth multipartDownload parallel range fetching", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("OmniEarth ElevationProvider search and download", async () => {
+  const client = new OmniEarth();
+  const testDir = path.join(os.tmpdir(), "omniearth_js_elev_test_" + Date.now());
+  fs.mkdirSync(testDir, { recursive: true });
+
+  const cop = await client.search({
+    category: Category.ELEVATION,
+    bbox: [78.1, 20.2, 78.9, 20.8],
+    dataset: "copernicus"
+  });
+  assert.ok(cop.length >= 1);
+  assert.equal(cop[0].category, Category.ELEVATION);
+  assert.ok(cop[0].id.startsWith("Copernicus_DSM_COG"));
+  assert.ok(cop[0].assets["dem"]);
+
+  const srtm = await client.search({
+    category: Category.ELEVATION,
+    bbox: [78.1, 20.2, 78.9, 20.8],
+    dataset: "srtm"
+  });
+  assert.ok(srtm.length >= 1);
+  assert.ok(srtm[0].id.startsWith("SRTM_GL1_"));
+
+  const alos = await client.search({
+    category: Category.ELEVATION,
+    bbox: [78.1, 20.2, 78.9, 20.8],
+    dataset: "alos"
+  });
+  assert.ok(alos.length >= 1);
+  assert.ok(alos[0].id.startsWith("ALPSMLC30_"));
+
+  // Mock download
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-length": "20" }),
+    body: makeStream([Buffer.from("dummy dem content")])
+  }) as any;
+
+  try {
+    const downloaded = await client.download(cop[0], "dem", testDir, { multipart: false });
+    assert.ok(fs.existsSync(downloaded));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth LandcoverProvider search and download", async () => {
+  const client = new OmniEarth();
+  const testDir = path.join(os.tmpdir(), "omniearth_js_lc_test_" + Date.now());
+  fs.mkdirSync(testDir, { recursive: true });
+
+  const tiles2021 = await client.search({
+    category: Category.LANDCOVER,
+    bbox: [78.1, 20.2, 78.9, 20.8],
+    year: 2021
+  });
+  assert.ok(tiles2021.length >= 1);
+  assert.equal(tiles2021[0].category, Category.LANDCOVER);
+  assert.ok(tiles2021[0].id.includes("2021"));
+  assert.ok(tiles2021[0].assets["map"]);
+
+  const tiles2020 = await client.search({
+    category: Category.LANDCOVER,
+    bbox: [78.1, 20.2, 78.9, 20.8],
+    year: 2020
+  });
+  assert.ok(tiles2020.length >= 1);
+  assert.ok(tiles2020[0].id.includes("2020"));
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-length": "20" }),
+    body: makeStream([Buffer.from("dummy landcover content")])
+  }) as any;
+
+  try {
+    const downloaded = await client.download(tiles2021[0], "map", testDir, { multipart: false });
+    assert.ok(fs.existsSync(downloaded));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth GeoJSON AOI resolution and search", async () => {
+  const client = new OmniEarth();
+  const geojsonObj = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [78.0, 20.0],
+              [78.5, 20.0],
+              [78.5, 20.5],
+              [78.0, 20.5],
+              [78.0, 20.0]
+            ]
+          ]
+        }
+      }
+    ]
+  };
+
+  const aoi = client.aoiFromGeoJSON(geojsonObj);
+  assert.deepEqual(aoi.bbox, [78.0, 20.0, 78.5, 20.5]);
+
+  const results = await client.search({
+    category: Category.ELEVATION,
+    geojson: JSON.stringify(geojsonObj)
+  });
+  assert.ok(results.length >= 1);
+
+  assert.throws(() => client.aoiFromGeoJSON({ type: "Point", coordinates: [] }), /No valid coordinates/);
+});
+
+test("OmniEarth computeIndex and getTimeSeries", async () => {
+  const client = new OmniEarth();
+
+  // Scalar calculations
+  const ndvi = client.computeIndex("ndvi", { nir: 0.8, red: 0.2 });
+  assert.ok(typeof ndvi === "number");
+  assert.ok(Math.abs((ndvi as number) - 0.6) < 0.01);
+
+  const ndwi = client.computeIndex("ndwi", { nir: 0.8, green: 0.3 });
+  assert.ok(typeof ndwi === "number");
+
+  const ndre = client.computeIndex("ndre", { nir: 0.8, rededge: 0.4 });
+  assert.ok(typeof ndre === "number");
+
+  const evi = client.computeIndex("evi", { nir: 0.8, red: 0.2, blue: 0.1 });
+  assert.ok(typeof evi === "number");
+
+  const nbr = client.computeIndex("nbr", { nir: 0.8, swir: 0.3 });
+  assert.ok(typeof nbr === "number");
+
+  // Array calculation
+  const arrNdvi = client.computeIndex("ndvi", { nir: [0.8, 0.9], red: [0.2, 0.1] }) as number[];
+  assert.equal(arrNdvi.length, 2);
+
+  assert.throws(() => client.computeIndex("unknown_idx", { nir: 0.8 }), /Unsupported index/);
+  assert.throws(() => client.computeIndex("ndvi", { nir: 0.8 }), /Red band required/);
+
+  // Time-series
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      hourly: {
+        time: ["2026-10-27T00:00", "2026-10-27T01:00"],
+        temperature_2m: [22.5, 23.0]
+      }
+    })
+  }) as any;
+
+  try {
+    const ts = await client.getTimeSeries({
+      category: Category.WEATHER,
+      bbox: [78.0, 20.0, 78.5, 20.5]
+    });
+    assert.equal(ts.length, 2);
+    assert.equal(ts[0].datetime, "2026-10-27T00:00");
+    assert.equal(ts[0].temperature_2m, 22.5);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

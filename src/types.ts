@@ -8,7 +8,8 @@ export enum Category {
   HYPERSPECTRAL = "hyperspectral",
   WEATHER = "weather",
   SOIL = "soil",
-  ELEVATION = "elevation"
+  ELEVATION = "elevation",
+  LANDCOVER = "landcover"
 }
 
 export interface AOI {
@@ -40,6 +41,8 @@ export interface FilterOptions {
   bands?: string[];
   variables?: string[];
   depth?: string;
+  dataset?: string;
+  year?: number;
   limit?: number;
 }
 
@@ -48,12 +51,15 @@ export interface SearchParams {
   bbox?: [number, number, number, number];
   point?: [number, number, number?]; // [lon, lat, radius_km?]
   aoi?: AOI;
+  geojson?: string | Record<string, any>;
   startDate?: string;
   endDate?: string;
   maxCloudCover?: number;
   bands?: string[];
   variables?: string[];
   depth?: string;
+  dataset?: string;
+  year?: number;
   limit?: number;
 }
 

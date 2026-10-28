@@ -1,7 +1,7 @@
 /**
  * OmniEarth Node.js & TypeScript SDK
  * ==================================
- * Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine.
+ * Universal Multi-Modal Open Earth Observation, Hyperspectral, Weather, DEM, and Land Cover Data Engine.
  *
  * Author: Lokesh Kumar (https://lokeshsk.github.io)
  * Repository: https://github.com/lokeshsk/omniearth
@@ -23,4 +23,5 @@ export { HyperspectralProvider } from "./providers/hyperspectral.js";
 export { SARProvider } from "./providers/sar.js";
 export { WeatherProvider } from "./providers/weather.js";
 export { SoilProvider } from "./providers/soil.js";
-
+export { ElevationProvider } from "./providers/elevation.js";
+export { LandcoverProvider } from "./providers/landcover.js";

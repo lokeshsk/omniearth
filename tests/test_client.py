@@ -2,6 +2,7 @@
 Comprehensive Tests for OmniEarth Client and Category Resolution
 """
 
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 from omniearth import OmniEarth, Category, AOI, SearchResult, Asset
@@ -183,3 +184,114 @@ def test_client_download_all_and_many(tmp_path):
         many_paths = client.download_many([mock_res1, mock_res2], outdir=str(tmp_path), max_workers=2)
         assert len(many_paths) == 2
         assert many_paths == ["/tmp/res_multi_1.tif", "/tmp/res_multi_2.tif"]
+
+
+def test_client_geojson_resolution():
+    client = OmniEarth()
+    geo = {
+        "type": "Polygon",
+        "coordinates": [[[78.0, 20.0], [78.5, 20.5]]]
+    }
+    with patch.object(client._providers[Category.ELEVATION], "search", return_value=["mock_dem"]) as mock_s:
+        res = client.search(category="elevation", geojson=geo)
+        assert res == ["mock_dem"]
+        assert mock_s.called
+
+
+def test_client_elevation_and_landcover_shortcuts():
+    client = OmniEarth()
+    mock_elev = SearchResult(id="dem_01", collection="c", category=Category.ELEVATION, provider="p")
+    mock_lc = SearchResult(id="lc_01", collection="c", category=Category.LANDCOVER, provider="p")
+
+    with patch.object(client, "search", return_value=[mock_elev]):
+        assert client.get_elevation(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_elev
+    with patch.object(client, "search", return_value=[]):
+        assert client.get_elevation(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+
+    with patch.object(client, "search", return_value=[mock_lc]):
+        assert client.get_landcover(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_lc
+    with patch.object(client, "search", return_value=[]):
+        assert client.get_landcover(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+
+
+def test_client_compute_index(tmp_path):
+    client = OmniEarth()
+
+    # 1. NDVI scalar & list
+    ndvi = client.compute_index("ndvi", nir=0.8, red=0.2)
+    assert round(ndvi["mean"], 2) == 0.60
+    assert "data" in ndvi
+
+    list_n = [0.8, 0.9]
+    list_r = [0.2, 0.1]
+    ndvi_list = client.compute_index("ndvi", nir=list_n, red=list_r)
+    assert len(ndvi_list["data"]) == 2
+
+    # 2. NDWI
+    ndwi = client.compute_index("ndwi", nir=0.8, green=0.3)
+    assert ndwi["index"] == "ndwi"
+
+    # 3. NDRE
+    ndre = client.compute_index("ndre", nir=0.8, rededge=0.4)
+    assert ndre["index"] == "ndre"
+
+    # 4. EVI
+    evi = client.compute_index("evi", nir=0.8, red=0.2, blue=0.1)
+    assert evi["index"] == "evi"
+
+    # 5. NBR
+    nbr = client.compute_index("nbr", nir=0.8, swir=0.3)
+    assert nbr["index"] == "nbr"
+
+    # Error branches
+    with pytest.raises(ValueError, match="Red band required"):
+        client.compute_index("ndvi", nir=0.8)
+    with pytest.raises(ValueError, match="Green band required"):
+        client.compute_index("ndwi", nir=0.8)
+    with pytest.raises(ValueError, match="RedEdge band required"):
+        client.compute_index("ndre", nir=0.8)
+    with pytest.raises(ValueError, match="Red and Blue bands required"):
+        client.compute_index("evi", nir=0.8, red=0.2)
+    with pytest.raises(ValueError, match="SWIR band required"):
+        client.compute_index("nbr", nir=0.8)
+    with pytest.raises(ValueError, match="Unsupported index"):
+        client.compute_index("fake_index", nir=0.8)
+
+    # Save output
+    json_path = str(tmp_path / "idx.json")
+    client.compute_index("ndvi", nir=0.8, red=0.2, outpath=json_path)
+    assert os.path.exists(json_path)
+
+
+def test_client_get_time_series():
+    client = OmniEarth()
+
+    # 1. Weather time series
+    mock_weather_res = SearchResult(
+        id="wx_feed", collection="wx", category=Category.WEATHER, provider="open_meteo",
+        properties={
+            "_raw_data": {
+                "hourly": {
+                    "time": ["2026-10-20T00:00", "2026-10-20T01:00"],
+                    "temperature_2m": [22.0, 23.5]
+                }
+            }
+        }
+    )
+    with patch.object(client, "search", return_value=[mock_weather_res]):
+        ts = client.get_time_series(category="weather", bbox=[78.0, 20.0, 78.5, 20.5])
+        assert len(ts) == 2
+        assert ts[0]["datetime"] == "2026-10-20T00:00"
+        assert ts[0]["temperature_2m"] == 22.0
+
+    # 2. Satellite time series
+    s1 = SearchResult(id="s1", collection="c", category=Category.OPTICAL, provider="p", datetime="2026-10-02T00:00:00Z", properties={"eo:cloud_cover": 5.0})
+    s2 = SearchResult(id="s2", collection="c", category=Category.OPTICAL, provider="p", datetime="2026-10-01T00:00:00Z", properties={"eo:cloud_cover": 10.0})
+
+    with patch.object(client, "search", return_value=[s1, s2]):
+        sat_ts = client.get_time_series(category="optical", bbox=[78.0, 20.0, 78.5, 20.5])
+        assert len(sat_ts) == 2
+        # sorted chronologically
+        assert sat_ts[0]["id"] == "s2"
+        assert sat_ts[1]["id"] == "s1"
+

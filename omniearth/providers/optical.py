@@ -84,7 +84,7 @@ class OpticalProvider(BaseProvider):
                 ))
             return results
         except requests.exceptions.RequestException as e:
-            print(f"❌ Optical STAC search error: {e}")
+            print(f"[ERROR] Optical STAC search error: {e}")
             return []
 
     def download(

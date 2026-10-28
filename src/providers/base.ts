@@ -71,6 +71,10 @@ export abstract class BaseProvider {
       asset = result.assets["visual"];
     } else if (result.assets["SPECTRAL_IMAGE_COG"]) {
       asset = result.assets["SPECTRAL_IMAGE_COG"];
+    } else if (result.assets["dem"]) {
+      asset = result.assets["dem"];
+    } else if (result.assets["map"]) {
+      asset = result.assets["map"];
     } else if (result.assets["image"]) {
       asset = result.assets["image"];
     } else {

@@ -10,13 +10,15 @@
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/License-OmniEarth_Attribution_1.0-orange.svg)](LICENSE)
 
-**OmniEarth** is an open-source, universal multi-modal Earth Observation (EO), hyperspectral cube, and environmental data aggregation engine. It provides a unified **Python SDK**, **Node.js / TypeScript SDK**, and **Universal CLI** to discover, query, filter, and stream open earth observation data across all modalities:
+**OmniEarth** is an open-source, universal multi-modal Earth Observation (EO), hyperspectral cube, topography, and environmental data aggregation engine. It provides a unified **Python SDK**, **Node.js / TypeScript SDK**, and **Universal CLI** to discover, query, filter, and stream open earth observation data across all modalities:
 
 - **Optical Multispectral**: Sentinel-2 (L2A 10m COGs), Landsat-8/9 (30m) via AWS Open Data STAC.
 - **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands), NASA EMIT (285 bands), and ASI PRISMA (240 bands).
 - **Synthetic Aperture Radar (SAR)**: Sentinel-1 (GRD / RTC VV/VH 10m COGs).
+- **Digital Elevation Models (DEM / DSM / DTM)**: Copernicus DEM GLO-30 (30m DSM), SRTM GL1 (30m), ALOS World 3D (AW3D30 30m).
+- **Land Use / Land Cover (LULC)**: ESA WorldCover 10m (2020 v100 and 2021 v200 global maps).
 - **Weather & Climate Profiles**: Open-Meteo zero-config global forecasts, hourly soil moisture (0-9cm), and ERA5 historical reanalysis.
-- **Soil & 3D Topography**: ISRIC SoilGrids v2.0 (250m global physical & chemical soil profiles) and Copernicus DEM GLO-30.
+- **Soil & 3D Profiles**: ISRIC SoilGrids v2.0 (250m global physical and chemical soil profiles across 0-200cm).
 
 ---
 
@@ -41,13 +43,15 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Optical** | Sentinel-2 L2A, Landsat-8/9 | 10m-30m, 12 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
 | **SAR** | Sentinel-1 GRD / RTC | 10m, VV / VH dual-pol | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
+| **Elevation** | Copernicus DEM GLO-30, SRTM GL1, ALOS | 30m, DSM / DTM | AWS Open Data / OpenTopography S3 | **Zero-Config** (Free direct COGs) |
+| **Land Cover** | ESA WorldCover 10m (2020, 2021) | 10m global classification | AWS Open Data S3 | **Zero-Config** (Free direct COGs) |
 | **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420-2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
 | **Hyperspectral** | NASA EMIT | 60m, 285 bands (381-2493 nm) | NASA CMR STAC | Free Earthdata Login (Optional) |
 | **Hyperspectral** | ASI PRISMA | 30m, 240 bands | ASI PRISMA Portal | Free ASI Account (Optional) |
 | **Weather** | Open-Meteo, ERA5 Reanalysis | Global 1-11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
 | **Soil & 3D** | ISRIC SoilGrids v2.0 | 250m 3D profiles (0-200cm) | ISRIC REST API | **Zero-Config** (Public open API) |
 
-> **Note**: Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials** and work out of the box with zero setup.
+> **Note**: Optical Sentinel-2, Sentinel-1 SAR, Copernicus DEM GLO-30, SRTM, ALOS, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials** and work out of the box with zero setup.
 
 ---
 
@@ -97,7 +101,7 @@ List all available sensor modalities, spectral resolutions, and backend STAC end
 omniearth categories
 ```
 
-### Step 3: Spatial Search using Bounding Box or Point
+### Step 3: Spatial Search using Bounding Box, Point, or GeoJSON
 Search for scenes intersecting an area of interest (AOI):
 ```bash
 # Search using bounding box: min_lon min_lat max_lon max_lat
@@ -105,6 +109,12 @@ omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --limit 3
 
 # Search using point with radius: lon lat [radius_km]
 omniearth search --category sar --point 78.55 20.68 5.0 --limit 3
+
+# Search using GeoJSON boundary file
+omniearth search --category elevation --geojson ./field_boundary.geojson
+
+# Search 10m ESA WorldCover
+omniearth search --category landcover --bbox 78.50 20.65 78.60 20.72 --year 2021
 ```
 
 ### Step 4: Apply Temporal and Cloud Cover Filters
@@ -125,11 +135,11 @@ omniearth search --category weather --point 78.55 20.68 --json | jq .
 ```
 
 ### Step 6: Single-Asset Resumable Download
-Download a specific asset (e.g. `visual`, `red`, `SPECTRAL_IMAGE_COG`, or `vv`):
+Download a specific asset (e.g. `visual`, `red`, `dem`, `map`, `SPECTRAL_IMAGE_COG`, or `vv`):
 ```bash
-omniearth download --category optical \
+omniearth download --category elevation \
   --bbox 78.50 20.65 78.60 20.72 \
-  --asset visual \
+  --dataset copernicus \
   --outdir ./downloads
 ```
 
@@ -145,6 +155,29 @@ omniearth download --category optical \
 
 ### Step 8: Network Interruption Resumption
 If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
+
+### Step 9: On-the-Fly Radiometric Indices (NDVI, NDWI, NDRE, EVI, NBR)
+Compute standard remote sensing vegetation, water, and burn ratio indices directly from CLI:
+```bash
+# Compute NDVI from scalar band reflectances
+omniearth compute --index ndvi --nir 0.82 --red 0.18
+
+# Compute EVI from band values
+omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08
+
+# Compute from JSON array and save output
+omniearth compute --index ndvi --nir "[0.8, 0.7, 0.85]" --red "[0.2, 0.15, 0.22]" --outpath ./ndvi_stats.json
+```
+
+### Step 10: Historical Time-Series Extraction
+Extract chronological time-series profiles across satellite passes or hourly weather observations:
+```bash
+# Hourly meteorological time-series
+omniearth timeseries --category weather --bbox 78.50 20.65 78.60 20.72 --limit 24
+
+# Chronological satellite observation pass timeline
+omniearth timeseries --category optical --bbox 78.50 20.65 78.60 20.72 --start 2026-01-01 --end 2026-03-31
+```
 
 ---
 
@@ -170,6 +203,9 @@ bbox = [78.50, 20.65, 78.60, 20.72]
 
 # Point AOI: (lon, lat, radius_km)
 point = (78.55, 20.68, 5.0)
+
+# GeoJSON AOI: from file or GeoJSON dict
+aoi = oe.AOI.from_geojson("./field_boundary.geojson")
 ```
 
 ### Step 3: Search Multi-Modal Catalog
@@ -184,14 +220,28 @@ optical_scenes = client.search(
     limit=3
 )
 
-# 2. Hyperspectral (DLR EnMAP 224 spectral bands)
+# 2. Elevation DEM (Copernicus DEM GLO-30, SRTM, or ALOS)
+elevation_tiles = client.search(
+    category="elevation",
+    bbox=bbox,
+    dataset="copernicus"
+)
+
+# 3. Land Cover (ESA WorldCover 10m)
+landcover_tiles = client.search(
+    category="landcover",
+    bbox=bbox,
+    year=2021
+)
+
+# 4. Hyperspectral (DLR EnMAP 224 spectral bands)
 hsi_scenes = client.search(
     category="hyperspectral",
     bbox=bbox,
     limit=2
 )
 
-# 3. SAR (Sentinel-1 GRD Radar passes)
+# 5. SAR (Sentinel-1 GRD Radar passes)
 sar_scenes = client.search(
     category="sar",
     point=point,
@@ -252,14 +302,46 @@ print(f"Successfully downloaded {len(all_paths)} scenes in parallel.")
 
 ### Step 8: Zero-Config Convenience Shortcuts
 ```python
-# 1. Instant Weather & Soil Moisture Profile
+# 1. Digital Elevation Model (Copernicus DEM 30m)
+dem = client.get_elevation(bbox=bbox, dataset="copernicus")
+
+# 2. ESA WorldCover 10m LULC map
+lc = client.get_landcover(bbox=bbox, year=2021)
+
+# 3. Instant Weather & Soil Moisture Profile
 weather = client.get_weather(bbox=bbox)
 print(f"Elevation: {weather.properties['elevation']}m")
 print(f"Hourly Temp: {weather.properties['_raw_data']['hourly']['temperature_2m'][:5]}")
 
-# 2. ISRIC SoilGrids 3D Soil Chemistry & Texture Profile
+# 4. ISRIC SoilGrids 3D Soil Chemistry & Texture Profile
 soil = client.get_soil(bbox=bbox, depth="0-5cm")
 print("Topsoil Summary:", soil.properties["summary_topsoil"])
+```
+
+### Step 9: On-the-Fly Index Computation
+```python
+# Compute NDVI
+ndvi = client.compute_index("ndvi", nir=0.82, red=0.18)
+print("NDVI Mean:", ndvi["mean"])
+
+# Compute NDRE (RedEdge)
+ndre = client.compute_index("ndre", nir=0.78, rededge=0.35)
+
+# Compute EVI
+evi = client.compute_index("evi", nir=0.80, red=0.15, blue=0.08)
+```
+
+### Step 10: Time-Series Extraction
+```python
+# Historical hourly meteorological records
+series = client.get_time_series(
+    category="weather",
+    bbox=bbox,
+    start_date="2026-10-01",
+    end_date="2026-10-10"
+)
+for record in series[:5]:
+    print(record["datetime"], record.get("temperature_2m"))
 ```
 
 ---
@@ -321,8 +403,14 @@ const allPaths = await client.downloadMany(results, "visual", "./downloads", {
 console.log(`Batch downloaded ${allPaths.length} visual rasters.`);
 ```
 
-### Step 6: Zero-Config Weather and Soil Shortcuts
+### Step 6: Zero-Config Convenience Shortcuts
 ```typescript
+// Elevation DEM
+const dem = await client.getElevation([78.50, 20.65, 78.60, 20.72], "copernicus");
+
+// Land Cover 10m
+const lc = await client.getLandcover([78.50, 20.65, 78.60, 20.72], 2021);
+
 // Weather Feed
 const wx = await client.getWeather([78.50, 20.65, 78.60, 20.72]);
 console.log("Weather elevation:", wx?.properties.elevation);
@@ -330,6 +418,20 @@ console.log("Weather elevation:", wx?.properties.elevation);
 // SoilGrids 3D Profile
 const soil = await client.getSoil([78.50, 20.65, 78.60, 20.72], "0-5cm");
 console.log("Topsoil profile:", soil?.properties.summary_topsoil);
+```
+
+### Step 7: Index Computation & Time-Series
+```typescript
+// Radiometric Index calculation
+const ndvi = client.computeIndex("ndvi", { nir: 0.82, red: 0.18 });
+console.log("Computed NDVI:", ndvi);
+
+// Time-series extraction
+const timeSeries = await client.getTimeSeries({
+  category: Category.WEATHER,
+  bbox: [78.50, 20.65, 78.60, 20.72]
+});
+console.log("Time-steps extracted:", timeSeries.length);
 ```
 
 ---
@@ -364,21 +466,33 @@ curl -s -X POST "https://earth-search.aws.element84.com/v1/search" \
   }' | jq '.features[] | {id: .id, vv: .assets.vv.href, vh: .assets.vh.href}'
 ```
 
-### 3. Weather & Climate Profile (Open-Meteo REST API)
+### 3. Digital Elevation Model (Copernicus DEM 30m S3)
+Direct zero-config COG download from AWS Open Data:
+```bash
+curl -s -I "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N20_00_E078_00_DEM/Copernicus_DSM_COG_10_N20_00_E078_00_DEM.tif"
+```
+
+### 4. Land Cover (ESA WorldCover 10m S3)
+Direct zero-config 10m classification map COG download from AWS Open Data:
+```bash
+curl -s -I "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N18E075_Map.tif"
+```
+
+### 5. Weather & Climate Profile (Open-Meteo REST API)
 Fetches hourly temperature, relative humidity, solar radiation, and soil moisture:
 ```bash
 curl -s "https://api.open-meteo.com/v1/forecast?latitude=20.68&longitude=78.55&hourly=temperature_2m,relative_humidity_2m,soil_moisture_0_to_1cm,surface_solar_radiation" \
   | jq '{elevation: .elevation, current_temp: .hourly.temperature_2m[0]}'
 ```
 
-### 4. Soil Chemistry & 3D Texture (ISRIC SoilGrids REST API)
+### 6. Soil Chemistry & 3D Texture (ISRIC SoilGrids REST API)
 Fetches clay, sand, silt, soil organic carbon (SOC), pH, and bulk density across standard depths:
 ```bash
 curl -s "https://rest.isric.org/soilgrids/v2.0/properties/query?lon=78.55&lat=20.68&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm" \
   | jq '.properties.layers[] | {name: .name, mean_value: .depths[0].values.mean}'
 ```
 
-### 5. Hyperspectral Data Cubes (DLR EOC STAC API)
+### 7. Hyperspectral Data Cubes (DLR EOC STAC API)
 Queries DLR EnMAP 224-band hyperspectral cubes:
 ```bash
 curl -s "https://geoservice.dlr.de/eoc/ogc/stac/v1/search?collections=ENMAP_L2A&bbox=78.50,20.65,78.60,20.72&limit=2" \
@@ -426,7 +540,7 @@ PRISMA_USERNAME=your_prisma_username
 PRISMA_PASSWORD=your_prisma_password
 ```
 
-*(Optical Sentinel-2, Landsat-8/9, Sentinel-1 SAR, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
+*(Optical Sentinel-2, Sentinel-1 SAR, Copernicus DEM, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
 
 ---
 
@@ -470,4 +584,3 @@ If you use OmniEarth in your research or project, please cite:
 - Email: [lokesh.skshukla@gmail.com](mailto:lokesh.skshukla@gmail.com)  
 - Website: [https://lokeshsk.github.io](https://lokeshsk.github.io)  
 - Project Documentation: [https://lokeshsk.github.io/omniearth/](https://lokeshsk.github.io/omniearth/)  
-

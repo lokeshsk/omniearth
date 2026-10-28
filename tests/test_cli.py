@@ -2,6 +2,7 @@
 Comprehensive Tests for OmniEarth CLI Commands and Formatting
 """
 
+import os
 import sys
 import subprocess
 from unittest.mock import patch, MagicMock
@@ -323,6 +324,114 @@ def test_main_cli_dispatch(capsys):
         with patch("omniearth.cli.cmd_download") as mock_d:
             main()
             mock_d.assert_called_once()
+
+    # test compute dispatch
+    with patch("sys.argv", ["omniearth", "compute", "--index", "ndvi", "--nir", "0.8", "--red", "0.2"]):
+        with patch("omniearth.cli.cmd_compute") as mock_c:
+            main()
+            mock_c.assert_called_once()
+
+    # test timeseries dispatch
+    with patch("sys.argv", ["omniearth", "timeseries", "--category", "weather", "--bbox", "78.5", "20.6", "78.6", "20.7"]):
+        with patch("omniearth.cli.cmd_timeseries") as mock_ts:
+            main()
+            mock_ts.assert_called_once()
+
+
+def test_cmd_compute(capsys, tmp_path):
+    import pytest
+    from omniearth.cli import cmd_compute
+
+    client = OmniEarth()
+
+    # 1. Scalar compute
+    args_scalar = MagicMock()
+    args_scalar.index = "ndvi"
+    args_scalar.nir = "0.8"
+    args_scalar.red = "0.2"
+    args_scalar.green = None
+    args_scalar.blue = None
+    args_scalar.rededge = None
+    args_scalar.swir = None
+    args_scalar.outpath = None
+
+    cmd_compute(args_scalar, client)
+    captured = capsys.readouterr()
+    assert "Radiometric Index Calculation [NDVI]" in captured.out
+    assert "Mean:  0.6000" in captured.out
+
+    # 2. Array compute with outpath
+    outp = str(tmp_path / "idx_cli.json")
+    args_arr = MagicMock()
+    args_arr.index = "ndvi"
+    args_arr.nir = "[0.8, 0.9]"
+    args_arr.red = "[0.2, 0.1]"
+    args_arr.green = None
+    args_arr.blue = None
+    args_arr.rededge = None
+    args_arr.swir = None
+    args_arr.outpath = outp
+
+    cmd_compute(args_arr, client)
+    captured_arr = capsys.readouterr()
+    assert "Saved:" in captured_arr.out
+    assert os.path.exists(outp)
+
+    # 3. Error compute -> sys.exit(1)
+    args_err = MagicMock()
+    args_err.index = "ndvi"
+    args_err.nir = "0.8"
+    args_err.red = None
+    args_err.green = None
+    args_err.blue = None
+    args_err.rededge = None
+    args_err.swir = None
+    args_err.outpath = None
+
+    with pytest.raises(SystemExit):
+        cmd_compute(args_err, client)
+
+
+def test_cmd_timeseries(capsys):
+    import pytest
+    from omniearth.cli import cmd_timeseries
+
+    client = OmniEarth()
+
+    # 1. Missing bbox and geojson -> sys.exit(1)
+    args_missing = MagicMock(bbox=None, geojson=None)
+    with pytest.raises(SystemExit):
+        cmd_timeseries(args_missing, client)
+
+    # 2. Valid timeseries with > 15 items
+    mock_records = [{"datetime": f"2026-10-{i:02d}T00:00", "temp": 20 + i} for i in range(1, 20)]
+    args_valid = MagicMock()
+    args_valid.category = "weather"
+    args_valid.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_valid.geojson = None
+    args_valid.variables = "temp"
+    args_valid.start = None
+    args_valid.end = None
+    args_valid.limit = 20
+    args_valid.json = False
+
+    with patch.object(client, "get_time_series", return_value=mock_records):
+        cmd_timeseries(args_valid, client)
+        captured = capsys.readouterr()
+        assert "Time-Series [WEATHER] - 19 record(s)" in captured.out
+        assert "more records" in captured.out
+
+    # 3. JSON mode
+    args_valid.json = True
+    with patch.object(client, "get_time_series", return_value=mock_records):
+        cmd_timeseries(args_valid, client)
+        captured_json = capsys.readouterr()
+        assert "2026-10-01T00:00" in captured_json.out
+
+    # 4. Error during get_time_series -> sys.exit(1)
+    with patch.object(client, "get_time_series", side_effect=RuntimeError("API error")), pytest.raises(SystemExit):
+        cmd_timeseries(args_valid, client)
+
 
     # test no args -> exits with help
     with patch("sys.argv", ["omniearth"]), pytest.raises(SystemExit):

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OmniEarth - Universal Multi-Modal Earth Observation and Environmental Data Engine</title>
-  <meta name="description" content="Open-source Python and Node.js SDK, CLI, and REST engine for Optical, Hyperspectral (EnMAP, EMIT, PRISMA), SAR, Weather, and 3D Soil data.">
+  <meta name="description" content="Open-source Python and Node.js SDK, CLI, and REST engine for Optical, Hyperspectral (EnMAP, EMIT, PRISMA), SAR, Elevation DEM, Land Cover, Weather, and 3D Soil data.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -238,7 +238,7 @@
     <img src="https://img.shields.io/badge/managed%20with-pnpm-cc00ff.svg" alt="pnpm">
   </div>
   <h1>OmniEarth</h1>
-  <p class="tagline">Universal Multi-Modal Earth Observation, Hyperspectral Data Cube and Environmental Intelligence Engine across CLI, Python SDK, Node.js SDK, and REST STAC APIs.</p>
+  <p class="tagline">Universal Multi-Modal Earth Observation, Hyperspectral Data Cube, DEM, and Environmental Intelligence Engine across CLI, Python SDK, Node.js SDK, and REST STAC APIs.</p>
   <div class="cta-buttons">
     <a href="https://github.com/lokeshsk/omniearth" class="btn btn-primary">
       GitHub Repository
@@ -272,6 +272,20 @@
           <td>10m - 30m</td>
           <td>AWS Earth Search STAC</td>
           <td><span class="pill">Zero-Config</span> Public COGs</td>
+        </tr>
+        <tr>
+          <td><strong>Digital Elevation Models</strong></td>
+          <td>Copernicus DEM GLO-30, SRTM GL1, ALOS AW3D30</td>
+          <td>30m DSM / DTM</td>
+          <td>AWS Open Data / OpenTopography S3</td>
+          <td><span class="pill">Zero-Config</span> Direct Public COGs</td>
+        </tr>
+        <tr>
+          <td><strong>Land Cover (LULC)</strong></td>
+          <td>ESA WorldCover (2020 v100, 2021 v200)</td>
+          <td>10m global classification</td>
+          <td>ESA WorldCover AWS S3</td>
+          <td><span class="pill">Zero-Config</span> Direct Public COGs</td>
         </tr>
         <tr>
           <td><strong>Hyperspectral Cubes</strong></td>
@@ -336,13 +350,19 @@
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">3</span> Spatial Search with Bounding Box or Point</h3>
+      <h3><span class="step-num">3</span> Spatial Search with Bounding Box, Point, or GeoJSON</h3>
       <p>Find intersecting scenes across any sensor modality:</p>
       <pre><code># Bounding box search: min_lon min_lat max_lon max_lat
 omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --limit 3
 
 # Point search: lon lat [radius_km]
-omniearth search --category sar --point 78.55 20.68 5.0 --limit 3</code></pre>
+omniearth search --category sar --point 78.55 20.68 5.0 --limit 3
+
+# GeoJSON search
+omniearth search --category elevation --geojson ./field_boundary.geojson
+
+# Land Cover search
+omniearth search --category landcover --bbox 78.50 20.65 78.60 20.72 --year 2021</code></pre>
     </div>
 
     <div class="step-card">
@@ -360,9 +380,9 @@ omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
     <div class="step-card">
       <h3><span class="step-num">5</span> Single-Asset Resumable Download</h3>
       <p>Stream Cloud-Optimized GeoTIFFs or hyperspectral cubes with byte-range resumption:</p>
-      <pre><code>omniearth download --category optical \
+      <pre><code>omniearth download --category elevation \
   --bbox 78.50 20.65 78.60 20.72 \
-  --asset visual \
+  --dataset copernicus \
   --outdir ./downloads</code></pre>
     </div>
 
@@ -378,6 +398,24 @@ omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
         <strong>Resumable Engine:</strong> If interrupted, OmniEarth queries partial files via <code>HTTP 206 Partial Content</code> and resumes from the exact byte offset without re-downloading.
       </div>
     </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">7</span> On-the-Fly Radiometric Indices (NDVI, NDWI, NDRE, EVI, NBR)</h3>
+      <pre><code># Compute NDVI from reflectances
+omniearth compute --index ndvi --nir 0.82 --red 0.18
+
+# Compute EVI
+omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">8</span> Historical Time-Series Extraction</h3>
+      <pre><code># Weather time series
+omniearth timeseries --category weather --bbox 78.50 20.65 78.60 20.72 --limit 24
+
+# Satellite pass chronology
+omniearth timeseries --category optical --bbox 78.50 20.65 78.60 20.72 --start 2026-01-01 --end 2026-03-31</code></pre>
+    </div>
   </section>
 
   <!-- PYTHON SDK GUIDE -->
@@ -385,16 +423,15 @@ omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
     <h2 class="section-title">Sequential Python SDK Guide</h2>
     
     <div class="step-card">
-      <h3><span class="step-num">1</span> Client Initialization and Environment</h3>
+      <h3><span class="step-num">1</span> Setup and Initialization</h3>
       <pre><code>import omniearth as oe
 
-# Auto-discovers .env credentials (DLR, NASA Earthdata, ASI PRISMA)
 client = oe.OmniEarth()</code></pre>
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">2</span> Multi-Modal Search and Filtering</h3>
-      <pre><code># 1. Search Optical Sentinel-2 Scenes
+      <h3><span class="step-num">2</span> Spatial Search Across Modalities</h3>
+      <pre><code># 1. Search Optical Sentinel-2
 optical_scenes = client.search(
     category="optical",
     bbox=[78.50, 20.65, 78.60, 20.72],
@@ -404,11 +441,18 @@ optical_scenes = client.search(
     limit=5
 )
 
-# 2. Search DLR EnMAP Hyperspectral Cubes (224 bands)
-hsi_scenes = client.search(
-    category="hyperspectral",
+# 2. Search Copernicus DEM 30m
+dem_tiles = client.search(
+    category="elevation",
     bbox=[78.50, 20.65, 78.60, 20.72],
-    limit=2
+    dataset="copernicus"
+)
+
+# 3. Search ESA WorldCover 10m
+lc_tiles = client.search(
+    category="landcover",
+    bbox=[78.50, 20.65, 78.60, 20.72],
+    year=2021
 )</code></pre>
     </div>
 
@@ -438,13 +482,30 @@ all_paths = client.download_many(optical_scenes, asset_key="visual", outdir="./d
 
     <div class="step-card">
       <h3><span class="step-num">5</span> Zero-Config Environmental Shortcuts</h3>
-      <pre><code># Instant Weather & Soil Moisture Feed
+      <pre><code># Instant DEM Elevation Raster
+dem = client.get_elevation(bbox=[78.50, 20.65, 78.60, 20.72], dataset="copernicus")
+
+# Instant Land Cover Map
+lc = client.get_landcover(bbox=[78.50, 20.65, 78.60, 20.72], year=2021)
+
+# Instant Weather & Soil Moisture Feed
 wx = client.get_weather(bbox=[78.50, 20.65, 78.60, 20.72])
 print("Elevation:", wx.properties["elevation"])
 
 # Instant ISRIC SoilGrids 3D Chemistry & Texture Profile
 soil = client.get_soil(bbox=[78.50, 20.65, 78.60, 20.72], depth="0-5cm")
 print("Topsoil Clay/Sand:", soil.properties["summary_topsoil"])</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">6</span> Radiometric Index & Time-Series Analytics</h3>
+      <pre><code># Compute NDVI
+ndvi = client.compute_index("ndvi", nir=0.82, red=0.18)
+print("NDVI Mean:", ndvi["mean"])
+
+# Extract historical weather time-series
+series = client.get_time_series(category="weather", bbox=[78.50, 20.65, 78.60, 20.72])
+print(f"Extracted {len(series)} chronological hourly observations.")</code></pre>
     </div>
   </section>
 
@@ -490,6 +551,23 @@ const manyPaths = await client.downloadMany(scenes, "visual", "./downloads", {
   concurrency: 4
 });</code></pre>
     </div>
+
+    <div class="step-card">
+      <h3><span class="step-num">4</span> Shortcuts, Indices, and Time-Series</h3>
+      <pre><code>// Instant Elevation DEM
+const dem = await client.getElevation([78.50, 20.65, 78.60, 20.72], "copernicus");
+
+// Compute NDVI
+const ndvi = client.computeIndex("ndvi", { nir: 0.82, red: 0.18 });
+console.log("NDVI:", ndvi);
+
+// Time-Series Extraction
+const ts = await client.getTimeSeries({
+  category: Category.WEATHER,
+  bbox: [78.50, 20.65, 78.60, 20.72]
+});
+console.log("Weather steps:", ts.length);</code></pre>
+    </div>
   </section>
 
   <!-- REST API GUIDE -->
@@ -513,19 +591,29 @@ const manyPaths = await client.downloadMany(scenes, "visual", "./downloads", {
     </div>
 
     <div class="step-card">
-      <h3>2. Weather and Solar Climate Profiles (Open-Meteo REST API)</h3>
+      <h3>2. Digital Elevation Model (Copernicus DEM 30m S3)</h3>
+      <pre><code>curl -s -I "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N20_00_E078_00_DEM/Copernicus_DSM_COG_10_N20_00_E078_00_DEM.tif"</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3>3. Land Cover (ESA WorldCover 10m S3)</h3>
+      <pre><code>curl -s -I "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N18E075_Map.tif"</code></pre>
+    </div>
+
+    <div class="step-card">
+      <h3>4. Weather and Solar Climate Profiles (Open-Meteo REST API)</h3>
       <pre><code>curl -s "https://api.open-meteo.com/v1/forecast?latitude=20.68&longitude=78.55&hourly=temperature_2m,relative_humidity_2m,soil_moisture_0_to_1cm,surface_solar_radiation" \
   | jq '{elevation: .elevation, current_temp: .hourly.temperature_2m[0]}'</code></pre>
     </div>
 
     <div class="step-card">
-      <h3>3. Soil Chemistry and 3D Texture (ISRIC SoilGrids REST API)</h3>
+      <h3>5. Soil Chemistry and 3D Texture (ISRIC SoilGrids REST API)</h3>
       <pre><code>curl -s "https://rest.isric.org/soilgrids/v2.0/properties/query?lon=78.55&lat=20.68&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm" \
   | jq '.properties.layers[] | {name: .name, mean_value: .depths[0].values.mean}'</code></pre>
     </div>
 
     <div class="step-card">
-      <h3>4. Hyperspectral Data Cubes (DLR EOC STAC API)</h3>
+      <h3>6. Hyperspectral Data Cubes (DLR EOC STAC API)</h3>
       <pre><code>curl -s "https://geoservice.dlr.de/eoc/ogc/stac/v1/search?collections=ENMAP_L2A&bbox=78.50,20.65,78.60,20.72&limit=2" \
   | jq '.features[] | {id: .id, datetime: .properties.datetime, assets: .assets | keys}'</code></pre>
     </div>
@@ -557,4 +645,3 @@ const manyPaths = await client.downloadMany(scenes, "visual", "./downloads", {
 
 </body>
 </html>
-
