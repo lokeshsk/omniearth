@@ -29,9 +29,10 @@ def format_size(bytes_num: int) -> str:
 
 def cmd_categories(args, client: OmniEarth):
     """List supported categories and their capabilities."""
-    print("=" * 65)
-    print(" OmniEarth Supported Modalities & Data Providers")
-    print("=" * 65)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Supported Modalities & Data Providers".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
     categories = {
         "optical": {
             "name": "Optical Multispectral Imagery",
@@ -73,16 +74,17 @@ def cmd_categories(args, client: OmniEarth):
             print(f"   Sources:  {', '.join(info['sources'])}")
         print(f"   Backend:  {info['backend']}")
         print(f"   Auth:     {info['auth']}")
-    print("\n" + "=" * 65)
+    print("\n+" + "-" * (width - 2) + "+")
 
 
 def cmd_info(args, client: OmniEarth):
     """Display system status, versions, and credential health."""
-    print("=" * 65)
-    print(f" OmniEarth Engine v{omniearth.__version__}")
-    print(f" Author: Lokesh Kumar (lokesh.skshukla@gmail.com)")
-    print(f" Homepage: https://lokeshsk.github.io/omniearth/")
-    print("=" * 65)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Engine v{omniearth.__version__} Diagnostic Dashboard".ljust(width - 1) + "|")
+    print(f"| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".ljust(width - 1) + "|")
+    print(f"| Homepage: https://lokeshsk.github.io/omniearth/".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
 
     print("\n[Credential & Environment Status]")
     dlr_u = config.get("DLR_USERNAME")
@@ -95,13 +97,13 @@ def cmd_info(args, client: OmniEarth):
     ed_u = config.get("EARTHDATA_USERNAME")
     ed_status = "Configured" if ed_u else "Optional (Needed for NASA EMIT direct cubes)"
 
-    print(f"  • DLR Geoservice (EnMAP):     {dlr_status}")
-    print(f"  • ASI PRISMA Portal:          {prisma_status}")
-    print(f"  • NASA Earthdata (EMIT):       {ed_status}")
-    print(f"  • Open-Meteo (Weather):        Native Zero-Config")
-    print(f"  • ISRIC SoilGrids (Soil):      Native Zero-Config")
-    print(f"  • AWS Earth Search (S1, S2):   Native Zero-Config")
-    print("=" * 65)
+    print(f"  • DLR Geoservice (EnMAP):     [{dlr_status}]")
+    print(f"  • ASI PRISMA Portal:          [{prisma_status}]")
+    print(f"  • NASA Earthdata (EMIT):       [{ed_status}]")
+    print(f"  • Open-Meteo (Weather):        [Native Zero-Config]")
+    print(f"  • ISRIC SoilGrids (Soil):      [Native Zero-Config]")
+    print(f"  • AWS Earth Search (S1, S2):   [Native Zero-Config]")
+    print("+" + "-" * (width - 2) + "+")
 
 
 def cmd_search(args, client: OmniEarth):
@@ -146,9 +148,10 @@ def cmd_search(args, client: OmniEarth):
         print(json.dumps(data, indent=2))
         return
 
-    print("=" * 75)
-    print(f" OmniEarth Search Results [{args.category.upper()}] — {len(results)} item(s) found")
-    print("=" * 75)
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Search Results [{args.category.upper()}] - {len(results)} item(s) found".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
 
     if not results:
         print("No items found matching the specified criteria.")
@@ -169,8 +172,9 @@ def cmd_search(args, client: OmniEarth):
             sz = f" ({format_size(a.size_bytes)})" if a.size_bytes else ""
             mtype = f" [{a.media_type}]" if a.media_type else ""
             print(f"      - {k}:{mtype}{sz}")
-    print("\n" + "=" * 75)
+    print("\n" + "-" * width)
     print("Tip: Download any scene using: omniearth download --category <cat> --id <ID>")
+    print("+" + "-" * (width - 2) + "+")
 
 
 def cmd_download(args, client: OmniEarth):
@@ -229,6 +233,14 @@ def cmd_download(args, client: OmniEarth):
     multipart = getattr(args, "no_multipart", False) is not True
     threads_val = getattr(args, "threads", 4)
     threads = threads_val if isinstance(threads_val, int) and threads_val > 0 else 4
+
+    width = 75
+    print("+" + "-" * (width - 2) + "+")
+    print(f"| OmniEarth Download Dispatch".ljust(width - 1) + "|")
+    print(f"| Target ID:  {target_result.id}".ljust(width - 1) + "|")
+    print(f"| Category:   {target_result.category.value}".ljust(width - 1) + "|")
+    print(f"| Directory:  {outdir}".ljust(width - 1) + "|")
+    print("+" + "-" * (width - 2) + "+")
 
     try:
         if getattr(args, "all", False) is True:

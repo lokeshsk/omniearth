@@ -10,6 +10,36 @@ export interface DownloadOptions {
   minMultipartSize?: number;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let val = bytes;
+  let idx = 0;
+  while (val >= 1024 && idx < units.length - 1) {
+    val /= 1024;
+    idx++;
+  }
+  return `${val.toFixed(1)} ${units[idx]}`;
+}
+
+function updateProgress(transferred: number, total: number, label: string) {
+  if (!process.stdout.isTTY) return;
+  const barWidth = 20;
+  const percent = total > 0 ? Math.min(100, Math.floor((transferred / total) * 100)) : 0;
+  const filled = total > 0 ? Math.min(barWidth, Math.floor((transferred / total) * barWidth)) : 0;
+  const bar = "=".repeat(filled) + (filled < barWidth ? ">" : "") + " ".repeat(Math.max(0, barWidth - filled - (filled < barWidth ? 1 : 0)));
+  const sizeInfo = total > 0 ? `${formatBytes(transferred)} / ${formatBytes(total)}` : formatBytes(transferred);
+  const cleanLabel = (label.length > 20 ? label.slice(0, 17) + "..." : label).padEnd(20);
+  process.stdout.write(`\r${cleanLabel} [${bar}] ${percent.toString().padStart(3)}% (${sizeInfo})`);
+}
+
+function finishProgress(label: string, total: number) {
+  if (!process.stdout.isTTY) return;
+  const cleanLabel = (label.length > 20 ? label.slice(0, 17) + "..." : label).padEnd(20);
+  const bar = "=".repeat(20);
+  process.stdout.write(`\r${cleanLabel} [${bar}] 100% (${formatBytes(total)})\n`);
+}
+
 export abstract class BaseProvider {
   abstract category: Category;
   abstract name: string;
@@ -83,6 +113,9 @@ export abstract class BaseProvider {
       }
     }
 
+    let completedBytes = 0;
+    const desc = path.basename(partPath).replace(/\.part$/, "");
+
     try {
       await Promise.all(
         ranges.map(async ([start, end]) => {
@@ -100,10 +133,13 @@ export abstract class BaseProvider {
               const buf = Buffer.from(value);
               await fileHandle.write(buf, 0, buf.length, currentPos);
               currentPos += buf.length;
+              completedBytes += buf.length;
+              updateProgress(completedBytes, totalSize, desc);
             }
           }
         })
       );
+      finishProgress(desc, totalSize);
     } finally {
       await fileHandle.close();
     }
@@ -208,12 +244,16 @@ export abstract class BaseProvider {
 
     const fileStream = fs.createWriteStream(partPath, { flags: isResume ? "a" : "w" });
     const reader = res.body.getReader();
+    let currentBytes = existingPart;
+    const desc = path.basename(destPath);
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       if (value) {
         fileStream.write(Buffer.from(value));
+        currentBytes += value.length;
+        updateProgress(currentBytes, totalSize || currentBytes, desc);
       }
     }
 
@@ -222,6 +262,7 @@ export abstract class BaseProvider {
       fileStream.on("error", reject);
     });
 
+    finishProgress(desc, currentBytes);
     fs.renameSync(partPath, destPath);
   }
 }

@@ -80,7 +80,7 @@ class BaseProvider(ABC):
                 unit="B",
                 unit_scale=True,
                 unit_divisor=1024,
-                leave=False
+                leave=True
             ) as pbar:
                 def download_range(start: int, end: int):
                     req_headers = headers.copy() if headers else {}
@@ -120,7 +120,7 @@ class BaseProvider(ABC):
             unit="B",
             unit_scale=True,
             unit_divisor=1024,
-            leave=False
+            leave=True
         ) as pbar:
             for chunk in resp.iter_content(chunk_size=1024 * 1024):
                 if chunk:

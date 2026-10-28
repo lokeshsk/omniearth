@@ -14,9 +14,10 @@ program
   .command("categories")
   .description("List all supported modalities, satellites, and providers")
   .action(() => {
-    console.log("=================================================================");
-    console.log(" OmniEarth Supported Modalities & Data Providers (Node.js SDK)");
-    console.log("=================================================================");
+    const width = 75;
+    console.log("+" + "-".repeat(width - 2) + "+");
+    console.log("| OmniEarth Supported Modalities & Data Providers (Node.js SDK)".padEnd(width - 1) + "|");
+    console.log("+" + "-".repeat(width - 2) + "+");
     console.log("\n[OPTICAL] - Optical Multispectral Imagery");
     console.log("   Sensors:  Sentinel-2 L2A (10m), Landsat-8/9 (30m)");
     console.log("   Backend:  AWS Open Data STAC / Element84 Earth Search");
@@ -41,30 +42,31 @@ program
     console.log("   Sources:  ISRIC SoilGrids v2.0 (250m global)");
     console.log("   Backend:  ISRIC REST API");
     console.log("   Auth:     Zero-Config (Public)");
-    console.log("\n=================================================================");
+    console.log("\n+" + "-".repeat(width - 2) + "+");
   });
 
 program
   .command("info")
   .description("Display engine status, versions, and credential health")
   .action(() => {
-    console.log("=================================================================");
-    console.log(" OmniEarth Engine v1.0.0 (Node.js SDK)");
-    console.log(" Author: Lokesh Kumar (lokesh.skshukla@gmail.com)");
-    console.log(" Homepage: https://lokeshsk.github.io/omniearth/");
-    console.log("=================================================================");
+    const width = 75;
+    console.log("+" + "-".repeat(width - 2) + "+");
+    console.log("| OmniEarth Engine v1.0.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
+    console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
+    console.log("+" + "-".repeat(width - 2) + "+");
     console.log("\n[Credential & Environment Status]");
     const [dlrU] = config.dlrCredentials;
     const [prismaU] = config.prismaCredentials;
     const [edU] = config.earthdataCredentials;
 
-    console.log(`  • DLR Geoservice (EnMAP):     ${dlrU ? "Configured" : "Optional (Needed for EnMAP raw download)"}`);
-    console.log(`  • ASI PRISMA Portal:          ${prismaU ? "Configured" : "Optional (Needed for PRISMA download)"}`);
-    console.log(`  • NASA Earthdata (EMIT):       ${edU ? "Configured" : "Optional (Needed for NASA EMIT direct cubes)"}`);
-    console.log("  • Open-Meteo (Weather):        Native Zero-Config");
-    console.log("  • ISRIC SoilGrids (Soil):      Native Zero-Config");
-    console.log("  • AWS Earth Search (S1, S2):   Native Zero-Config");
-    console.log("=================================================================");
+    console.log(`  • DLR Geoservice (EnMAP):     [${dlrU ? "Configured" : "Optional (Needed for EnMAP raw download)"}]`);
+    console.log(`  • ASI PRISMA Portal:          [${prismaU ? "Configured" : "Optional (Needed for PRISMA download)"}]`);
+    console.log(`  • NASA Earthdata (EMIT):       [${edU ? "Configured" : "Optional (Needed for NASA EMIT direct cubes)"}]`);
+    console.log("  • Open-Meteo (Weather):        [Native Zero-Config]");
+    console.log("  • ISRIC SoilGrids (Soil):      [Native Zero-Config]");
+    console.log("  • AWS Earth Search (S1, S2):   [Native Zero-Config]");
+    console.log("+" + "-".repeat(width - 2) + "+");
   });
 
 program
@@ -111,9 +113,10 @@ program
         return;
       }
 
-      console.log("===========================================================================");
-      console.log(` OmniEarth Search Results [${opts.category.toUpperCase()}] — ${results.length} item(s) found`);
-      console.log("===========================================================================");
+      const width = 75;
+      console.log("+" + "-".repeat(width - 2) + "+");
+      console.log(`| OmniEarth Search Results [${opts.category.toUpperCase()}] - ${results.length} item(s) found`.padEnd(width - 1) + "|");
+      console.log("+" + "-".repeat(width - 2) + "+");
 
       for (let i = 0; i < results.length; i++) {
         const r = results[i];
@@ -128,7 +131,9 @@ program
           console.log(`      - ${k}: [${a.media_type || "asset"}]`);
         }
       }
-      console.log("\n===========================================================================");
+      console.log("\n" + "-".repeat(width));
+      console.log("Tip: Download any scene using: omniearth download --category <cat> --id <ID>");
+      console.log("+" + "-".repeat(width - 2) + "+");
     } catch (err: any) {
       console.error(`Error: ${err.message}`);
       process.exit(1);
@@ -183,6 +188,14 @@ program
         }
         targetResult = results[0];
       }
+
+      const width = 75;
+      console.log("+" + "-".repeat(width - 2) + "+");
+      console.log("| OmniEarth Download Dispatch (Node.js)".padEnd(width - 1) + "|");
+      console.log(`| Target ID:  ${targetResult.id || opts.id || "Search Match"}`.padEnd(width - 1) + "|");
+      console.log(`| Category:   ${opts.category}`.padEnd(width - 1) + "|");
+      console.log(`| Directory:  ${opts.outdir}`.padEnd(width - 1) + "|");
+      console.log("+" + "-".repeat(width - 2) + "+");
 
       if (opts.all) {
         const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, downloadOpts);
