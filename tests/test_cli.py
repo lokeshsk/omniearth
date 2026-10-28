@@ -6,6 +6,7 @@ import os
 import sys
 import subprocess
 from unittest.mock import patch, MagicMock
+import omniearth
 from omniearth.cli import format_size, cmd_categories, cmd_info, cmd_search, cmd_download, main
 from omniearth import OmniEarth, Category, SearchResult, Asset
 
@@ -95,7 +96,7 @@ def test_cmd_download_direct(capsys, tmp_path):
 def test_cli_subprocess_version():
     res = subprocess.run([sys.executable, "-m", "omniearth.cli", "--version"], capture_output=True, text=True)
     assert res.returncode == 0
-    assert "omniearth 1.0.0" in res.stdout or "omniearth 1.0.0" in res.stderr
+    assert f"omniearth {omniearth.__version__}" in res.stdout or f"omniearth {omniearth.__version__}" in res.stderr
 
 
 def test_cmd_search_json_and_point(capsys):

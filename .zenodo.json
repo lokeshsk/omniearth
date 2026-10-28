@@ -19,6 +19,9 @@
     "enmap",
     "prisma",
     "landsat",
+    "elevation",
+    "dem",
+    "landcover",
     "copernicus",
     "open-meteo"
   ],

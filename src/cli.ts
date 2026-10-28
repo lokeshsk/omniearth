@@ -8,7 +8,7 @@ const program = new Command();
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.0.0");
+  .version("1.1.0");
 
 program
   .command("categories")
@@ -61,7 +61,7 @@ program
   .action(() => {
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.0.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.1.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");
