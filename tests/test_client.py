@@ -295,3 +295,45 @@ def test_client_get_time_series():
         assert sat_ts[0]["id"] == "s2"
         assert sat_ts[1]["id"] == "s1"
 
+
+def test_client_new_modalities_shortcuts():
+    client = OmniEarth()
+    mock_res = SearchResult(id="mock", collection="c", category=Category.ATMOSPHERE, provider="p")
+
+    with patch.object(client, "search", return_value=[mock_res]):
+        assert client.get_atmosphere(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_fire(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_ocean(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_altimetry(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_precipitation(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_hydrology(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+        assert client.get_nightlights(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_res
+
+    # Empty result branch
+    with patch.object(client, "search", return_value=[]):
+        assert client.get_atmosphere(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_fire(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_ocean(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_altimetry(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_precipitation(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_hydrology(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+        assert client.get_nightlights(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+
+    # Atmosphere time series
+    mock_atmo_res = SearchResult(
+        id="atmo_feed", collection="atmo", category=Category.ATMOSPHERE, provider="copernicus_s5p",
+        properties={
+            "_raw_data": {
+                "hourly": {
+                    "time": ["2026-10-20T00:00", "2026-10-20T01:00"],
+                    "nitrogen_dioxide": [10.5, 12.0]
+                }
+            }
+        }
+    )
+    with patch.object(client, "search", return_value=[mock_atmo_res]):
+        atmo_ts = client.get_time_series(category="atmosphere", bbox=[78.0, 20.0, 78.5, 20.5])
+        assert len(atmo_ts) == 2
+        assert atmo_ts[0]["nitrogen_dioxide"] == 10.5
+
+

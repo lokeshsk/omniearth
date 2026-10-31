@@ -288,6 +288,55 @@
           <td><span class="pill">Zero-Config</span> Direct Public COGs</td>
         </tr>
         <tr>
+          <td><strong>Atmospheric Trace Gases</strong></td>
+          <td>Sentinel-5P TROPOMI (NO2, CO, CH4, SO2), CAMS</td>
+          <td>7km x 3.5km / hourly</td>
+          <td>Copernicus STAC / Open-Meteo</td>
+          <td><span class="pill">Zero-Config</span> Open API / COGs</td>
+        </tr>
+        <tr>
+          <td><strong>Active Fire & Thermal</strong></td>
+          <td>NASA FIRMS (VIIRS 375m, MODIS 1km)</td>
+          <td>375m - 1km</td>
+          <td>NASA FIRMS REST API</td>
+          <td><span class="pill">Zero-Config</span> Open Hotspot API</td>
+        </tr>
+        <tr>
+          <td><strong>Ocean & Marine Biology</strong></td>
+          <td>Sentinel-3 OLCI (21 bands Chlorophyll), SLSTR (SST)</td>
+          <td>300m - 1km</td>
+          <td>Copernicus Data Space STAC</td>
+          <td><span class="pill">Zero-Config</span> Open Data</td>
+        </tr>
+        <tr>
+          <td><strong>Radar Altimetry</strong></td>
+          <td>Sentinel-6 Poseidon-4 SAR, Jason-3</td>
+          <td>Wave height, SSHA, lake height</td>
+          <td>PO.DAAC CMR STAC / Copernicus</td>
+          <td><span class="pill">Zero-Config</span> Open Data</td>
+        </tr>
+        <tr>
+          <td><strong>High-Res Precipitation</strong></td>
+          <td>NASA GPM IMERG (0.1 deg), CHIRPS v2.0 (0.05 deg)</td>
+          <td>5km - 10km daily/hourly</td>
+          <td>NASA GES DISC / UCSB S3</td>
+          <td><span class="pill">Zero-Config</span> Open GeoTIFFs</td>
+        </tr>
+        <tr>
+          <td><strong>Hydrology & Soil Water</strong></td>
+          <td>NASA SMAP L-band (0-100cm root-zone), CGLS SWI</td>
+          <td>9km / 1km</td>
+          <td>NSIDC DAAC CMR STAC</td>
+          <td><span class="pill">Zero-Config</span> Open Data</td>
+        </tr>
+        <tr>
+          <td><strong>Nighttime Lights</strong></td>
+          <td>Suomi-NPP / NOAA-20 VIIRS DNB, Black Marble</td>
+          <td>750m nocturnal radiance</td>
+          <td>NASA LPCLOUD CMR STAC</td>
+          <td><span class="pill">Zero-Config</span> Open Data</td>
+        </tr>
+        <tr>
           <td><strong>Hyperspectral Cubes</strong></td>
           <td>DLR EnMAP (224 bands, 420-2450 nm)</td>
           <td>30m</td>
@@ -316,8 +365,8 @@
           <td><span class="pill">Zero-Config</span> Public COGs</td>
         </tr>
         <tr>
-          <td><strong>Weather & Climate</strong></td>
-          <td>Open-Meteo, ERA5 Reanalysis</td>
+          <td><strong>Weather & Evapotranspiration</strong></td>
+          <td>Open-Meteo, ERA5 Reanalysis, FAO-56 ET0, VPD</td>
           <td>1-11km hourly</td>
           <td>Open-Meteo REST API</td>
           <td><span class="pill">Zero-Config</span> Open API</td>
@@ -640,7 +689,7 @@ console.log("Weather steps:", ts.length);</code></pre>
 
 <footer>
   <p>&copy; 2026 <strong>Lokesh Kumar</strong> (<a href="mailto:lokesh.skshukla@gmail.com">lokesh.skshukla@gmail.com</a>) - <a href="https://lokeshsk.github.io">lokeshsk.github.io</a></p>
-  <p style="margin-top: 0.5rem; font-size: 0.82rem;">OmniEarth is an open-source orchestration engine. All satellite and sensor imagery remain the copyright of upstream agencies (ESA, NASA, USGS, DLR, ASI, Open-Meteo, ISRIC).</p>
+  <p style="margin-top: 0.5rem; font-size: 0.82rem;">OmniEarth is an open-source decentralized orchestration engine. All satellite and sensor datasets remain the sovereign property of upstream providers (ESA Copernicus, NASA, USGS, DLR, ASI, Open-Meteo, ECMWF, ISRIC, JAXA, CHIRPS). OmniEarth authors assume no liability for misuse; users are strictly required to independently review and comply with each provider's individual license and data access policy.</p>
 </footer>
 
 </body>

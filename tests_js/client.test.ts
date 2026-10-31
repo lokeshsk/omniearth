@@ -14,6 +14,15 @@ test("OmniEarth initializes and lists categories", () => {
   assert.ok(categories.includes("sar"));
   assert.ok(categories.includes("weather"));
   assert.ok(categories.includes("soil"));
+  assert.ok(categories.includes("elevation"));
+  assert.ok(categories.includes("landcover"));
+  assert.ok(categories.includes("atmosphere"));
+  assert.ok(categories.includes("fire"));
+  assert.ok(categories.includes("ocean"));
+  assert.ok(categories.includes("altimetry"));
+  assert.ok(categories.includes("precipitation"));
+  assert.ok(categories.includes("hydrology"));
+  assert.ok(categories.includes("nightlights"));
 });
 
 test("OmniEarth resolves bounding boxes correctly and parses search results", async () => {
@@ -604,5 +613,79 @@ test("OmniEarth computeIndex and getTimeSeries", async () => {
     assert.equal(ts[0].temperature_2m, 22.5);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("OmniEarth searches and downloads new modalities (Atmosphere, Fire, Ocean, Altimetry, Precipitation, Hydrology, Nightlights)", async () => {
+  const client = new OmniEarth();
+  const tmpDir = path.join(os.tmpdir(), "omniearth_modalities_test");
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      elevation: 250.0,
+      hourly: {
+        time: ["2026-10-25T00:00"],
+        nitrogen_dioxide: [11.2],
+        pm10: [15.0]
+      }
+    })
+  }) as any;
+
+  try {
+    // 1. Atmosphere
+    const atmo = await client.getAtmosphere([78.0, 20.0, 78.5, 20.5], "2026-10-20", "2026-10-22");
+    assert.ok(atmo);
+    assert.equal(atmo.category, Category.ATMOSPHERE);
+    const atmoPath = await client.download(atmo, undefined, tmpDir);
+    assert.ok(fs.existsSync(atmoPath));
+
+    // 2. Fire
+    const fire = await client.getFire([78.0, 20.0, 78.5, 20.5], "2026-10-28");
+    assert.ok(fire);
+    assert.equal(fire.category, Category.FIRE);
+    const firePath = await client.download(fire, undefined, tmpDir);
+    assert.ok(fs.existsSync(firePath));
+
+    // 3. Ocean
+    const ocean = await client.getOcean([78.0, 20.0, 78.5, 20.5], "2026-10-25");
+    assert.ok(ocean);
+    assert.equal(ocean.category, Category.OCEAN);
+    const oceanPath = await client.download(ocean, undefined, tmpDir);
+    assert.ok(fs.existsSync(oceanPath));
+
+    // 4. Altimetry
+    const alti = await client.getAltimetry([78.0, 20.0, 78.5, 20.5], "2026-10-25");
+    assert.ok(alti);
+    assert.equal(alti.category, Category.ALTIMETRY);
+    const altiPath = await client.download(alti, undefined, tmpDir);
+    assert.ok(fs.existsSync(altiPath));
+
+    // 5. Precipitation
+    const precip = await client.getPrecipitation([78.0, 20.0, 78.5, 20.5], "2026-10-25");
+    assert.ok(precip);
+    assert.equal(precip.category, Category.PRECIPITATION);
+    const precipPath = await client.download(precip, undefined, tmpDir);
+    assert.ok(fs.existsSync(precipPath));
+
+    // 6. Hydrology
+    const hydro = await client.getHydrology([78.0, 20.0, 78.5, 20.5], "2026-10-25");
+    assert.ok(hydro);
+    assert.equal(hydro.category, Category.HYDROLOGY);
+    const hydroPath = await client.download(hydro, undefined, tmpDir);
+    assert.ok(fs.existsSync(hydroPath));
+
+    // 7. Nightlights
+    const ntl = await client.getNightlights([78.0, 20.0, 78.5, 20.5], "2026-10-25");
+    assert.ok(ntl);
+    assert.equal(ntl.category, Category.NIGHTLIGHTS);
+    const ntlPath = await client.download(ntl, undefined, tmpDir);
+    assert.ok(fs.existsSync(ntlPath));
+  } finally {
+    globalThis.fetch = originalFetch;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

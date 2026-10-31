@@ -16,6 +16,13 @@ from omniearth.providers.weather import WeatherProvider
 from omniearth.providers.soil import SoilProvider
 from omniearth.providers.elevation import ElevationProvider
 from omniearth.providers.landcover import LandcoverProvider
+from omniearth.providers.atmosphere import AtmosphereProvider
+from omniearth.providers.fire import FireProvider
+from omniearth.providers.ocean import OceanProvider
+from omniearth.providers.altimetry import AltimetryProvider
+from omniearth.providers.precipitation import PrecipitationProvider
+from omniearth.providers.hydrology import HydrologyProvider
+from omniearth.providers.nightlights import NightlightsProvider
 
 
 class OmniEarth:
@@ -46,7 +53,14 @@ class OmniEarth:
             Category.WEATHER: WeatherProvider(),
             Category.SOIL: SoilProvider(),
             Category.ELEVATION: ElevationProvider(),
-            Category.LANDCOVER: LandcoverProvider()
+            Category.LANDCOVER: LandcoverProvider(),
+            Category.ATMOSPHERE: AtmosphereProvider(),
+            Category.FIRE: FireProvider(),
+            Category.OCEAN: OceanProvider(),
+            Category.ALTIMETRY: AltimetryProvider(),
+            Category.PRECIPITATION: PrecipitationProvider(),
+            Category.HYDROLOGY: HydrologyProvider(),
+            Category.NIGHTLIGHTS: NightlightsProvider()
         }
 
     def list_categories(self) -> List[str]:
@@ -231,6 +245,92 @@ class OmniEarth:
         results = self.search(category=Category.LANDCOVER, bbox=bbox, aoi=aoi, point=point, geojson=geojson, year=year)
         return results[0] if results else None
 
+    def get_atmosphere(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        variables: Optional[List[str]] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch atmospheric & air quality trace gases."""
+        results = self.search(category=Category.ATMOSPHERE, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date, end_date=end_date, variables=variables)
+        return results[0] if results else None
+
+    def get_fire(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch active fire hotspots and thermal anomalies."""
+        results = self.search(category=Category.FIRE, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
+    def get_ocean(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch Sentinel-3 ocean color & SST data."""
+        results = self.search(category=Category.OCEAN, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
+    def get_altimetry(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch Sentinel-6 radar altimetry & wave height."""
+        results = self.search(category=Category.ALTIMETRY, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
+    def get_precipitation(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch GPM & CHIRPS high-resolution rainfall."""
+        results = self.search(category=Category.PRECIPITATION, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
+    def get_hydrology(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch SMAP root-zone soil moisture."""
+        results = self.search(category=Category.HYDROLOGY, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
+    def get_nightlights(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Instant convenience shortcut to fetch VIIRS Black Marble nocturnal lights."""
+        results = self.search(category=Category.NIGHTLIGHTS, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
+        return results[0] if results else None
+
     def compute_index(
         self,
         index: str,
@@ -345,7 +445,7 @@ class OmniEarth:
             limit=limit
         )
 
-        if cat_enum == Category.WEATHER and results:
+        if cat_enum in (Category.WEATHER, Category.ATMOSPHERE) and results:
             raw = results[0].properties.get("_raw_data", {})
             hourly = raw.get("hourly", {})
             times = hourly.get("time", [])

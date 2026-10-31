@@ -15,6 +15,13 @@ import { WeatherProvider } from "./providers/weather.js";
 import { SoilProvider } from "./providers/soil.js";
 import { ElevationProvider } from "./providers/elevation.js";
 import { LandcoverProvider } from "./providers/landcover.js";
+import { AtmosphereProvider } from "./providers/atmosphere.js";
+import { FireProvider } from "./providers/fire.js";
+import { OceanProvider } from "./providers/ocean.js";
+import { AltimetryProvider } from "./providers/altimetry.js";
+import { PrecipitationProvider } from "./providers/precipitation.js";
+import { HydrologyProvider } from "./providers/hydrology.js";
+import { NightlightsProvider } from "./providers/nightlights.js";
 
 export class OmniEarth {
   private providers: Map<Category, BaseProvider> = new Map();
@@ -31,6 +38,13 @@ export class OmniEarth {
     this.providers.set(Category.SOIL, new SoilProvider());
     this.providers.set(Category.ELEVATION, new ElevationProvider());
     this.providers.set(Category.LANDCOVER, new LandcoverProvider());
+    this.providers.set(Category.ATMOSPHERE, new AtmosphereProvider());
+    this.providers.set(Category.FIRE, new FireProvider());
+    this.providers.set(Category.OCEAN, new OceanProvider());
+    this.providers.set(Category.ALTIMETRY, new AltimetryProvider());
+    this.providers.set(Category.PRECIPITATION, new PrecipitationProvider());
+    this.providers.set(Category.HYDROLOGY, new HydrologyProvider());
+    this.providers.set(Category.NIGHTLIGHTS, new NightlightsProvider());
   }
 
   public listCategories(): string[] {
@@ -244,6 +258,94 @@ export class OmniEarth {
     return results[0] || null;
   }
 
+  public async getAtmosphere(
+    bbox: [number, number, number, number],
+    startDate?: string,
+    endDate?: string,
+    variables?: string[]
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.ATMOSPHERE,
+      bbox,
+      startDate,
+      endDate,
+      variables
+    });
+    return results[0] || null;
+  }
+
+  public async getFire(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.FIRE,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
+  public async getOcean(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.OCEAN,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
+  public async getAltimetry(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.ALTIMETRY,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
+  public async getPrecipitation(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.PRECIPITATION,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
+  public async getHydrology(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.HYDROLOGY,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
+  public async getNightlights(
+    bbox: [number, number, number, number],
+    startDate?: string
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.NIGHTLIGHTS,
+      bbox,
+      startDate
+    });
+    return results[0] || null;
+  }
+
   public computeIndex(
     index: string,
     inputs: {
@@ -292,7 +394,7 @@ export class OmniEarth {
   public async getTimeSeries(params: SearchParams): Promise<any[]> {
     const results = await this.search(params);
     const cat = typeof params.category === "string" ? params.category : params.category;
-    if (cat === Category.WEATHER && results.length > 0) {
+    if ((cat === Category.WEATHER || cat === Category.ATMOSPHERE) && results.length > 0) {
       const raw = results[0].properties?.raw_feed || results[0].properties?._raw_data || {};
       const hourly = raw.hourly || {};
       const times: string[] = hourly.time || [];

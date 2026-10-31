@@ -28,6 +28,13 @@ def test_cmd_categories(capsys):
     assert "OPTICAL" in captured.out
     assert "HYPERSPECTRAL" in captured.out
     assert "WEATHER" in captured.out
+    assert "ATMOSPHERE" in captured.out
+    assert "FIRE" in captured.out
+    assert "OCEAN" in captured.out
+    assert "ALTIMETRY" in captured.out
+    assert "PRECIPITATION" in captured.out
+    assert "HYDROLOGY" in captured.out
+    assert "NIGHTLIGHTS" in captured.out
 
 
 def test_cmd_info(capsys):

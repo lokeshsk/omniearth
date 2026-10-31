@@ -9,7 +9,14 @@ export enum Category {
   WEATHER = "weather",
   SOIL = "soil",
   ELEVATION = "elevation",
-  LANDCOVER = "landcover"
+  LANDCOVER = "landcover",
+  ATMOSPHERE = "atmosphere",
+  FIRE = "fire",
+  OCEAN = "ocean",
+  ALTIMETRY = "altimetry",
+  PRECIPITATION = "precipitation",
+  HYDROLOGY = "hydrology",
+  NIGHTLIGHTS = "nightlights"
 }
 
 export interface AOI {

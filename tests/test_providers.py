@@ -3,6 +3,7 @@ Comprehensive Unit Tests for All Provider Adapters
 """
 
 import os
+import pytest
 import requests
 from unittest.mock import patch, MagicMock
 from omniearth.models import AOI, FilterOptions, Category, SearchResult, Asset
@@ -12,6 +13,13 @@ from omniearth.providers.weather import WeatherProvider
 from omniearth.providers.sar import SARProvider
 from omniearth.providers.soil import SoilProvider
 from omniearth.providers.base import BaseProvider
+from omniearth.providers.atmosphere import AtmosphereProvider
+from omniearth.providers.fire import FireProvider
+from omniearth.providers.ocean import OceanProvider
+from omniearth.providers.altimetry import AltimetryProvider
+from omniearth.providers.precipitation import PrecipitationProvider
+from omniearth.providers.hydrology import HydrologyProvider
+from omniearth.providers.nightlights import NightlightsProvider
 
 
 def test_optical_provider_search():
@@ -827,4 +835,250 @@ def test_landcover_provider_search_and_download(tmp_path):
         empty_res = SearchResult(id="E", collection="c", category=Category.LANDCOVER, provider="p", assets={})
         with pytest.raises(ValueError, match="No valid Landcover asset found"):
             provider.download(empty_res)
+
+
+def test_atmosphere_provider_search_and_download(tmp_path):
+    provider = AtmosphereProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.url = "https://air-quality-api.open-meteo.com/v1/air-quality?mock=1"
+    mock_resp.json.return_value = {
+        "elevation": 240.0,
+        "hourly": {
+            "pm10": [12.0, 14.0, 15.0],
+            "pm2_5": [6.0, 7.0, 8.0],
+            "nitrogen_dioxide": [8.5, 9.0, 9.2]
+        }
+    }
+
+    with patch("requests.get", return_value=mock_resp):
+        results = provider.search(aoi=aoi, start_date="2026-10-20", end_date="2026-10-22")
+        assert len(results) == 1
+        res = results[0]
+        assert res.category == Category.ATMOSPHERE
+        assert res.provider == "copernicus_s5p"
+        assert "data" in res.assets
+        assert "tropospheric_no2" in res.assets
+        assert res.properties["elevation"] == 240.0
+
+        # Download cached
+        out = provider.download(res, outdir=str(tmp_path))
+        assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="S5P_STREAM", collection="c", category=Category.ATMOSPHERE, provider="p",
+        assets={"data": Asset(key="data", href="https://example.com/data.json")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/data.json") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/data.json"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="S5P_E", collection="c", category=Category.ATMOSPHERE, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for atmosphere result"):
+        provider.download(res_empty)
+
+    # Error branch
+    with patch("requests.get", side_effect=requests.exceptions.RequestException("API error")):
+        fail_res = provider.search(aoi=aoi)
+        assert fail_res == []
+
+
+def test_fire_provider_search_and_download(tmp_path):
+    provider = FireProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-28")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.FIRE
+    assert res.provider == "nasa_firms"
+    assert "data" in res.assets
+    assert "geojson" in res.assets
+    assert len(res.properties["features_sample"]) == 1
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="FIRE_STREAM", collection="c", category=Category.FIRE, provider="p",
+        assets={"data": Asset(key="data", href="https://example.com/fire.csv")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/fire.csv") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/fire.csv"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="FIRE_E", collection="c", category=Category.FIRE, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for fire result"):
+        provider.download(res_empty)
+
+
+def test_ocean_provider_search_and_download(tmp_path):
+    provider = OceanProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-25")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.OCEAN
+    assert res.provider == "copernicus_sentinel3"
+    assert "chlorophyll_a" in res.assets
+    assert "sea_surface_temp" in res.assets
+    assert "turbidity" in res.assets
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="OCEAN_STREAM", collection="c", category=Category.OCEAN, provider="p",
+        assets={"chlorophyll_a": Asset(key="chlorophyll_a", href="https://example.com/chl.tif")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/chl.tif") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/chl.tif"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="OCEAN_E", collection="c", category=Category.OCEAN, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for ocean result"):
+        provider.download(res_empty)
+
+
+def test_altimetry_provider_search_and_download(tmp_path):
+    provider = AltimetryProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-25")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.ALTIMETRY
+    assert res.provider == "copernicus_sentinel6"
+    assert "altimetry_l2" in res.assets
+    assert "wave_height" in res.assets
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="ALTI_STREAM", collection="c", category=Category.ALTIMETRY, provider="p",
+        assets={"altimetry_l2": Asset(key="altimetry_l2", href="https://example.com/s6.nc")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/s6.nc") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/s6.nc"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="ALTI_E", collection="c", category=Category.ALTIMETRY, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for altimetry result"):
+        provider.download(res_empty)
+
+
+def test_precipitation_provider_search_and_download(tmp_path):
+    provider = PrecipitationProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-25")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.PRECIPITATION
+    assert res.provider == "nasa_gpm_chirps"
+    assert "gpm_imerg_daily" in res.assets
+    assert "chirps_rainfall" in res.assets
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="PRECIP_STREAM", collection="c", category=Category.PRECIPITATION, provider="p",
+        assets={"gpm_imerg_daily": Asset(key="gpm_imerg_daily", href="https://example.com/gpm.tif")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/gpm.tif") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/gpm.tif"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="PRECIP_E", collection="c", category=Category.PRECIPITATION, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for precipitation result"):
+        provider.download(res_empty)
+
+
+def test_hydrology_provider_search_and_download(tmp_path):
+    provider = HydrologyProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-25")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.HYDROLOGY
+    assert res.provider == "nasa_smap"
+    assert "surface_soil_moisture" in res.assets
+    assert "rootzone_soil_moisture" in res.assets
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="HYDRO_STREAM", collection="c", category=Category.HYDROLOGY, provider="p",
+        assets={"surface_soil_moisture": Asset(key="surface_soil_moisture", href="https://example.com/smap.tif")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/smap.tif") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/smap.tif"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="HYDRO_E", collection="c", category=Category.HYDROLOGY, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for hydrology result"):
+        provider.download(res_empty)
+
+
+def test_nightlights_provider_search_and_download(tmp_path):
+    provider = NightlightsProvider()
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    results = provider.search(aoi=aoi, start_date="2026-10-25")
+    assert len(results) == 1
+    res = results[0]
+    assert res.category == Category.NIGHTLIGHTS
+    assert res.provider == "nasa_blackmarble"
+    assert "dnb_radiance" in res.assets
+    assert "monthly_composite" in res.assets
+
+    # Download cached
+    out = provider.download(res, outdir=str(tmp_path))
+    assert os.path.exists(out)
+
+    # Download stream
+    res_stream = SearchResult(
+        id="NTL_STREAM", collection="c", category=Category.NIGHTLIGHTS, provider="p",
+        assets={"dnb_radiance": Asset(key="dnb_radiance", href="https://example.com/dnb.tif")}
+    )
+    with patch.object(provider, "_stream_download", return_value="/tmp/dnb.tif") as mock_stream:
+        out_stream = provider.download(res_stream, outdir=str(tmp_path))
+        assert out_stream == "/tmp/dnb.tif"
+        mock_stream.assert_called_once()
+
+    # Download missing asset error
+    res_empty = SearchResult(id="NTL_E", collection="c", category=Category.NIGHTLIGHTS, provider="p", assets={})
+    with pytest.raises(ValueError, match="No download asset found for nightlights result"):
+        provider.download(res_empty)
+
 

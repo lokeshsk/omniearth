@@ -6,9 +6,9 @@ authors:
     email: "lokesh.skshukla@gmail.com"
     website: "https://lokeshsk.github.io"
 title: "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine"
-version: 1.1.0
+version: 1.2.0
 doi: "10.5281/zenodo.23689449"
-date-released: 2026-10-28
+date-released: 2026-10-31
 url: "https://github.com/lokeshsk/omniearth"
 repository-code: "https://github.com/lokeshsk/omniearth"
 license: "Custom (Attribution & Citation)"
@@ -26,6 +26,22 @@ keywords:
   - elevation
   - dem
   - landcover
+  - atmosphere
+  - sentinel-5p
+  - tropomi
+  - fire
+  - firms
+  - ocean
+  - sentinel-3
+  - altimetry
+  - sentinel-6
+  - precipitation
+  - gpm
+  - chirps
+  - hydrology
+  - smap
+  - nightlights
+  - viirs
   - copernicus
   - open-meteo
-abstract: "OmniEarth is a universal, open-source multi-modal data engine, CLI, and dual SDK (Python & Node.js) for discovering, streaming, and downloading optical, SAR, hyperspectral, weather, soil, and elevation datasets across global open repositories."
+abstract: "OmniEarth is a universal, open-source multi-modal data engine, CLI, and dual SDK (Python & Node.js) for discovering, streaming, and downloading optical, SAR, hyperspectral, weather, soil, elevation, land cover, atmosphere, fire, ocean, altimetry, precipitation, hydrology, and nightlight datasets across global open repositories."
