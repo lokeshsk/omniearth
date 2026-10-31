@@ -1,6 +1,6 @@
 {
   "name": "omniearth",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine",
   "main": "./dist/index.js",
@@ -33,6 +33,9 @@
     "enmap",
     "prisma",
     "sentinel-1",
+    "elevation",
+    "dem",
+    "landcover",
     "stac",
     "weather",
     "soilgrids"

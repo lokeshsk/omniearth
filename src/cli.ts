@@ -8,7 +8,7 @@ const program = new Command();
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.0.0");
+  .version("1.2.0");
 
 program
   .command("categories")
@@ -44,13 +44,48 @@ program
     console.log("   Auth:     Zero-Config (Free public direct COGs)");
 
     console.log("\n[WEATHER] - Weather & Climate Profiles");
-    console.log("   Sources:  Open-Meteo Zero-Config Global Model, ERA5 Reanalysis");
+    console.log("   Sources:  Open-Meteo Zero-Config Global Model, ERA5 Reanalysis, FAO-56 ET0, VPD");
     console.log("   Backend:  Open-Meteo REST API");
     console.log("   Auth:     Zero-Config (No API key needed)");
 
     console.log("\n[SOIL] - Soil Composition & 3D Profiles");
     console.log("   Sources:  ISRIC SoilGrids v2.0 (250m global)");
     console.log("   Backend:  ISRIC REST API");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[ATMOSPHERE] - Atmospheric Composition & Trace Gases");
+    console.log("   Sources:  Copernicus Sentinel-5P TROPOMI (NO2, CO, CH4, SO2), CAMS ECMWF Air Quality");
+    console.log("   Backend:  Copernicus Data Space STAC / Open-Meteo Air Quality");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[FIRE] - Active Fire & Thermal Anomalies");
+    console.log("   Sources:  NASA FIRMS VIIRS 375m (Suomi-NPP, NOAA-20), MODIS 1km");
+    console.log("   Backend:  NASA FIRMS REST API");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[OCEAN] - Ocean Color, Marine Biology & SST");
+    console.log("   Sources:  Copernicus Sentinel-3 OLCI (21 bands Chlorophyll-a), Sentinel-3 SLSTR (SST)");
+    console.log("   Backend:  Copernicus Data Space STAC / EUMETSAT Data Store");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[ALTIMETRY] - Radar Altimetry & Water Surface Levels");
+    console.log("   Sources:  Copernicus Sentinel-6 Michael Freilich (Poseidon-4 SAR Altimeter), Jason-3");
+    console.log("   Backend:  PO.DAAC CMR STAC / Copernicus Marine");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[PRECIPITATION] - High-Resolution Precipitation & Rainfall Climatology");
+    console.log("   Sources:  NASA GPM IMERG (0.1 deg half-hourly/daily), CHIRPS v2.0 (0.05 deg daily)");
+    console.log("   Backend:  NASA CMR STAC / UCSB CHIRPS AWS Open Data");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[HYDROLOGY] - Hydrology & Root-Zone Soil Moisture");
+    console.log("   Sources:  NASA SMAP (L-band Radiometer 9km/3km), CGLS Soil Water Index");
+    console.log("   Backend:  NSIDC DAAC CMR STAC");
+    console.log("   Auth:     Zero-Config (Public)");
+
+    console.log("\n[NIGHTLIGHTS] - Nighttime Lights & Nocturnal Radiance");
+    console.log("   Sources:  Suomi-NPP / NOAA-20 VIIRS Day/Night Band (DNB), NASA Black Marble");
+    console.log("   Backend:  NASA LPCLOUD CMR STAC");
     console.log("   Auth:     Zero-Config (Public)");
     console.log("\n+" + "-".repeat(width - 2) + "+");
   });
@@ -61,7 +96,7 @@ program
   .action(() => {
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.0.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.2.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");

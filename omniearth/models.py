@@ -18,6 +18,13 @@ class Category(str, Enum):
     SOIL = "soil"
     ELEVATION = "elevation"
     LANDCOVER = "landcover"
+    ATMOSPHERE = "atmosphere"
+    FIRE = "fire"
+    OCEAN = "ocean"
+    ALTIMETRY = "altimetry"
+    PRECIPITATION = "precipitation"
+    HYDROLOGY = "hydrology"
+    NIGHTLIGHTS = "nightlights"
 
 
 class AOI(BaseModel):

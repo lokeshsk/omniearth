@@ -17,8 +17,15 @@
 - **Synthetic Aperture Radar (SAR)**: Sentinel-1 (GRD / RTC VV/VH 10m COGs).
 - **Digital Elevation Models (DEM / DSM / DTM)**: Copernicus DEM GLO-30 (30m DSM), SRTM GL1 (30m), ALOS World 3D (AW3D30 30m).
 - **Land Use / Land Cover (LULC)**: ESA WorldCover 10m (2020 v100 and 2021 v200 global maps).
-- **Weather & Climate Profiles**: Open-Meteo zero-config global forecasts, hourly soil moisture (0-9cm), and ERA5 historical reanalysis.
+- **Weather & Climate Profiles**: Open-Meteo zero-config global forecasts, hourly soil moisture (0-9cm), FAO-56 reference evapotranspiration (ET0), vapour pressure deficit (VPD), and ERA5 historical reanalysis.
 - **Soil & 3D Profiles**: ISRIC SoilGrids v2.0 (250m global physical and chemical soil profiles across 0-200cm).
+- **Atmospheric Composition & Air Quality**: Copernicus Sentinel-5P TROPOMI (NO2, CO, CH4, SO2, O3, Aerosol Index) and CAMS ECMWF.
+- **Active Fire & Thermal Anomalies**: NASA FIRMS VIIRS (375m) and MODIS (1km) near-real-time active fire hotspots and Fire Radiative Power (FRP).
+- **Ocean Color, Marine Biology & SST**: Copernicus Sentinel-3 OLCI (21 spectral bands chlorophyll-a and turbidity) and SLSTR sea surface temperature (SST).
+- **Radar Altimetry & Water Surface Levels**: Copernicus Sentinel-6 Michael Freilich / Jason-3 Poseidon-4 SAR altimeter (Significant Wave Height, Sea Surface Height Anomaly, lake levels).
+- **High-Resolution Precipitation**: NASA GPM IMERG (0.1 deg half-hourly/daily global calibrated precipitation) and CHIRPS v2.0 (0.05 deg daily rainfall 1981-present).
+- **Hydrology & Root-Zone Soil Moisture**: NASA SMAP (L-band 9km/3km radiometer surface 0-5cm and root-zone 0-100cm soil water content).
+- **Nighttime Lights & Nocturnal Radiance**: Suomi-NPP / NOAA-20 VIIRS Day/Night Band (DNB 750m) and NASA Black Marble (calibrated nocturnal radiance and stable lights).
 
 ---
 
@@ -48,10 +55,17 @@
 | **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420-2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
 | **Hyperspectral** | NASA EMIT | 60m, 285 bands (381-2493 nm) | NASA CMR STAC | Free Earthdata Login (Optional) |
 | **Hyperspectral** | ASI PRISMA | 30m, 240 bands | ASI PRISMA Portal | Free ASI Account (Optional) |
-| **Weather** | Open-Meteo, ERA5 Reanalysis | Global 1-11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
+| **Weather** | Open-Meteo, ERA5, FAO-56 ET0, VPD | Global 1-11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
 | **Soil & 3D** | ISRIC SoilGrids v2.0 | 250m 3D profiles (0-200cm) | ISRIC REST API | **Zero-Config** (Public open API) |
+| **Atmosphere** | Sentinel-5P TROPOMI, CAMS | NO2, CO, CH4, SO2, O3, AOD | Copernicus STAC / Open-Meteo | **Zero-Config** (Public open API) |
+| **Fire** | NASA FIRMS (VIIRS 375m, MODIS 1km) | 375m-1km active hotspots, FRP | NASA FIRMS REST API | **Zero-Config** (Public open API) |
+| **Ocean** | Sentinel-3 OLCI (21 bands) & SLSTR | 300m-1km Chlorophyll, SST | Copernicus Data Space STAC | **Zero-Config** (Public open data) |
+| **Altimetry** | Sentinel-6 Poseidon-4, Jason-3 | SWH (m), SSHA (m), lake heights | PO.DAAC CMR STAC / Copernicus | **Zero-Config** (Public open data) |
+| **Precipitation** | NASA GPM IMERG, CHIRPS v2.0 | 0.05-0.1 deg daily/hourly rain | NASA GES DISC / UCSB S3 | **Zero-Config** (Public open data) |
+| **Hydrology** | NASA SMAP (L-band), CGLS SWI | 9km/1km Root-zone soil moisture | NSIDC DAAC CMR STAC | **Zero-Config** (Public open data) |
+| **Nightlights** | VIIRS Day/Night Band, Black Marble | 750m nocturnal radiance | NASA LPCLOUD CMR STAC | **Zero-Config** (Public open data) |
 
-> **Note**: Optical Sentinel-2, Sentinel-1 SAR, Copernicus DEM GLO-30, SRTM, ALOS, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require **zero credentials** and work out of the box with zero setup.
+> **Note**: 12 of the 14 modalities require **zero credentials** and work out of the box with zero setup! Free accounts are optionally supported for direct raw hyperspectral mission downloads (DLR EnMAP and NASA EMIT).
 
 ---
 
@@ -551,12 +565,17 @@ OmniEarth is distributed under the **OmniEarth Open Source License with Mandator
 1. **Academic Citation**: Any research, preprint, paper, or published benchmark utilizing OmniEarth must cite the software using Zenodo DOI or the citation below.
 2. **Corporate & Commercial Attribution**: Any commercial SaaS platform, internal corporate dashboard, website, or data pipeline utilizing OmniEarth must display prominent attribution:  
    *`"Powered by OmniEarth (https://github.com/lokeshsk/omniearth)"`* in user interfaces and technical documentation.
-3. **Upstream Data Provider Liability**: OmniEarth is an orchestration and aggregation tool. It does not own or re-license upstream satellite imagery or sensor data:
-   - **Copernicus Sentinel Data**: Open access under the [EU Copernicus Legal Notice](https://sentinels.copernicus.eu/web/sentinel/terms-conditions).
-   - **DLR EnMAP Data**: Governed by the [DLR EnMAP Data Policy](https://www.enmap.org/data/policy/).
-   - **NASA EMIT / USGS Landsat**: Public domain under [NASA Data and Information Policy](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/data-and-information-policy).
-   - **Open-Meteo**: Non-commercial open access under [CC BY 4.0](https://open-meteo.com/en/terms).
+3. **Upstream Data Provider Liability and Usage Policies**: OmniEarth is an orchestration and aggregation tool. It does not own, host, or re-license upstream satellite imagery, trace gas models, altimetry data, or meteorological feeds. All users and organizations are strictly and solely responsible for reviewing and complying with each provider's individual license:
+   - **ESA / Copernicus Sentinel Data**: Open access under the [EU Copernicus Legal Notice](https://sentinels.copernicus.eu/web/sentinel/terms-conditions) (Sentinel-1, Sentinel-2, Sentinel-3, Sentinel-5P, Sentinel-6, Copernicus DEM, ESA WorldCover).
+   - **NASA Open Data Policy**: Public domain and open access under [NASA Data and Information Policy](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/data-and-information-policy) (Landsat 8/9, NASA EMIT Hyperspectral, NASA FIRMS Active Fire, NASA GPM IMERG Precipitation, NASA SMAP Hydrology, Suomi-NPP / NOAA VIIRS Nighttime Lights).
+   - **German Aerospace Center (DLR)**: Governed by the [DLR EnMAP Data Policy and User License](https://www.enmap.org/data/policy/).
+   - **Italian Space Agency (ASI)**: Governed by the [ASI PRISMA Policy on Data Access and Utilization](https://prisma.asi.it/).
+   - **Open-Meteo & ECMWF**: Open access under [CC BY 4.0](https://open-meteo.com/en/terms).
    - **ISRIC SoilGrids**: Open access under [CC BY 4.0](https://www.isric.org/about/data-policy).
+   - **JAXA ALOS**: Open access under [JAXA Earth Observation Data Policy](https://earth.jaxa.jp/en/data/policy/).
+   - **UC Santa Barbara CHIRPS**: Open access under [Climate Hazards Center Data Policy](https://www.chc.ucsb.edu/data/chirps).
+
+> **Disclaimer of Liability**: OmniEarth is a decentralized data orchestration engine. The authors and maintainers of OmniEarth assume no liability and are **NOT responsible for any misuse**, unintended interpretation, commercial compliance failure, or breach of individual upstream data provider licenses committed by users of this library. Users must independently ensure their data access patterns comply with each sovereign provider's operational terms.
 
 ---
 

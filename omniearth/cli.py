@@ -66,7 +66,7 @@ def cmd_categories(args, client: OmniEarth):
         },
         "weather": {
             "name": "Weather & Climate Profiles",
-            "sources": ["Open-Meteo Zero-Config Global Model", "ERA5 Reanalysis"],
+            "sources": ["Open-Meteo Zero-Config Global Model", "ERA5 Reanalysis", "FAO-56 ET0", "VPD"],
             "backend": "Open-Meteo REST API",
             "auth": "Zero-Config (No API key needed)"
         },
@@ -74,6 +74,48 @@ def cmd_categories(args, client: OmniEarth):
             "name": "Soil Composition & 3D Profiles",
             "sources": ["ISRIC SoilGrids v2.0 (250m global)"],
             "backend": "ISRIC REST API",
+            "auth": "Zero-Config (Public)"
+        },
+        "atmosphere": {
+            "name": "Atmospheric Composition & Trace Gases",
+            "sources": ["Copernicus Sentinel-5P TROPOMI", "CAMS ECMWF Air Quality"],
+            "backend": "Copernicus Data Space STAC / Open-Meteo Air Quality",
+            "auth": "Zero-Config (Public)"
+        },
+        "fire": {
+            "name": "Active Fire & Thermal Anomalies",
+            "sources": ["NASA FIRMS VIIRS 375m (Suomi-NPP, NOAA-20)", "MODIS 1km"],
+            "backend": "NASA FIRMS REST API",
+            "auth": "Zero-Config (Public)"
+        },
+        "ocean": {
+            "name": "Ocean Color, Marine Biology & SST",
+            "sources": ["Copernicus Sentinel-3 OLCI (21 bands)", "Sentinel-3 SLSTR (SST)"],
+            "backend": "Copernicus Data Space STAC / EUMETSAT",
+            "auth": "Zero-Config (Public)"
+        },
+        "altimetry": {
+            "name": "Radar Altimetry & Water Surface Levels",
+            "sources": ["Copernicus Sentinel-6 Michael Freilich (Poseidon-4 SAR)", "Jason-3"],
+            "backend": "PO.DAAC CMR STAC / Copernicus Marine",
+            "auth": "Zero-Config (Public)"
+        },
+        "precipitation": {
+            "name": "High-Resolution Precipitation & Rainfall Climatology",
+            "sources": ["NASA GPM IMERG (0.1 deg half-hourly/daily)", "CHIRPS v2.0 (0.05 deg)"],
+            "backend": "NASA CMR STAC / UCSB CHIRPS AWS Open Data",
+            "auth": "Zero-Config (Public)"
+        },
+        "hydrology": {
+            "name": "Hydrology & Root-Zone Soil Moisture",
+            "sources": ["NASA SMAP (L-band Radiometer 9km/3km)", "CGLS Soil Water Index"],
+            "backend": "NSIDC DAAC CMR STAC",
+            "auth": "Zero-Config (Public)"
+        },
+        "nightlights": {
+            "name": "Nighttime Lights & Nocturnal Radiance",
+            "sources": ["Suomi-NPP / NOAA-20 VIIRS Day/Night Band (DNB)", "NASA Black Marble"],
+            "backend": "NASA LPCLOUD CMR STAC",
             "auth": "Zero-Config (Public)"
         }
     }

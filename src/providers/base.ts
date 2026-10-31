@@ -161,7 +161,7 @@ export abstract class BaseProvider {
     const minMultipartSize = options?.minMultipartSize ?? (10 * 1024 * 1024);
 
     const headers: Record<string, string> = {
-      "User-Agent": "OmniEarth-NodeSDK/1.0.0",
+      "User-Agent": "OmniEarth-NodeSDK/1.2.0",
       ...authHeaders
     };
 

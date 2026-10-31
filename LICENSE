@@ -47,17 +47,27 @@ citation or the repository's official Zenodo DOI:
 OmniEarth is an open-source aggregation and orchestration tool designed to facilitate 
 seamless programmatic access to disparate public and authorized data endpoints. 
 OmniEarth DOES NOT own, host, re-license, or claim copyright over any upstream data, 
-satellite imagery, meteorological feeds, or soil models accessed via its adapters.
+satellite imagery, meteorological feeds, trace gas profiles, altimetry records, 
+or soil models accessed via its adapters.
 
 All users, organizations, and downstream applications are strictly and solely liable 
-for reviewing, accepting, and adhering to the sovereign licenses and terms of service 
-governing each individual upstream data provider, including but not limited to:
-   - ESA / Copernicus Open Access Policy (Sentinel-1, Sentinel-2, Copernicus DEM)
-   - USGS / NASA Open Data Policy (Landsat, MODIS, VIIRS, EMIT, GPM, SMAP)
+for reviewing, accepting, and adhering to the sovereign licenses, data usage policies, 
+and terms of service governing each individual upstream data provider, including:
+   - ESA / Copernicus Open Access Policy (Sentinel-1 SAR, Sentinel-2 Optical, Copernicus DEM,
+     Sentinel-3 OLCI & SLSTR Marine, Sentinel-5P TROPOMI Atmosphere, Sentinel-6 Altimetry,
+     ESA WorldCover Land Cover 10m)
+   - USGS / NASA Open Data Policy (Landsat 8/9, NASA EMIT Hyperspectral, NASA FIRMS Active Fire,
+     NASA GPM IMERG Precipitation, NASA SMAP Soil Moisture, Suomi-NPP / NOAA VIIRS Nighttime Lights)
    - German Aerospace Center (DLR) EnMAP Data Policy and User License v1.1
    - Italian Space Agency (ASI) PRISMA Policy on Data Access and Utilization
-   - Open-Meteo & ECMWF Public Terms (Creative Commons Attribution 4.0 - CC BY 4.0)
+   - Open-Meteo & ECMWF Public Terms (Creative Commons Attribution 4.0 International - CC BY 4.0)
    - ISRIC World Soil Information Open Data License (SoilGrids CC BY 4.0)
+   - JAXA ALOS AW3D30 Open Data Policy & OpenTopography S3 Archive
+   - Climate Hazards Center CHIRPS v2.0 Data Policy (UC Santa Barbara)
+
+THE AUTHORS AND CONTRIBUTORS OF OMNIEARTH ARE NOT RESPONSIBLE FOR ANY MISUSE,
+UNINTENDED INTERPRETATION, LEGAL NON-COMPLIANCE, UNAUTHORIZED REDISTRIBUTION, OR
+VIOLATION OF THIRD-PARTY DATA POLICIES BY USERS OF THIS SOFTWARE.
 
 5. DISCLAIMER OF WARRANTY & LIMITATION OF LIABILITY
 ---------------------------------------------------

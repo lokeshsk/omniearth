@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omniearth"
-version = "1.0.0"
+version = "1.2.0"
 description = "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -23,7 +23,25 @@ keywords = [
   "enmap",
   "prisma",
   "landsat",
-  "emit",
+  "elevation",
+  "dem",
+  "landcover",
+  "atmosphere",
+  "sentinel-5p",
+  "tropomi",
+  "fire",
+  "firms",
+  "ocean",
+  "sentinel-3",
+  "altimetry",
+  "sentinel-6",
+  "precipitation",
+  "gpm",
+  "chirps",
+  "hydrology",
+  "smap",
+  "nightlights",
+  "viirs",
   "copernicus",
   "open-meteo"
 ]
