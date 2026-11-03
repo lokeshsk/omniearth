@@ -385,6 +385,12 @@ def test_cmd_compute(capsys, tmp_path):
     assert "Saved:" in captured_arr.out
     assert os.path.exists(outp)
 
+    # 2b. SAVI with l_factor
+    args_savi = MagicMock(index="savi", nir="0.8", red="0.2", green=None, blue=None, rededge=None, swir=None, l_factor="0.5", outpath=None)
+    cmd_compute(args_savi, client)
+    captured_savi = capsys.readouterr()
+    assert "SAVI" in captured_savi.out
+
     # 3. Error compute -> sys.exit(1)
     args_err = MagicMock()
     args_err.index = "ndvi"

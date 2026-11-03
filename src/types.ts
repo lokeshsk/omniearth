@@ -21,6 +21,7 @@ export enum Category {
 
 export interface AOI {
   bbox: [number, number, number, number]; // [min_lon, min_lat, max_lon, max_lat]
+  geometry?: Record<string, any>;
 }
 
 export interface Asset {
@@ -50,6 +51,7 @@ export interface FilterOptions {
   depth?: string;
   dataset?: string;
   year?: number;
+  level?: "sr" | "toa" | string;
   limit?: number;
 }
 
@@ -67,6 +69,7 @@ export interface SearchParams {
   depth?: string;
   dataset?: string;
   year?: number;
+  level?: "sr" | "toa" | string;
   limit?: number;
 }
 

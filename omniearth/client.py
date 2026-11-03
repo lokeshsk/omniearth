@@ -23,6 +23,7 @@ from omniearth.providers.altimetry import AltimetryProvider
 from omniearth.providers.precipitation import PrecipitationProvider
 from omniearth.providers.hydrology import HydrologyProvider
 from omniearth.providers.nightlights import NightlightsProvider
+from omniearth.indices import compute_spectral_index
 
 
 class OmniEarth:
@@ -101,6 +102,7 @@ class OmniEarth:
         depth: Optional[str] = None,
         dataset: Optional[str] = None,
         year: Optional[int] = None,
+        level: Optional[str] = "sr",
         limit: int = 10
     ) -> List[SearchResult]:
         """
@@ -116,6 +118,7 @@ class OmniEarth:
             depth=depth,
             dataset=dataset,
             year=year,
+            level=level,
             limit=limit
         )
 
@@ -331,6 +334,54 @@ class OmniEarth:
         results = self.search(category=Category.NIGHTLIGHTS, bbox=bbox, aoi=aoi, point=point, geojson=geojson, start_date=start_date)
         return results[0] if results else None
 
+    def get_optical(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        max_cloud_cover: float = 20.0,
+        level: str = "sr"
+    ) -> Optional[SearchResult]:
+        """Convenience shortcut to fetch an Optical scene (Sentinel-2 L2A SR or L1C TOA)."""
+        results = self.search(
+            category=Category.OPTICAL,
+            bbox=bbox,
+            aoi=aoi,
+            point=point,
+            geojson=geojson,
+            start_date=start_date,
+            end_date=end_date,
+            max_cloud_cover=max_cloud_cover,
+            level=level,
+            limit=1
+        )
+        return results[0] if results else None
+
+    def get_sar(
+        self,
+        bbox: Optional[List[float]] = None,
+        aoi: Optional[AOI] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> Optional[SearchResult]:
+        """Convenience shortcut to fetch a Sentinel-1 SAR scene."""
+        results = self.search(
+            category=Category.SAR,
+            bbox=bbox,
+            aoi=aoi,
+            point=point,
+            geojson=geojson,
+            start_date=start_date,
+            end_date=end_date,
+            limit=1
+        )
+        return results[0] if results else None
+
     def compute_index(
         self,
         index: str,
@@ -340,80 +391,32 @@ class OmniEarth:
         blue: Optional[Any] = None,
         rededge: Optional[Any] = None,
         swir: Optional[Any] = None,
+        l_factor: float = 0.5,
         outpath: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Computes standard remote sensing indices on arrays or scalars:
+        Computes standard remote sensing radiometric & biophysical indices:
         - ndvi: (nir - red) / (nir + red)
         - ndwi: (green - nir) / (green + nir)
         - ndre: (nir - rededge) / (nir + rededge)
-        - evi: 2.5 * (nir - red) / (nir + 6*red - 7.5*blue + 1)
-        - nbr: (nir - swir) / (nir + swir)
+        - evi:  2.5 * (nir - red) / (nir + 6*red - 7.5*blue + 1)
+        - nbr:  (nir - swir) / (nir + swir)
+        - savi: (1 + L) * (nir - red) / (nir + red + L)
+        - msavi: 0.5 * (2*nir + 1 - sqrt((2*nir + 1)^2 - 8*(nir - red)))
+        - bsi:  ((swir + red) - (nir + blue)) / ((swir + red) + (nir + blue))
+        - mndwi: (green - swir) / (green + swir)
         """
-        import json
-
-        idx = index.lower()
-        eps = 1e-8
-
-        def calc(n, r=None, g=None, b=None, re=None, s=None):
-            if idx == "ndvi":
-                if r is None:
-                    raise ValueError("Red band required to compute NDVI")
-                return (float(n) - float(r)) / (float(n) + float(r) + eps)
-            elif idx == "ndwi":
-                if g is None:
-                    raise ValueError("Green band required to compute NDWI")
-                return (float(g) - float(n)) / (float(g) + float(n) + eps)
-            elif idx == "ndre":
-                if re is None:
-                    raise ValueError("RedEdge band required to compute NDRE")
-                return (float(n) - float(re)) / (float(n) + float(re) + eps)
-            elif idx == "evi":
-                if r is None or b is None:
-                    raise ValueError("Red and Blue bands required to compute EVI")
-                return 2.5 * ((float(n) - float(r)) / (float(n) + 6.0 * float(r) - 7.5 * float(b) + 1.0 + eps))
-            elif idx == "nbr":
-                if s is None:
-                    raise ValueError("SWIR band required to compute NBR")
-                return (float(n) - float(s)) / (float(n) + float(s) + eps)
-            else:
-                raise ValueError(f"Unsupported index '{index}'. Supported: ndvi, ndwi, ndre, evi, nbr")
-
-        if isinstance(nir, (list, tuple)):
-            r_list = red if isinstance(red, (list, tuple)) else [red] * len(nir)
-            g_list = green if isinstance(green, (list, tuple)) else [green] * len(nir)
-            b_list = blue if isinstance(blue, (list, tuple)) else [blue] * len(nir)
-            re_list = rededge if isinstance(rededge, (list, tuple)) else [rededge] * len(nir)
-            s_list = swir if isinstance(swir, (list, tuple)) else [swir] * len(nir)
-
-            data = [calc(nir[i], r_list[i], g_list[i], b_list[i], re_list[i], s_list[i]) for i in range(len(nir))]
-            mean_val = sum(data) / len(data) if data else 0.0
-            min_val = min(data) if data else 0.0
-            max_val = max(data) if data else 0.0
-            variance = sum((x - mean_val) ** 2 for x in data) / len(data) if data else 0.0
-            std_val = variance ** 0.5
-        else:
-            val = calc(nir, red, green, blue, rededge, swir)
-            data = val
-            mean_val = float(val)
-            min_val = float(val)
-            max_val = float(val)
-            std_val = 0.0
-
-        stats = {
-            "index": idx,
-            "mean": mean_val,
-            "min": min_val,
-            "max": max_val,
-            "std": std_val,
-            "data": data
-        }
-
-        if outpath:
-            with open(outpath, "w", encoding="utf-8") as f:
-                json.dump(stats, f, indent=2)
-
-        return stats
+        return compute_spectral_index(
+            index=index,
+            nir=nir,
+            red=red,
+            green=green,
+            blue=blue,
+            rededge=rededge,
+            swir=swir,
+            l_factor=l_factor,
+            outpath=outpath
+        )
 
     def get_time_series(
         self,

@@ -21,6 +21,7 @@ class OpticalProvider(BaseProvider):
 
     STAC_SEARCH_URL = "https://earth-search.aws.element84.com/v1/search"
     DEFAULT_COLLECTION = "sentinel-2-l2a"
+    TOA_COLLECTION = "sentinel-2-l1c"
 
     def search(
         self,
@@ -30,7 +31,9 @@ class OpticalProvider(BaseProvider):
         filters: Optional[FilterOptions] = None
     ) -> List[SearchResult]:
         limit = filters.limit if filters else 10
-        collections = [self.DEFAULT_COLLECTION]
+        level = (filters.level or "sr").lower() if filters and filters.level else "sr"
+        target_collection = self.TOA_COLLECTION if level == "toa" else self.DEFAULT_COLLECTION
+        collections = [target_collection]
         
         payload = {
             "collections": collections,
@@ -74,7 +77,7 @@ class OpticalProvider(BaseProvider):
 
                 results.append(SearchResult(
                     id=feat_id,
-                    collection=feat.get("collection", self.DEFAULT_COLLECTION),
+                    collection=feat.get("collection", target_collection),
                     category=self.category,
                     provider="aws_earth_search",
                     datetime=props.get("datetime"),

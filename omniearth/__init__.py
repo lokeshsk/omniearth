@@ -12,6 +12,18 @@ __author__ = "Lokesh Kumar"
 
 from omniearth.client import OmniEarth
 from omniearth.models import AOI, SearchResult, Asset, Category, FilterOptions
+from omniearth.indices import (
+    compute_spectral_index,
+    calculate_ndvi,
+    calculate_ndwi,
+    calculate_ndre,
+    calculate_evi,
+    calculate_nbr,
+    calculate_savi,
+    calculate_msavi,
+    calculate_bsi,
+    calculate_mndwi,
+)
 
 __all__ = [
     "OmniEarth",
@@ -20,4 +32,14 @@ __all__ = [
     "Asset",
     "Category",
     "FilterOptions",
+    "compute_spectral_index",
+    "calculate_ndvi",
+    "calculate_ndwi",
+    "calculate_ndre",
+    "calculate_evi",
+    "calculate_nbr",
+    "calculate_savi",
+    "calculate_msavi",
+    "calculate_bsi",
+    "calculate_mndwi",
 ]

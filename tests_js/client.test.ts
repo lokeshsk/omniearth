@@ -583,12 +583,28 @@ test("OmniEarth computeIndex and getTimeSeries", async () => {
   const nbr = client.computeIndex("nbr", { nir: 0.8, swir: 0.3 });
   assert.ok(typeof nbr === "number");
 
+  const savi = client.computeIndex("savi", { nir: 0.8, red: 0.2, lFactor: 0.5 });
+  assert.ok(typeof savi === "number");
+
+  const msavi = client.computeIndex("msavi", { nir: 0.8, red: 0.2 });
+  assert.ok(typeof msavi === "number");
+
+  const bsi = client.computeIndex("bsi", { nir: 0.8, red: 0.2, blue: 0.1, swir: 0.4 });
+  assert.ok(typeof bsi === "number");
+
+  const mndwi = client.computeIndex("mndwi", { nir: 0.0, green: 0.6, swir: 0.2 });
+  assert.ok(typeof mndwi === "number");
+
   // Array calculation
   const arrNdvi = client.computeIndex("ndvi", { nir: [0.8, 0.9], red: [0.2, 0.1] }) as number[];
   assert.equal(arrNdvi.length, 2);
 
   assert.throws(() => client.computeIndex("unknown_idx", { nir: 0.8 }), /Unsupported index/);
   assert.throws(() => client.computeIndex("ndvi", { nir: 0.8 }), /Red band required/);
+  assert.throws(() => client.computeIndex("savi", { nir: 0.8 }), /Red band required/);
+  assert.throws(() => client.computeIndex("msavi", { nir: 0.8 }), /Red band required/);
+  assert.throws(() => client.computeIndex("bsi", { nir: 0.8, red: 0.2 }), /Red, Blue, and SWIR bands required/);
+  assert.throws(() => client.computeIndex("mndwi", { nir: 0.8, green: 0.5 }), /Green and SWIR bands required/);
 
   // Time-series
   const originalFetch = globalThis.fetch;
@@ -684,6 +700,39 @@ test("OmniEarth searches and downloads new modalities (Atmosphere, Fire, Ocean, 
     assert.equal(ntl.category, Category.NIGHTLIGHTS);
     const ntlPath = await client.download(ntl, undefined, tmpDir);
     assert.ok(fs.existsSync(ntlPath));
+
+    // 8. Optical TOA and shortcuts
+    let requestedCollection = "";
+    globalThis.fetch = async (url: any, init?: any) => {
+      if (init?.body) {
+        const body = JSON.parse(init.body);
+        if (body.collections) {
+          requestedCollection = body.collections[0];
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          type: "FeatureCollection",
+          features: [
+            {
+              id: "S2_TOA_MOCK",
+              collection: requestedCollection,
+              properties: { datetime: "2026-10-25T00:00:00Z" },
+              assets: { visual: { href: "https://aws.com/vis.tif" } }
+            }
+          ]
+        })
+      } as any;
+    };
+
+    const optToa = await client.getOptical([78.0, 20.0, 78.5, 20.5], { level: "toa" });
+    assert.ok(optToa);
+    assert.equal(requestedCollection, "sentinel-2-l1c");
+
+    const sarItem = await client.getSar([78.0, 20.0, 78.5, 20.5]);
+    assert.ok(sarItem);
   } finally {
     globalThis.fetch = originalFetch;
     fs.rmSync(tmpDir, { recursive: true, force: true });

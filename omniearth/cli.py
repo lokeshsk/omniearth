@@ -15,6 +15,12 @@ from omniearth.client import OmniEarth
 from omniearth.models import Category
 from omniearth.config import config
 
+ASCII_BANNER = r"""  ___  __  __ _   _ ___ _____    _    ____ _____ _   _ 
+ / _ \|  \/  | \ | |_ _| ____|  / \  |  _ \_   _| | | |
+| | | | |\/| |  \| || ||  _|   / _ \ | |_) || | | |_| |
+| |_| | |  | | |\  || || |___ / ___ \|  _ < | | |  _  |
+ \___/|_|  |_|_| \_|___|_____/_/   \_\_| \_\|_| |_| |_|"""
+
 
 def format_size(bytes_num: int) -> str:
     """Format bytes into human-readable string."""
@@ -133,6 +139,7 @@ def cmd_categories(args, client: OmniEarth):
 
 def cmd_info(args, client: OmniEarth):
     """Display system status, versions, and credential health."""
+    print(ASCII_BANNER)
     width = 75
     print("+" + "-" * (width - 2) + "+")
     print(f"| OmniEarth Engine v{omniearth.__version__} Diagnostic Dashboard".ljust(width - 1) + "|")
@@ -189,6 +196,7 @@ def cmd_search(args, client: OmniEarth):
     dataset = dataset_raw if isinstance(dataset_raw, str) else None
     year_raw = getattr(args, "year", None)
     year = year_raw if isinstance(year_raw, int) else None
+    level = getattr(args, "level", "sr")
 
     try:
         results = client.search(
@@ -203,6 +211,7 @@ def cmd_search(args, client: OmniEarth):
             depth=args.depth,
             dataset=dataset,
             year=year,
+            level=level,
             limit=args.limit
         )
     except Exception as e:
@@ -284,6 +293,7 @@ def cmd_download(args, client: OmniEarth):
     elif bbox or geojson:
         loc_desc = f"bbox {bbox}" if bbox else f"geojson '{geojson}'"
         print(f"Searching for matching scenes in {loc_desc}...")
+        level = getattr(args, "level", "sr")
         results = client.search(
             category=args.category,
             bbox=bbox,
@@ -293,6 +303,7 @@ def cmd_download(args, client: OmniEarth):
             max_cloud_cover=args.max_cloud,
             dataset=dataset,
             year=year,
+            level=level,
             limit=1
         )
         if not results:
@@ -358,6 +369,7 @@ def cmd_compute(args, client: OmniEarth):
         blue = parse_val(args.blue)
         rededge = parse_val(args.rededge)
         swir = parse_val(args.swir)
+        l_factor = float(getattr(args, "l_factor", 0.5) or 0.5)
 
         stats = client.compute_index(
             index=args.index,
@@ -367,6 +379,7 @@ def cmd_compute(args, client: OmniEarth):
             blue=blue,
             rededge=rededge,
             swir=swir,
+            l_factor=l_factor,
             outpath=args.outpath
         )
 
@@ -428,9 +441,11 @@ def cmd_timeseries(args, client: OmniEarth):
 
 
 def main():
+    description_text = f"\n{ASCII_BANNER}\n\nOmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine"
     parser = argparse.ArgumentParser(
         prog="omniearth",
-        description="OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine"
+        description=description_text,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--version", "-v", action="version", version=f"omniearth {omniearth.__version__}")
     parser.add_argument("--env", type=str, help="Path to custom .env file for credentials")
@@ -457,6 +472,7 @@ def main():
     search_p.add_argument("--limit", type=int, default=5, help="Maximum number of results (default: 5)")
     search_p.add_argument("--depth", type=str, help="Soil depth slice (e.g. 0-5cm)")
     search_p.add_argument("--variables", type=str, help="Comma-separated variables (e.g. soil or weather variables)")
+    search_p.add_argument("--level", type=str, choices=["sr", "toa"], default="sr", help="Processing level for optical: 'sr' (Surface Reflectance / BOA L2A) or 'toa' (Top of Atmosphere L1C)")
     search_p.add_argument("--json", action="store_true", help="Output raw JSON format")
 
     # Download command
@@ -466,6 +482,7 @@ def main():
     dl_p.add_argument("--bbox", nargs="+", type=float, help="Bounding box to find scene for: min_lon min_lat max_lon max_lat")
     dl_p.add_argument("--geojson", type=str, help="Path to GeoJSON file or inline GeoJSON string")
     dl_p.add_argument("--asset", type=str, help="Specific asset key to download (e.g. visual, dem, map, etc.)")
+    dl_p.add_argument("--level", type=str, choices=["sr", "toa"], default="sr", help="Processing level for optical: 'sr' (Surface Reflectance / BOA L2A) or 'toa' (Top of Atmosphere L1C)")
     dl_p.add_argument("--outdir", "-o", type=str, default="./omniearth_downloads", help="Output directory")
     dl_p.add_argument("--start", type=str, help="Start date filter if using bbox")
     dl_p.add_argument("--end", type=str, help="End date filter if using bbox")
@@ -478,14 +495,15 @@ def main():
     dl_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
 
     # Compute command
-    comp_p = subparsers.add_parser("compute", help="Compute remote sensing indices (NDVI, NDWI, NDRE, EVI, NBR)")
-    comp_p.add_argument("--index", required=True, choices=["ndvi", "ndwi", "ndre", "evi", "nbr"], help="Index to compute")
+    comp_p = subparsers.add_parser("compute", help="Compute remote sensing indices (NDVI, NDWI, NDRE, EVI, NBR, SAVI, MSAVI, BSI, MNDWI)")
+    comp_p.add_argument("--index", required=True, choices=["ndvi", "ndwi", "ndre", "evi", "nbr", "savi", "msavi", "bsi", "mndwi"], help="Index to compute")
     comp_p.add_argument("--nir", required=True, help="NIR value or JSON array")
     comp_p.add_argument("--red", help="Red value or JSON array")
     comp_p.add_argument("--green", help="Green value or JSON array")
     comp_p.add_argument("--blue", help="Blue value or JSON array")
     comp_p.add_argument("--rededge", help="RedEdge value or JSON array")
     comp_p.add_argument("--swir", help="SWIR value or JSON array")
+    comp_p.add_argument("--l-factor", type=float, default=0.5, help="Soil adjustment factor L for SAVI (default: 0.5)")
     comp_p.add_argument("--outpath", help="Path to save output (.npy or .json)")
 
     # Timeseries command

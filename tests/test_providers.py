@@ -50,6 +50,11 @@ def test_optical_provider_search():
         assert results[0].cloud_cover == 1.2
         assert "visual" in results[0].assets
 
+    # TOA Level test
+    with patch("requests.post", return_value=mock_resp) as mock_post:
+        results_toa = provider.search(aoi=aoi, filters=FilterOptions(limit=1, level="toa"))
+        assert mock_post.call_args[1]["json"]["collections"] == ["sentinel-2-l1c"]
+
 
 def test_optical_provider_date_filters_and_errors(tmp_path):
     provider = OpticalProvider()
