@@ -1,0 +1,42 @@
+# Source and development files
+src/
+tests/
+tests_js/
+omniearth/
+docs/
+.github/
+.vscode/
+.idea/
+
+# Virtual Environments & Python builds
+.venv/
+env/
+venv/
+build/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+__pycache__/
+
+# Python artifacts in dist
+dist/*.whl
+dist/*.tar.gz
+dist/*.zip
+
+# Credentials & environment
+.env
+.env*
+*.pem
+*.key
+
+# Data & downloads
+downloads/
+*_downloads/
+*.tif
+*.jp2
+*.nc
+*.zip
+*.tar.gz
+*.part

@@ -106,10 +106,12 @@ export class LandcoverProvider extends BaseProvider {
           seen.add(tile.id);
           results.push(tile);
         }
-        if (results.length >= limit) return results;
+        if (results.length >= limit) break;
       }
+      if (results.length >= limit) break;
     }
-    return results;
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results.slice(0, limit);
   }
 
   override async download(

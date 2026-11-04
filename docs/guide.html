@@ -344,7 +344,7 @@
   <!-- TOP NAV -->
   <header class="top-nav">
     <a href="index.html" class="brand">
-      OmniEarth <span class="badge-ver">v1.2.0</span>
+      OmniEarth <span class="badge-ver">v1.3.0</span>
     </a>
     <nav class="nav-links">
       <a href="index.html">Overview</a>
@@ -366,6 +366,7 @@
           <li><a href="#spatial-coordinates">Coordinates, BBox & GeoJSON</a></li>
           <li><a href="#satellite-dynamics">Satellite Orbits & Tasking</a></li>
           <li><a href="#processing-levels">Processing Levels (SR vs TOA)</a></li>
+          <li><a href="#temporal-ordering">Chronological Ordering (Newest First)</a></li>
         </ul>
       </div>
 
@@ -551,6 +552,22 @@
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section id="temporal-ordering">
+        <h3>Universal Chronological Ordering (Newest Acquisitions First)</h3>
+        <p>
+          A core architectural principle in OmniEarth v1.3.0 is <strong>guaranteed chronological descending order</strong> across all 14 data modalities, satellites, providers, and search interfaces (CLI, Python SDK, Node.js SDK, and REST).
+        </p>
+        <p>
+          Whenever you run <code>search()</code> or <code>omniearth search</code>, the returned scene list is strictly sorted so that the <strong>most recent acquisitions appear at the top (index 0)</strong>.
+        </p>
+        <ul>
+          <li><strong>Remote STAC Sortby:</strong> OmniEarth injects <code>"sortby": [{"field": "properties.datetime", "direction": "desc"}]</code> directly into upstream STAC payloads (e.g. AWS Earth Search, NASA CMR STAC, Copernicus Data Space), ensuring the remote server sorts and slices before applying the limit quota.</li>
+          <li><strong>Multi-Provider Unified Merging:</strong> In multi-mission categories like Hyperspectral (which queries German DLR EnMAP, NASA EMIT, and Italian ASI PRISMA), OmniEarth queries each underlying archive, aggregates the matching scenes, and performs a unified chronological sort descending. Newest scenes from any agency always rank first.</li>
+          <li><strong>Strict Year Scoping:</strong> Passing <code>--year 2026</code> (or <code>year=2026</code>) automatically bounds the datetime window to <code>2026-01-01T00:00:00Z</code> through <code>2026-12-31T23:59:59Z</code>, preventing bleed into older historical years.</li>
+          <li><strong>Ascending Time Series:</strong> When extracting temporal trends via <code>timeseries</code> or <code>get_time_series()</code>, observations are returned in chronological ascending order (oldest to newest) specifically designed for sequential plotting and trend analysis.</li>
+        </ul>
       </section>
 
       <!-- SECTION 2: CLI REFERENCE -->
@@ -974,3 +991,4 @@ omniearth download --category hyperspectral --id ENMAP01-____L2A-... --asset vni
 
 </body>
 </html>
+

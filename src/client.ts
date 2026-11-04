@@ -151,7 +151,9 @@ export class OmniEarth {
       limit: params.limit
     };
 
-    return provider.search(aoi, startDate, endDate, filters);
+    const results = await provider.search(aoi, startDate, endDate, filters);
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results;
   }
 
   public async download(

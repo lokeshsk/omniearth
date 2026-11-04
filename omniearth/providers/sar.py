@@ -33,7 +33,8 @@ class SARProvider(BaseProvider):
         payload = {
             "collections": [self.DEFAULT_COLLECTION],
             "bbox": aoi.bbox,
-            "limit": limit
+            "limit": limit,
+            "sortby": [{"field": "properties.datetime", "direction": "desc"}]
         }
 
         if start_date and end_date:
@@ -73,7 +74,8 @@ class SARProvider(BaseProvider):
                     properties=props,
                     assets=assets_dict
                 ))
-            return results
+            results.sort(key=lambda x: x.datetime or "", reverse=True)
+            return results[:limit]
         except requests.exceptions.RequestException as e:
             print(f"[ERROR] SAR STAC search error: {e}")
             return []

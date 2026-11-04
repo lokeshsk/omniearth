@@ -19,7 +19,8 @@ export class OpticalProvider extends BaseProvider {
     const payload: Record<string, any> = {
       collections: [targetCollection],
       bbox: aoi.bbox,
-      limit: filters?.limit || 10
+      limit: filters?.limit || 10,
+      sortby: [{ field: "properties.datetime", direction: "desc" }]
     };
 
     if (startDate && endDate) {
@@ -71,7 +72,8 @@ export class OpticalProvider extends BaseProvider {
       });
     }
 
-    return results;
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results.slice(0, filters?.limit || 10);
   }
 }
 

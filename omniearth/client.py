@@ -132,12 +132,14 @@ class OmniEarth:
         if not provider:
             raise ValueError(f"Unsupported category '{cat_enum}'. Supported: {self.list_categories()}")
 
-        return provider.search(
+        results = provider.search(
             aoi=resolved_aoi,
             start_date=effective_start,
             end_date=effective_end,
             filters=filters
         )
+        results.sort(key=lambda x: getattr(x, "datetime", None) or "", reverse=True)
+        return results
 
     def download(
         self,

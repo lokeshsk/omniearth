@@ -38,7 +38,8 @@ class OpticalProvider(BaseProvider):
         payload = {
             "collections": collections,
             "bbox": aoi.bbox,
-            "limit": limit
+            "limit": limit,
+            "sortby": [{"field": "properties.datetime", "direction": "desc"}]
         }
 
         # Date range
@@ -85,7 +86,8 @@ class OpticalProvider(BaseProvider):
                     properties=props,
                     assets=assets_dict
                 ))
-            return results
+            results.sort(key=lambda x: x.datetime or "", reverse=True)
+            return results[:limit]
         except requests.exceptions.RequestException as e:
             print(f"[ERROR] Optical STAC search error: {e}")
             return []
