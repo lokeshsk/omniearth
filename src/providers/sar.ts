@@ -16,7 +16,8 @@ export class SARProvider extends BaseProvider {
     const payload: Record<string, any> = {
       collections: ["sentinel-1-grd"],
       bbox: aoi.bbox,
-      limit: filters?.limit || 5
+      limit: filters?.limit || 5,
+      sortby: [{ field: "properties.datetime", direction: "desc" }]
     };
 
     if (startDate && endDate) {
@@ -60,7 +61,8 @@ export class SARProvider extends BaseProvider {
       });
     }
 
-    return results;
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results.slice(0, filters?.limit || 5);
   }
 }
 

@@ -125,9 +125,12 @@ class LandcoverProvider(BaseProvider):
                     seen.add(tile.id)
                     results.append(tile)
                 if len(results) >= limit:
-                    return results
+                    break
+            if len(results) >= limit:
+                break
 
-        return results
+        results.sort(key=lambda x: x.datetime or "", reverse=True)
+        return results[:limit]
 
     def download(
         self,

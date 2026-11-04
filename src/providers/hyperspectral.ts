@@ -9,7 +9,7 @@ export class HyperspectralProvider extends BaseProvider {
   name = "hyperspectral";
 
   private enmapStacUrl = "https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items";
-  private emitStacUrl = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL.v001/items";
+  private emitStacUrl = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search";
 
   async search(
     aoi: AOI,
@@ -29,6 +29,10 @@ export class HyperspectralProvider extends BaseProvider {
       });
       if (startDate && endDate) {
         params.append("datetime", `${startDate}T00:00:00Z/${endDate}T23:59:59Z`);
+      } else if (startDate) {
+        params.append("datetime", `${startDate}T00:00:00Z/..`);
+      } else if (endDate) {
+        params.append("datetime", `../${endDate}T23:59:59Z`);
       }
 
       const res = await fetch(`${this.enmapStacUrl}?${params.toString()}`);
@@ -62,51 +66,60 @@ export class HyperspectralProvider extends BaseProvider {
       // Continue to EMIT fallback
     }
 
-    // 2. Query NASA EMIT CMR STAC if results < limit
-    if (results.length < limit) {
-      try {
-        const bboxStr = `${aoi.bbox[0]},${aoi.bbox[1]},${aoi.bbox[2]},${aoi.bbox[3]}`;
-        const params = new URLSearchParams({
-          bbox: bboxStr,
-          limit: String(limit - results.length)
-        });
-        if (startDate && endDate) {
-          params.append("datetime", `${startDate}T00:00:00Z/${endDate}T23:59:59Z`);
-        }
-
-        const res = await fetch(`${this.emitStacUrl}?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          for (const feat of data.features || []) {
-            const assets: Record<string, Asset> = {};
-            for (const [k, a] of Object.entries<any>(feat.assets || {})) {
-              assets[k] = {
-                key: k,
-                href: a.href,
-                title: a.title,
-                media_type: a.type,
-                roles: a.roles
-              };
-            }
-
-            results.push({
-              id: feat.id,
-              collection: "emit-l2a-rfl",
-              category: this.category,
-              provider: "nasa_emit",
-              datetime: feat.properties?.datetime,
-              bbox: feat.bbox,
-              properties: { ...feat.properties, platform: "emit" },
-              assets
-            });
-          }
-        }
-      } catch {
-        // Handled
+    // 2. Query NASA EMIT CMR STAC
+    try {
+      const payload: Record<string, any> = {
+        collections: ["EMITL2ARFL_001"],
+        bbox: aoi.bbox,
+        limit,
+        sortby: [{ field: "properties.datetime", direction: "desc" }]
+      };
+      if (startDate && endDate) {
+        payload.datetime = `${startDate}T00:00:00Z/${endDate}T23:59:59Z`;
+      } else if (startDate) {
+        payload.datetime = `${startDate}T00:00:00Z/..`;
+      } else if (endDate) {
+        payload.datetime = `../${endDate}T23:59:59Z`;
       }
+
+      const res = await fetch(this.emitStacUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        for (const feat of data.features || []) {
+          const assets: Record<string, Asset> = {};
+          for (const [k, a] of Object.entries<any>(feat.assets || {})) {
+            assets[k] = {
+              key: k,
+              href: a.href,
+              title: a.title,
+              media_type: a.type,
+              roles: a.roles
+            };
+          }
+
+          results.push({
+            id: feat.id,
+            collection: "emit-l2a-rfl",
+            category: this.category,
+            provider: "nasa_emit",
+            datetime: feat.properties?.datetime,
+            bbox: feat.bbox,
+            properties: { ...feat.properties, platform: "emit" },
+            assets
+          });
+        }
+      }
+    } catch {
+      // Handled
     }
 
-    return results;
+    // Sort all results chronologically descending (newest first)
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results.slice(0, limit);
   }
 
   override async download(

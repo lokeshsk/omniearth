@@ -22,6 +22,7 @@ import { AltimetryProvider } from "./providers/altimetry.js";
 import { PrecipitationProvider } from "./providers/precipitation.js";
 import { HydrologyProvider } from "./providers/hydrology.js";
 import { NightlightsProvider } from "./providers/nightlights.js";
+import { computeSpectralIndex, IndexInputs } from "./indices.js";
 
 export class OmniEarth {
   private providers: Map<Category, BaseProvider> = new Map();
@@ -132,6 +133,13 @@ export class OmniEarth {
     }
 
     const aoi = this.resolveAOI(params);
+    let startDate = params.startDate;
+    let endDate = params.endDate;
+    if (params.year && !startDate && !endDate) {
+      startDate = `${params.year}-01-01`;
+      endDate = `${params.year}-12-31`;
+    }
+
     const filters: FilterOptions = {
       maxCloudCover: params.maxCloudCover,
       bands: params.bands,
@@ -139,10 +147,13 @@ export class OmniEarth {
       depth: params.depth,
       dataset: params.dataset,
       year: params.year,
+      level: params.level,
       limit: params.limit
     };
 
-    return provider.search(aoi, params.startDate, params.endDate, filters);
+    const results = await provider.search(aoi, startDate, endDate, filters);
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results;
   }
 
   public async download(
@@ -346,49 +357,42 @@ export class OmniEarth {
     return results[0] || null;
   }
 
+  public async getOptical(
+    bbox: [number, number, number, number],
+    options?: { maxCloudCover?: number; level?: "sr" | "toa" | string; startDate?: string; endDate?: string }
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.OPTICAL,
+      bbox,
+      maxCloudCover: options?.maxCloudCover ?? 20.0,
+      level: options?.level ?? "sr",
+      startDate: options?.startDate,
+      endDate: options?.endDate,
+      limit: 1
+    });
+    return results[0] || null;
+  }
+
+  public async getSar(
+    bbox: [number, number, number, number],
+    options?: { startDate?: string; endDate?: string }
+  ): Promise<SearchResult | null> {
+    const results = await this.search({
+      category: Category.SAR,
+      bbox,
+      startDate: options?.startDate,
+      endDate: options?.endDate,
+      limit: 1
+    });
+    return results[0] || null;
+  }
+
   public computeIndex(
     index: string,
-    inputs: {
-      nir: number[] | number;
-      red?: number[] | number;
-      green?: number[] | number;
-      blue?: number[] | number;
-      rededge?: number[] | number;
-      swir?: number[] | number;
-    }
+    inputs: IndexInputs
   ): number | number[] {
-    const calc = (n: number, r?: number, g?: number, b?: number, re?: number, s?: number): number => {
-      const idx = index.toLowerCase();
-      if (idx === "ndvi") {
-        if (r === undefined) throw new Error("Red band required to compute NDVI");
-        return (n - r) / (n + r + 1e-8);
-      } else if (idx === "ndwi") {
-        if (g === undefined) throw new Error("Green band required to compute NDWI");
-        return (g - n) / (g + n + 1e-8);
-      } else if (idx === "ndre") {
-        if (re === undefined) throw new Error("RedEdge band required to compute NDRE");
-        return (n - re) / (n + re + 1e-8);
-      } else if (idx === "evi") {
-        if (r === undefined || b === undefined) throw new Error("Red and Blue bands required to compute EVI");
-        return 2.5 * ((n - r) / (n + 6.0 * r - 7.5 * b + 1.0 + 1e-8));
-      } else if (idx === "nbr") {
-        if (s === undefined) throw new Error("SWIR band required to compute NBR");
-        return (n - s) / (n + s + 1e-8);
-      }
-      throw new Error(`Unsupported index '${index}'. Supported: ndvi, ndwi, ndre, evi, nbr`);
-    };
-
-    if (Array.isArray(inputs.nir)) {
-      const redArr = Array.isArray(inputs.red) ? inputs.red : [];
-      const greenArr = Array.isArray(inputs.green) ? inputs.green : [];
-      const blueArr = Array.isArray(inputs.blue) ? inputs.blue : [];
-      const rededgeArr = Array.isArray(inputs.rededge) ? inputs.rededge : [];
-      const swirArr = Array.isArray(inputs.swir) ? inputs.swir : [];
-
-      return inputs.nir.map((val, i) => calc(val, redArr[i], greenArr[i], blueArr[i], rededgeArr[i], swirArr[i]));
-    } else {
-      return calc(inputs.nir, inputs.red as number, inputs.green as number, inputs.blue as number, inputs.rededge as number, inputs.swir as number);
-    }
+    const res = computeSpectralIndex(index, inputs);
+    return res.data;
   }
 
   public async getTimeSeries(params: SearchParams): Promise<any[]> {

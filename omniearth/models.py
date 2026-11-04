@@ -27,9 +27,29 @@ class Category(str, Enum):
     NIGHTLIGHTS = "nightlights"
 
 
+def _point_in_polygon(x: float, y: float, polygon_ring: List[List[float]]) -> bool:
+    """Ray casting algorithm to determine if point (x, y) is inside a polygon ring."""
+    inside = False
+    n = len(polygon_ring)
+    if n < 3:
+        return False
+    p1x, p1y = polygon_ring[0]
+    for i in range(1, n + 1):
+        p2x, p2y = polygon_ring[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+
 class AOI(BaseModel):
     """Area of Interest representation (WGS84 [min_lon, min_lat, max_lon, max_lat])."""
     bbox: List[float] = Field(..., description="[min_lon, min_lat, max_lon, max_lat]")
+    geometry: Optional[Dict[str, Any]] = Field(default=None, description="Optional GeoJSON geometry dictionary")
 
     @model_validator(mode="after")
     def validate_bbox(self) -> "AOI":
@@ -43,8 +63,8 @@ class AOI(BaseModel):
         return self
 
     @classmethod
-    def from_bounds(cls, min_lon: float, min_lat: float, max_lon: float, max_lat: float) -> "AOI":
-        return cls(bbox=[min_lon, min_lat, max_lon, max_lat])
+    def from_bounds(cls, min_lon: float, min_lat: float, max_lon: float, max_lat: float, geometry: Optional[Dict[str, Any]] = None) -> "AOI":
+        return cls(bbox=[min_lon, min_lat, max_lon, max_lat], geometry=geometry)
 
     @classmethod
     def from_point(cls, lon: float, lat: float, radius_km: float = 5.0) -> "AOI":
@@ -62,7 +82,8 @@ class AOI(BaseModel):
     def from_geojson(cls, geojson_source: Union[str, dict, Any]) -> "AOI":
         """
         Derives an AOI from a GeoJSON file path, JSON string, or dict structure.
-        Recursively scans coordinates to find [min_lon, min_lat, max_lon, max_lat].
+        Recursively scans coordinates to find [min_lon, min_lat, max_lon, max_lat]
+        and captures the primary geometry.
         """
         import json
         from pathlib import Path
@@ -79,6 +100,17 @@ class AOI(BaseModel):
             raise ValueError(f"Invalid GeoJSON source: {type(geojson_source)}")
 
         coords: List[List[float]] = []
+        primary_geom: Optional[Dict[str, Any]] = None
+
+        if isinstance(data, dict):
+            if "type" in data and data["type"] in ("Polygon", "MultiPolygon", "Point", "LineString"):
+                primary_geom = data
+            elif "geometry" in data and isinstance(data["geometry"], dict):
+                primary_geom = data["geometry"]
+            elif "features" in data and isinstance(data["features"], list) and len(data["features"]) > 0:
+                feat = data["features"][0]
+                if isinstance(feat, dict) and "geometry" in feat:
+                    primary_geom = feat["geometry"]
 
         def extract_coords(obj):
             if isinstance(obj, dict):
@@ -107,7 +139,45 @@ class AOI(BaseModel):
         max_lon = max(c[0] for c in coords)
         min_lat = min(c[1] for c in coords)
         max_lat = max(c[1] for c in coords)
-        return cls.from_bounds(min_lon, min_lat, max_lon, max_lat)
+        return cls(bbox=[min_lon, min_lat, max_lon, max_lat], geometry=primary_geom)
+
+    def contains(self, lon: float, lat: float) -> bool:
+        """
+        Tests whether the geographic point (lon, lat) falls within this AOI.
+        If a Polygon or MultiPolygon geometry is attached, performs point-in-polygon ray casting.
+        Otherwise, tests bounding box containment.
+        """
+        in_bbox = (self.min_lon <= lon <= self.max_lon) and (self.min_lat <= lat <= self.max_lat)
+        if not in_bbox or not self.geometry:
+            return in_bbox
+
+        gtype = self.geometry.get("type")
+        coords = self.geometry.get("coordinates")
+        if not coords:
+            return in_bbox
+
+        if gtype == "Polygon":
+            # Exterior ring is coords[0]
+            if not _point_in_polygon(lon, lat, coords[0]):
+                return False
+            # Check interior holes: if in any hole, not inside
+            for hole in coords[1:]:
+                if _point_in_polygon(lon, lat, hole):
+                    return False
+            return True
+        elif gtype == "MultiPolygon":
+            for poly in coords:
+                if _point_in_polygon(lon, lat, poly[0]):
+                    # Check holes in this polygon
+                    in_hole = False
+                    for hole in poly[1:]:
+                        if _point_in_polygon(lon, lat, hole):
+                            in_hole = True
+                            break
+                    if not in_hole:
+                        return True
+            return False
+        return in_bbox
 
     @property
     def min_lon(self) -> float:
@@ -179,4 +249,5 @@ class FilterOptions(BaseModel):
     depth: Optional[str] = None
     dataset: Optional[str] = None
     year: Optional[int] = None
+    level: Optional[str] = "sr"
     limit: int = 10

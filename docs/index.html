@@ -240,10 +240,13 @@
   <h1>OmniEarth</h1>
   <p class="tagline">Universal Multi-Modal Earth Observation, Hyperspectral Data Cube, DEM, and Environmental Intelligence Engine across CLI, Python SDK, Node.js SDK, and REST STAC APIs.</p>
   <div class="cta-buttons">
+    <a href="guide.html" class="btn btn-primary" style="background: #3b82f6; color: #fff; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);">
+      In-Depth User Guide & API Docs
+    </a>
     <a href="https://github.com/lokeshsk/omniearth" class="btn btn-primary">
       GitHub Repository
     </a>
-    <a href="#cli-guide" class="btn btn-secondary">CLI Guide</a>
+    <a href="#cli-guide" class="btn btn-secondary">Quick CLI</a>
     <a href="#python-guide" class="btn btn-secondary">Python SDK</a>
     <a href="#node-guide" class="btn btn-secondary">Node.js SDK</a>
     <a href="#rest-guide" class="btn btn-secondary">Direct REST / cURL</a>
@@ -415,12 +418,17 @@ omniearth search --category landcover --bbox 78.50 20.65 78.60 20.72 --year 2021
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">4</span> Filtering by Date, Cloud Cover, and Soil Depth</h3>
-      <pre><code># Filter Sentinel-2 with max 15% cloud cover within date range
+      <h3><span class="step-num">4</span> Filtering by Date, Processing Level (SR vs TOA), and Cloud Cover</h3>
+      <p>Filter by cloud threshold or switch between Surface Reflectance (SR) and Top-of-Atmosphere (TOA). All searches return scenes in <strong>chronological descending order (newest acquisitions first)</strong>:</p>
+      <pre><code># Default Surface Reflectance (SR / Level-2A) for vegetation and soil analysis
 omniearth search --category optical \
   --bbox 78.50 20.65 78.60 20.72 \
-  --start 2026-01-01 --end 2026-03-31 \
-  --max-cloud 15 --limit 5
+  --level sr --max-cloud 15 --limit 5
+
+# Top-of-Atmosphere (TOA / Level-1C) preserving Band 10 Cirrus (1375nm) & water body reflectance
+omniearth search --category optical \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --level toa --limit 5
 
 # Query soil texture at 0-5cm depth
 omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
@@ -449,11 +457,15 @@ omniearth search --category soil --point 78.55 20.68 --depth 0-5cm</code></pre>
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">7</span> On-the-Fly Radiometric Indices (NDVI, NDWI, NDRE, EVI, NBR)</h3>
+      <h3><span class="step-num">7</span> On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)</h3>
+      <p>Compute NDVI, NDWI, NDRE, EVI, NBR, SAVI (with soil brightness factor L), MSAVI, BSI, and MNDWI directly from CLI:</p>
       <pre><code># Compute NDVI from reflectances
 omniearth compute --index ndvi --nir 0.82 --red 0.18
 
-# Compute EVI
+# Compute SAVI with custom soil adjustment factor (L=0.5)
+omniearth compute --index savi --nir 0.80 --red 0.20 --l-factor 0.5
+
+# Compute EVI from multi-band reflectances
 omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08</code></pre>
     </div>
 
@@ -530,8 +542,12 @@ all_paths = client.download_many(optical_scenes, asset_key="visual", outdir="./d
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">5</span> Zero-Config Environmental Shortcuts</h3>
-      <pre><code># Instant DEM Elevation Raster
+      <h3><span class="step-num">5</span> Zero-Config Shortcuts, TOA/SR Levels & Ray-Casting Polygon Containment</h3>
+      <pre><code># Instant Optical Scene (Surface Reflectance or Top-of-Atmosphere Level-1C)
+optical_sr = client.get_optical(bbox=[78.50, 20.65, 78.60, 20.72], level="sr")
+optical_toa = client.get_optical(bbox=[78.50, 20.65, 78.60, 20.72], level="toa")
+
+# Instant DEM Elevation Raster
 dem = client.get_elevation(bbox=[78.50, 20.65, 78.60, 20.72], dataset="copernicus")
 
 # Instant Land Cover Map
@@ -539,11 +555,14 @@ lc = client.get_landcover(bbox=[78.50, 20.65, 78.60, 20.72], year=2021)
 
 # Instant Weather & Soil Moisture Feed
 wx = client.get_weather(bbox=[78.50, 20.65, 78.60, 20.72])
-print("Elevation:", wx.properties["elevation"])
 
 # Instant ISRIC SoilGrids 3D Chemistry & Texture Profile
 soil = client.get_soil(bbox=[78.50, 20.65, 78.60, 20.72], depth="0-5cm")
-print("Topsoil Clay/Sand:", soil.properties["summary_topsoil"])</code></pre>
+
+# Pure Python Ray-Casting Polygon Containment (checks exterior boundary & holes)
+aoi = oe.AOI.from_geojson("./field_boundary.geojson")
+is_inside = aoi.contains(78.55, 20.68)
+print(f"Point inside farm boundary: {is_inside}")</code></pre>
     </div>
 
     <div class="step-card">
@@ -602,20 +621,27 @@ const manyPaths = await client.downloadMany(scenes, "visual", "./downloads", {
     </div>
 
     <div class="step-card">
-      <h3><span class="step-num">4</span> Shortcuts, Indices, and Time-Series</h3>
-      <pre><code>// Instant Elevation DEM
+      <h3><span class="step-num">4</span> Shortcuts, TOA/SR Support, Indices & Ray-Casting</h3>
+      <pre><code>// Instant Optical Scene (SR vs TOA)
+const opticalSR = await client.getOptical({ bbox: [78.50, 20.65, 78.60, 20.72], level: "sr" });
+const opticalTOA = await client.getOptical({ bbox: [78.50, 20.65, 78.60, 20.72], level: "toa" });
+
+// Instant Elevation DEM
 const dem = await client.getElevation([78.50, 20.65, 78.60, 20.72], "copernicus");
 
-// Compute NDVI
-const ndvi = client.computeIndex("ndvi", { nir: 0.82, red: 0.18 });
-console.log("NDVI:", ndvi);
+// Compute 9 Spectral Indices (e.g. SAVI, NDVI)
+const savi = client.computeIndex("savi", { nir: 0.82, red: 0.18, lFactor: 0.5 });
+console.log("SAVI:", savi);
 
-// Time-Series Extraction
+// Ray-Casting Polygon Containment
+const aoi = client.resolveAOI({ geojson: "./field_boundary.geojson" });
+const inside = aoi.contains(78.55, 20.68);
+
+// Time-Series Extraction (chronological ascending)
 const ts = await client.getTimeSeries({
   category: Category.WEATHER,
   bbox: [78.50, 20.65, 78.60, 20.72]
-});
-console.log("Weather steps:", ts.length);</code></pre>
+});</code></pre>
     </div>
   </section>
 
