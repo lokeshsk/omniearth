@@ -13,10 +13,14 @@ export class OpticalProvider extends BaseProvider {
     endDate?: string,
     filters?: FilterOptions
   ): Promise<SearchResult[]> {
+    const level = (filters?.level || "sr").toLowerCase();
+    const targetCollection = level === "toa" ? "sentinel-2-l1c" : "sentinel-2-l2a";
+
     const payload: Record<string, any> = {
-      collections: ["sentinel-2-l2a"],
+      collections: [targetCollection],
       bbox: aoi.bbox,
-      limit: filters?.limit || 10
+      limit: filters?.limit || 10,
+      sortby: [{ field: "properties.datetime", direction: "desc" }]
     };
 
     if (startDate && endDate) {
@@ -58,7 +62,7 @@ export class OpticalProvider extends BaseProvider {
 
       results.push({
         id: feat.id,
-        collection: feat.collection || "sentinel-2-l2a",
+        collection: feat.collection || targetCollection,
         category: this.category,
         provider: "aws_earth_search",
         datetime: feat.properties?.datetime,
@@ -68,7 +72,8 @@ export class OpticalProvider extends BaseProvider {
       });
     }
 
-    return results;
+    results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
+    return results.slice(0, filters?.limit || 10);
   }
 }
 

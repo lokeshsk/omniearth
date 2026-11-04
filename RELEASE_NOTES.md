@@ -1,3 +1,81 @@
+# OmniEarth v1.3.0 Release Notes
+
+**Release Date:** November 4, 2026  
+**DOI:** [10.5281/zenodo.23689449](https://doi.org/10.5281/zenodo.23689449)  
+**PyPI:** [omniearth 1.3.0](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.3.0](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.3.0 is a feature and accuracy milestone introducing dual-level optical processing (Surface Reflectance vs Top-of-Atmosphere), universal chronological descending search ordering across all 14 data modalities, an expanded 9-index biophysical remote sensing calculation engine, pure Python/TypeScript zero-dependency polygon ray-casting containment, and a dedicated interactive documentation manual (`docs/guide.html`).
+
+---
+
+## 1. Key Additions & Architectural Enhancements
+
+### 1. Dual Optical Processing Levels: Surface Reflectance (SR) vs Top-of-Atmosphere (TOA)
+OmniEarth now provides explicit control over optical reflectance calibration via the `--level` CLI flag and `level` parameter in Python/Node.js SDKs:
+- **Surface Reflectance (`level="sr"`, Default)**:
+  - Maps to Sentinel-2 Level-2A (`sentinel-2-l2a`) via AWS Earth Search STAC.
+  - Atmosphere scattering and aerosols corrected via ESA Sen2Cor.
+  - Standard for terrestrial vegetation monitoring, agriculture, soil spectroscopy, and land cover classification.
+- **Top-of-Atmosphere (`level="toa"`)**:
+  - Maps to Sentinel-2 Level-1C (`sentinel-2-l1c`) via AWS Earth Search STAC.
+  - Preserves **Band 10 (1375 nm Cirrus band)**, which is omitted in L2A products because water vapor completely attenuates ground signals.
+  - Critical for:
+    - High-altitude thin cirrus cloud detection and cloud masking algorithms.
+    - Aquatic remote sensing, coastal bathymetry, and lake limnology (where standard atmospheric correction over-subtracts water leaving reflectance).
+    - Foundation model GeoAI pre-training (e.g. NASA/IBM Prithvi, Clay, DOFA) where raw radiometry is required without sen2cor bias.
+- **Convenience Shortcuts**:
+  - Python: `client.get_optical(bbox=..., level="toa")` and `client.get_optical(bbox=..., level="sr")`
+  - Node.js: `client.getOptical({ bbox, level: "toa" })`
+
+### 2. Universal Chronological Descending Ordering Across All Modalities & Providers
+- **STAC Query Sortby**: All upstream STAC queries (Element84 Earth Search for Sentinel-1/2, NASA CMR STAC for EMIT, NSIDC, PODAAC, LPCLOUD) now explicitly pass `"sortby": [{"field": "properties.datetime", "direction": "desc"}]`.
+- **NASA CMR STAC Fix**: Resolved an issue where NASA CMR STAC defaulted to chronological ascending order, causing multi-provider searches to return oldest (2023) scenes first.
+- **Unified Multi-Provider Descending Sort**: In multi-satellite modalities (such as Hyperspectral merging German DLR EnMAP, NASA EMIT, and Italian ASI PRISMA), OmniEarth queries each archive, aggregates results, and enforces global chronological descending ordering (`reverse=True`).
+- **Newest Acquisitions Always First**: All search outputs in CLI, Python SDK, Node.js SDK, and REST calls now guarantee that the freshest acquisitions rank at index 0.
+
+### 3. Expanded 9-Index Biophysical & Spectral Calculation Engine
+The remote sensing computation engine (`omniearth.indices` / `src/indices.ts`) has been expanded from simple NDVI to a comprehensive sensor-agnostic suite of 9 radiometric indices:
+1. **NDVI** (Normalized Difference Vegetation Index): `(nir - red) / (nir + red)`
+2. **NDWI** (Normalized Difference Water Index - McFeeters): `(green - nir) / (green + nir)`
+3. **NDRE** (Normalized Difference Red Edge Index): `(nir - rededge) / (nir + rededge)` - Sensitive to high biomass chlorophyll and nitrogen status.
+4. **EVI** (Enhanced Vegetation Index): `2.5 * (nir - red) / (nir + 6*red - 7.5*blue + 1)`
+5. **NBR** (Normalized Burn Ratio): `(nir - swir) / (nir + swir)` - Wildfire severity and burn scar delineation.
+6. **SAVI** (Soil-Adjusted Vegetation Index): `(1 + L) * (nir - red) / (nir + red + L)` with configurable soil adjustment factor `l_factor` (default `0.5`).
+7. **MSAVI** (Modified Soil-Adjusted Vegetation Index): `0.5 * (2*nir + 1 - sqrt((2*nir + 1)^2 - 8*(nir - red)))`
+8. **BSI** (Bare Soil Index): `((swir + red) - (nir + blue)) / ((swir + red) + (nir + blue))`
+9. **MNDWI** (Modified NDWI - Xu): `(green - swir) / (green + swir)` - Open surface water enhancement in urban/built-up environments.
+
+- **CLI Support**:
+  `omniearth compute --index savi --nir 0.80 --red 0.20 --l-factor 0.5`
+- **Re-exported SDK Helpers**:
+  `calculate_ndvi()`, `calculate_ndwi()`, `calculate_ndre()`, `calculate_evi()`, `calculate_nbr()`, `calculate_savi()`, `calculate_msavi()`, `calculate_bsi()`, `calculate_mndwi()`.
+
+### 4. Pure Python/TypeScript Ray-Casting Polygon Containment (`AOI.contains`)
+- Retains original GeoJSON geometry when parsing AOIs via `AOI.from_geojson(...)`.
+- Implements an optimized point-in-polygon ray-casting algorithm checking outer polygon boundaries and subtracting interior hole rings (e.g. water bodies or non-farm exclusions).
+- **Zero C/C++ Dependencies**: Runs cleanly in pure Python and TypeScript without requiring GDAL, GEOS, or Shapely.
+- Python: `aoi.contains(lon, lat)` -> `bool`
+- TypeScript: `aoi.contains(lon, lat)` -> `boolean`
+
+### 5. Strict Temporal Bounds for Single-Year Queries
+- Passing `year=YYYY` or `--year YYYY` without explicit start and end dates now automatically binds queries to `YYYY-01-01T00:00:00Z` through `YYYY-12-31T23:59:59Z`, eliminating accidental leakage into older or newer data years.
+
+### 6. Interactive Documentation Manual (`docs/guide.html`)
+- Launched a complete interactive documentation portal and user manual with sticky sidebar navigation, search, and responsive layout.
+- Novice geospatial concepts guide explaining Longitude/Latitude ordering, continuous polar vs on-demand tasked orbits, and physical differences between SR and TOA.
+- Complete reference tables covering every parameter for `search`, `download`, `compute`, and `timeseries`.
+- Worked code examples for all 14 modalities in CLI, Python, and TypeScript.
+
+---
+
+## 2. Test Suite & Coverage Verification
+- **Python**: 63/63 tests passing with **100.00% statement coverage** (`1645 / 1645 statements`).
+- **Node.js**: 18/18 tests passing; TypeScript (`tsc`) compiling with zero warnings and zero errors.
+- Strict test gate enforced via `fail_under = 100` in `pyproject.toml`.
+
+---
+
 # OmniEarth v1.2.0 Release Notes
 
 **Release Date:** October 31, 2026  

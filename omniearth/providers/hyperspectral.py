@@ -35,17 +35,17 @@ class HyperspectralProvider(BaseProvider):
         # 1. Search EnMAP on DLR EOC STAC
         results.extend(self._search_enmap(aoi, start_date, end_date, filters, limit=limit))
 
-        # 2. If limit not reached, also search NASA EMIT on CMR STAC
-        if len(results) < limit:
-            remaining = limit - len(results)
-            results.extend(self._search_emit(aoi, start_date, end_date, remaining))
+        # 2. Search NASA EMIT on CMR STAC
+        results.extend(self._search_emit(aoi, start_date, end_date, limit=limit))
 
         # 3. If limit still not reached, search ASI PRISMA
         if len(results) < limit:
             remaining = limit - len(results)
             results.extend(self._search_prisma(aoi, start_date, end_date, remaining))
 
-        return results
+        # Sort all aggregated hyperspectral scenes chronologically descending (newest first)
+        results.sort(key=lambda x: x.datetime or "", reverse=True)
+        return results[:limit]
 
     def _search_enmap(
         self,
@@ -114,10 +114,15 @@ class HyperspectralProvider(BaseProvider):
         payload = {
             "collections": ["EMITL2ARFL_001"],
             "bbox": aoi.bbox,
-            "limit": limit
+            "limit": limit,
+            "sortby": [{"field": "properties.datetime", "direction": "desc"}]
         }
         if start_date and end_date:
             payload["datetime"] = f"{start_date}T00:00:00Z/{end_date}T23:59:59Z"
+        elif start_date:
+            payload["datetime"] = f"{start_date}T00:00:00Z/.."
+        elif end_date:
+            payload["datetime"] = f"../{end_date}T23:59:59Z"
 
         try:
             resp = requests.post(self.NASA_EMIT_STAC_URL, json=payload, timeout=config.timeout)

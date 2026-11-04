@@ -160,3 +160,72 @@ def test_aoi_from_geojson(tmp_path):
         AOI.from_geojson(12345)
 
 
+def test_aoi_contains_and_polygon_masking():
+    from omniearth.models import _point_in_polygon
+
+    # 1. Test _point_in_polygon edge cases
+    assert _point_in_polygon(0.0, 0.0, [[0.0, 0.0], [1.0, 1.0]]) is False  # < 3 points
+
+    # Triangle
+    tri = [[0.0, 0.0], [4.0, 0.0], [2.0, 4.0], [0.0, 0.0]]
+    assert _point_in_polygon(2.0, 2.0, tri) is True
+    assert _point_in_polygon(5.0, 5.0, tri) is False
+
+    # 2. AOI.contains without geometry (bbox only)
+    aoi_box = AOI.from_bounds(0.0, 0.0, 10.0, 10.0)
+    assert aoi_box.contains(5.0, 5.0) is True
+    assert aoi_box.contains(15.0, 5.0) is False
+
+    # Triangle inside bbox
+    tri_geom = {
+        "type": "Polygon",
+        "coordinates": [
+            [[2.0, 2.0], [8.0, 2.0], [5.0, 8.0], [2.0, 2.0]]
+        ]
+    }
+    aoi_tri = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry=tri_geom)
+    assert aoi_tri.contains(5.0, 4.0) is True  # inside triangle
+    assert aoi_tri.contains(1.0, 1.0) is False  # inside bbox [0,10], outside triangle
+
+    # 3. AOI.contains with Polygon geometry and hole
+    # Square [0, 0] to [10, 10] with central hole [4, 4] to [6, 6]
+    poly_geom = {
+        "type": "Polygon",
+        "coordinates": [
+            [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]],
+            [[4.0, 4.0], [6.0, 4.0], [6.0, 6.0], [4.0, 6.0], [4.0, 4.0]]
+        ]
+    }
+    aoi_poly = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry=poly_geom)
+    assert aoi_poly.contains(2.0, 2.0) is True  # inside outer ring, outside hole
+    assert aoi_poly.contains(5.0, 5.0) is False  # inside hole -> False
+    assert aoi_poly.contains(15.0, 5.0) is False  # outside bbox
+
+    # Polygon with no coords
+    aoi_empty_poly = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry={"type": "Polygon", "coordinates": []})
+    assert aoi_empty_poly.contains(5.0, 5.0) is True
+
+    # 4. AOI.contains with MultiPolygon geometry
+    multipoly_geom = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            # Polygon 1: [0, 0] to [2, 2]
+            [[[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0], [0.0, 0.0]]],
+            # Polygon 2: [8, 8] to [10, 10] with a hole [8.8, 8.8] to [9.2, 9.2]
+            [
+                [[8.0, 8.0], [10.0, 8.0], [10.0, 10.0], [8.0, 10.0], [8.0, 8.0]],
+                [[8.8, 8.8], [9.2, 8.8], [9.2, 9.2], [8.8, 9.2], [8.8, 8.8]]
+            ]
+        ]
+    }
+    aoi_multi = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry=multipoly_geom)
+    assert aoi_multi.contains(1.0, 1.0) is True  # inside poly 1
+    assert aoi_multi.contains(8.2, 8.2) is True  # inside poly 2 outside hole
+    assert aoi_multi.contains(9.0, 9.0) is False  # inside hole in poly 2
+    assert aoi_multi.contains(5.0, 5.0) is False  # between poly 1 and poly 2
+
+    # Point geometry in AOI geometry (falls back to bbox containment)
+    aoi_pt = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry={"type": "Point", "coordinates": [5.0, 5.0]})
+    assert aoi_pt.contains(5.0, 5.0) is True
+
+

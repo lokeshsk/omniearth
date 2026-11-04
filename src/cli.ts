@@ -3,12 +3,19 @@ import { OmniEarth } from "./client.js";
 import { Category } from "./types.js";
 import { config } from "./config.js";
 
+const ASCII_BANNER = `  ___  __  __ _   _ ___ _____    _    ____ _____ _   _ 
+ / _ \\|  \\/  | \\ | |_ _| ____|  / \\  |  _ \\_   _| | | |
+| | | | |\\/| |  \\| || ||  _|   / _ \\ | |_) || | | |_| |
+| |_| | |  | | |\\  || || |___ / ___ \\|  _ < | | |  _  |
+ \\___/|_|  |_|_| \\_|___|_____/_/   \\_\\_| \\_\\|_| |_| |_|`;
+
 const program = new Command();
 
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.2.0");
+  .version("1.3.0")
+  .addHelpText("before", `\n${ASCII_BANNER}\n`);
 
 program
   .command("categories")
@@ -94,9 +101,10 @@ program
   .command("info")
   .description("Display engine status, versions, and credential health")
   .action(() => {
+    console.log(ASCII_BANNER);
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.2.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.3.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");
@@ -128,6 +136,7 @@ program
   .option("--max-cloud <percent>", "Max cloud cover percentage")
   .option("--dataset <dataset>", "Specific dataset (e.g. copernicus, srtm, alos)")
   .option("--year <year>", "Specific year (e.g. 2020, 2021)")
+  .option("--level <level>", "Processing level for optical: 'sr' (Surface Reflectance L2A) or 'toa' (Top of Atmosphere L1C)", "sr")
   .option("--limit <number>", "Maximum number of results", "5")
   .option("--json", "Output raw JSON format")
   .action(async (opts) => {
@@ -158,6 +167,7 @@ program
         maxCloudCover: opts.maxCloud ? Number(opts.maxCloud) : undefined,
         dataset: opts.dataset,
         year: opts.year ? parseInt(opts.year, 10) : undefined,
+        level: opts.level,
         limit: Number(opts.limit)
       });
 
@@ -202,6 +212,7 @@ program
   .option("--geojson <path_or_str>", "Path to GeoJSON file or inline GeoJSON string")
   .option("--dataset <dataset>", "Specific dataset (e.g. copernicus, srtm, alos)")
   .option("--year <year>", "Specific year (e.g. 2020, 2021)")
+  .option("--level <level>", "Processing level for optical: 'sr' (Surface Reflectance L2A) or 'toa' (Top of Atmosphere L1C)", "sr")
   .option("--asset <key>", "Specific asset key")
   .option("-o, --outdir <path>", "Output directory", "./omniearth_downloads")
   .option("--all", "Download all assets associated with the scene concurrently")
@@ -239,6 +250,7 @@ program
           geojson: opts.geojson,
           dataset: opts.dataset,
           year: opts.year ? parseInt(opts.year, 10) : undefined,
+          level: opts.level,
           limit: 1
         });
         if (results.length === 0) {
@@ -274,14 +286,15 @@ program
 
 program
   .command("compute")
-  .description("Compute remote sensing radiometric index on inputs")
-  .requiredOption("--index <index>", "Index to compute: ndvi, ndwi, ndre, evi, nbr")
+  .description("Compute remote sensing radiometric index on inputs (NDVI, NDWI, NDRE, EVI, NBR, SAVI, MSAVI, BSI, MNDWI)")
+  .requiredOption("--index <index>", "Index to compute: ndvi, ndwi, ndre, evi, nbr, savi, msavi, bsi, mndwi")
   .requiredOption("--nir <nir>", "NIR value or JSON array")
   .option("--red <red>", "Red value or JSON array")
   .option("--green <green>", "Green value or JSON array")
   .option("--blue <blue>", "Blue value or JSON array")
   .option("--rededge <rededge>", "RedEdge value or JSON array")
   .option("--swir <swir>", "SWIR value or JSON array")
+  .option("--l-factor <factor>", "Soil adjustment factor L for SAVI (default: 0.5)", "0.5")
   .action((opts) => {
     const client = new OmniEarth();
     const parse = (v?: string) => {
@@ -299,7 +312,8 @@ program
         green: parse(opts.green),
         blue: parse(opts.blue),
         rededge: parse(opts.rededge),
-        swir: parse(opts.swir)
+        swir: parse(opts.swir),
+        lFactor: opts.lFactor ? parseFloat(opts.lFactor) : 0.5
       });
       const width = 75;
       console.log("+" + "-".repeat(width - 2) + "+");

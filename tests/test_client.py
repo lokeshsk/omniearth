@@ -108,6 +108,12 @@ def test_client_search_success_and_unsupported_provider():
         assert res[0].id == "s2_item"
         mock_s.assert_called_once()
 
+    # Test year conversion to date range
+    with patch.object(client._providers[Category.OPTICAL], "search", return_value=[mock_res]) as mock_s2:
+        client.search(category="optical", bbox=[10, 20, 11, 21], year=2026)
+        assert mock_s2.call_args[1]["start_date"] == "2026-01-01"
+        assert mock_s2.call_args[1]["end_date"] == "2026-12-31"
+
     # Unsupported provider in client._providers map
     client._providers = {}
     with pytest.raises(ValueError, match="Unsupported category"):
@@ -243,17 +249,43 @@ def test_client_compute_index(tmp_path):
     nbr = client.compute_index("nbr", nir=0.8, swir=0.3)
     assert nbr["index"] == "nbr"
 
+    # 6. SAVI
+    savi = client.compute_index("savi", nir=0.8, red=0.2, l_factor=0.5)
+    assert savi["index"] == "savi"
+    assert round(savi["mean"], 2) == 0.60
+
+    # 7. MSAVI
+    msavi = client.compute_index("msavi", nir=0.8, red=0.2)
+    assert msavi["index"] == "msavi"
+    assert msavi["mean"] > 0
+
+    # 8. BSI
+    bsi = client.compute_index("bsi", nir=0.8, red=0.2, blue=0.1, swir=0.4)
+    assert bsi["index"] == "bsi"
+
+    # 9. MNDWI
+    mndwi = client.compute_index("mndwi", nir=0.0, green=0.6, swir=0.2)
+    assert mndwi["index"] == "mndwi"
+
     # Error branches
-    with pytest.raises(ValueError, match="Red band required"):
+    with pytest.raises(ValueError, match="Red band required to compute NDVI"):
         client.compute_index("ndvi", nir=0.8)
-    with pytest.raises(ValueError, match="Green band required"):
+    with pytest.raises(ValueError, match="Green band required to compute NDWI"):
         client.compute_index("ndwi", nir=0.8)
-    with pytest.raises(ValueError, match="RedEdge band required"):
+    with pytest.raises(ValueError, match="RedEdge band required to compute NDRE"):
         client.compute_index("ndre", nir=0.8)
-    with pytest.raises(ValueError, match="Red and Blue bands required"):
+    with pytest.raises(ValueError, match="Red and Blue bands required to compute EVI"):
         client.compute_index("evi", nir=0.8, red=0.2)
-    with pytest.raises(ValueError, match="SWIR band required"):
+    with pytest.raises(ValueError, match="SWIR band required to compute NBR"):
         client.compute_index("nbr", nir=0.8)
+    with pytest.raises(ValueError, match="Red band required to compute SAVI"):
+        client.compute_index("savi", nir=0.8)
+    with pytest.raises(ValueError, match="Red band required to compute MSAVI"):
+        client.compute_index("msavi", nir=0.8)
+    with pytest.raises(ValueError, match="Red, Blue, and SWIR bands required"):
+        client.compute_index("bsi", nir=0.8, red=0.2)
+    with pytest.raises(ValueError, match="Green and SWIR bands required"):
+        client.compute_index("mndwi", nir=0.8, green=0.5)
     with pytest.raises(ValueError, match="Unsupported index"):
         client.compute_index("fake_index", nir=0.8)
 
@@ -261,6 +293,45 @@ def test_client_compute_index(tmp_path):
     json_path = str(tmp_path / "idx.json")
     client.compute_index("ndvi", nir=0.8, red=0.2, outpath=json_path)
     assert os.path.exists(json_path)
+
+
+def test_standalone_indices_functions():
+    from omniearth.indices import (
+        calculate_ndvi,
+        calculate_ndwi,
+        calculate_ndre,
+        calculate_evi,
+        calculate_nbr,
+        calculate_savi,
+        calculate_msavi,
+        calculate_bsi,
+        calculate_mndwi
+    )
+    assert calculate_ndvi(0.8, 0.2)["index"] == "ndvi"
+    assert calculate_ndwi(0.3, 0.8)["index"] == "ndwi"
+    assert calculate_ndre(0.8, 0.4)["index"] == "ndre"
+    assert calculate_evi(0.8, 0.2, 0.1)["index"] == "evi"
+    assert calculate_nbr(0.8, 0.3)["index"] == "nbr"
+    assert calculate_savi(0.8, 0.2)["index"] == "savi"
+    assert calculate_msavi(0.8, 0.2)["index"] == "msavi"
+    assert calculate_bsi(0.8, 0.2, 0.1, 0.4)["index"] == "bsi"
+    assert calculate_mndwi(0.6, 0.2)["index"] == "mndwi"
+
+
+def test_client_optical_and_sar_shortcuts():
+    client = OmniEarth()
+    mock_opt = SearchResult(id="opt_01", collection="c", category=Category.OPTICAL, provider="p")
+    mock_sar = SearchResult(id="sar_01", collection="c", category=Category.SAR, provider="p")
+
+    with patch.object(client, "search", return_value=[mock_opt]):
+        assert client.get_optical(bbox=[78.0, 20.0, 78.5, 20.5], level="toa") == mock_opt
+    with patch.object(client, "search", return_value=[]):
+        assert client.get_optical(bbox=[78.0, 20.0, 78.5, 20.5]) is None
+
+    with patch.object(client, "search", return_value=[mock_sar]):
+        assert client.get_sar(bbox=[78.0, 20.0, 78.5, 20.5]) == mock_sar
+    with patch.object(client, "search", return_value=[]):
+        assert client.get_sar(bbox=[78.0, 20.0, 78.5, 20.5]) is None
 
 
 def test_client_get_time_series():

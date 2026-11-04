@@ -50,6 +50,11 @@ def test_optical_provider_search():
         assert results[0].cloud_cover == 1.2
         assert "visual" in results[0].assets
 
+    # TOA Level test
+    with patch("requests.post", return_value=mock_resp) as mock_post:
+        results_toa = provider.search(aoi=aoi, filters=FilterOptions(limit=1, level="toa"))
+        assert mock_post.call_args[1]["json"]["collections"] == ["sentinel-2-l1c"]
+
 
 def test_optical_provider_date_filters_and_errors(tmp_path):
     provider = OpticalProvider()
@@ -330,7 +335,17 @@ def test_hyperspectral_search_all_branches_and_filters():
     with patch("requests.get", side_effect=requests.exceptions.ConnectionError):
         assert provider._search_enmap(aoi, None, None, filters=None, limit=5) == []
 
-    # 2. NASA EMIT error branches
+    # 2. NASA EMIT error branches & date filters
+    mock_emit_ok = MagicMock(status_code=200)
+    mock_emit_ok.json.return_value = {"features": []}
+    with patch("requests.post", return_value=mock_emit_ok) as mock_p:
+        provider._search_emit(aoi, "2026-05-01", None, limit=5)
+        assert mock_p.call_args[1]["json"]["datetime"] == "2026-05-01T00:00:00Z/.."
+
+    with patch("requests.post", return_value=mock_emit_ok) as mock_p:
+        provider._search_emit(aoi, None, "2026-05-10", limit=5)
+        assert mock_p.call_args[1]["json"]["datetime"] == "../2026-05-10T23:59:59Z"
+
     mock_emit_bad = MagicMock(status_code=404)
     with patch("requests.post", return_value=mock_emit_bad):
         assert provider._search_emit(aoi, None, None, limit=5) == []

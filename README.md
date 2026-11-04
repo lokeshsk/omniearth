@@ -1,6 +1,8 @@
 # OmniEarth
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
+[![Documentation](https://img.shields.io/badge/docs-guide.html-blue.svg)](https://lokeshsk.github.io/omniearth/guide.html)
+[![Release](https://img.shields.io/badge/release-v1.3.0-brightgreen.svg)](RELEASE_NOTES.md)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
 [![npm version](https://img.shields.io/npm/v/omniearth.svg?color=green)](https://www.npmjs.com/package/omniearth)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23689449.svg)](https://doi.org/10.5281/zenodo.23689449)
@@ -10,9 +12,11 @@
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/License-OmniEarth_Attribution_1.0-orange.svg)](LICENSE)
 
+> **Interactive Documentation & User Manual:** Read the complete in-depth guide with parameter tables, sensor physics, and tutorials at [**lokeshsk.github.io/omniearth/guide.html**](https://lokeshsk.github.io/omniearth/guide.html) or browse locally at [`docs/guide.html`](docs/guide.html). Main showcase website is at [`docs/index.html`](https://lokeshsk.github.io/omniearth/).
+
 **OmniEarth** is an open-source, universal multi-modal Earth Observation (EO), hyperspectral cube, topography, and environmental data aggregation engine. It provides a unified **Python SDK**, **Node.js / TypeScript SDK**, and **Universal CLI** to discover, query, filter, and stream open earth observation data across all modalities:
 
-- **Optical Multispectral**: Sentinel-2 (L2A 10m COGs), Landsat-8/9 (30m) via AWS Open Data STAC.
+- **Optical Multispectral**: Sentinel-2 (Level-2A Surface Reflectance & Level-1C Top-of-Atmosphere), Landsat-8/9 (30m) via AWS Open Data STAC.
 - **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands), NASA EMIT (285 bands), and ASI PRISMA (240 bands).
 - **Synthetic Aperture Radar (SAR)**: Sentinel-1 (GRD / RTC VV/VH 10m COGs).
 - **Digital Elevation Models (DEM / DSM / DTM)**: Copernicus DEM GLO-30 (30m DSM), SRTM GL1 (30m), ALOS World 3D (AW3D30 30m).
@@ -48,7 +52,7 @@
 
 | Modality | Sensor / Dataset | Spatial / Spectral | Backend Architecture | Authentication |
 | :--- | :--- | :--- | :--- | :--- |
-| **Optical** | Sentinel-2 L2A, Landsat-8/9 | 10m-30m, 12 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
+| **Optical** | Sentinel-2 (L2A SR / L1C TOA), Landsat-8/9 | 10m-30m, 12-13 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
 | **SAR** | Sentinel-1 GRD / RTC | 10m, VV / VH dual-pol | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
 | **Elevation** | Copernicus DEM GLO-30, SRTM GL1, ALOS | 30m, DSM / DTM | AWS Open Data / OpenTopography S3 | **Zero-Config** (Free direct COGs) |
 | **Land Cover** | ESA WorldCover 10m (2020, 2021) | 10m global classification | AWS Open Data S3 | **Zero-Config** (Free direct COGs) |
@@ -131,14 +135,26 @@ omniearth search --category elevation --geojson ./field_boundary.geojson
 omniearth search --category landcover --bbox 78.50 20.65 78.60 20.72 --year 2021
 ```
 
-### Step 4: Apply Temporal and Cloud Cover Filters
-Narrow your search to specific acquisition windows or cloud thresholds:
+### Step 4: Apply Temporal, Processing Level (SR vs TOA), and Cloud Cover Filters
+Narrow your search to specific acquisition windows, cloud thresholds, or optical processing level. **All searches across all 14 modalities strictly return results in chronological descending order (newest acquisitions first)**:
 ```bash
+# 1. Surface Reflectance (SR / Level-2A, default) for agriculture, soil, and vegetation:
 omniearth search --category optical \
   --bbox 78.50 20.65 78.60 20.72 \
-  --start 2026-01-01 \
-  --end 2026-03-31 \
+  --level sr \
   --max-cloud 15 \
+  --limit 5
+
+# 2. Top-of-Atmosphere (TOA / Level-1C) preserving Band 10 (1375 nm Cirrus) & water body reflectances:
+omniearth search --category optical \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --level toa \
+  --limit 5
+
+# 3. Single-year scoping (automatically bounds to YYYY-01-01 through YYYY-12-31):
+omniearth search --category hyperspectral \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --year 2026 \
   --limit 5
 ```
 
@@ -170,11 +186,15 @@ omniearth download --category optical \
 ### Step 8: Network Interruption Resumption
 If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
 
-### Step 9: On-the-Fly Radiometric Indices (NDVI, NDWI, NDRE, EVI, NBR)
-Compute standard remote sensing vegetation, water, and burn ratio indices directly from CLI:
+### Step 9: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
+Compute standard remote sensing vegetation, water, soil, and burn ratio indices directly from CLI:
+- Supported: `ndvi`, `ndwi`, `ndre`, `evi`, `nbr`, `savi`, `msavi`, `bsi`, `mndwi`.
 ```bash
 # Compute NDVI from scalar band reflectances
 omniearth compute --index ndvi --nir 0.82 --red 0.18
+
+# Compute SAVI with soil adjustment factor (L=0.5)
+omniearth compute --index savi --nir 0.80 --red 0.20 --l-factor 0.5
 
 # Compute EVI from band values
 omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08
@@ -210,7 +230,7 @@ client = oe.OmniEarth()
 # client = oe.OmniEarth(env_path="/path/to/custom.env")
 ```
 
-### Step 2: Define Spatial Area of Interest (AOI)
+### Step 2: Define Spatial Area of Interest (AOI) & Ray-Casting Containment
 ```python
 # Bounding box AOI: [min_lon, min_lat, max_lon, max_lat]
 bbox = [78.50, 20.65, 78.60, 20.72]
@@ -220,14 +240,19 @@ point = (78.55, 20.68, 5.0)
 
 # GeoJSON AOI: from file or GeoJSON dict
 aoi = oe.AOI.from_geojson("./field_boundary.geojson")
+
+# Pure Python ray-casting point containment (checks boundary & exclusion holes):
+is_inside = aoi.contains(78.55, 20.68)
+print(f"Coordinate is inside field polygon: {is_inside}")
 ```
 
 ### Step 3: Search Multi-Modal Catalog
 ```python
-# 1. Optical (Sentinel-2 L2A 10m COGs)
+# 1. Optical (Level-2A Surface Reflectance or Level-1C Top-of-Atmosphere)
 optical_scenes = client.search(
     category="optical",
     bbox=bbox,
+    level="toa",           # "sr" (default) or "toa" (preserves B10 Cirrus)
     start_date="2026-01-01",
     end_date="2026-03-31",
     max_cloud_cover=20,
@@ -316,33 +341,40 @@ print(f"Successfully downloaded {len(all_paths)} scenes in parallel.")
 
 ### Step 8: Zero-Config Convenience Shortcuts
 ```python
-# 1. Digital Elevation Model (Copernicus DEM 30m)
+# 1. Optical Scenes (Instant SR or TOA)
+opt_sr = client.get_optical(bbox=bbox, level="sr")
+opt_toa = client.get_optical(bbox=bbox, level="toa")
+
+# 2. SAR Radar Scene (Sentinel-1 GRD)
+sar = client.get_sar(bbox=bbox)
+
+# 3. Digital Elevation Model (Copernicus DEM 30m)
 dem = client.get_elevation(bbox=bbox, dataset="copernicus")
 
-# 2. ESA WorldCover 10m LULC map
+# 4. ESA WorldCover 10m LULC map
 lc = client.get_landcover(bbox=bbox, year=2021)
 
-# 3. Instant Weather & Soil Moisture Profile
+# 5. Instant Weather & Soil Moisture Profile
 weather = client.get_weather(bbox=bbox)
 print(f"Elevation: {weather.properties['elevation']}m")
 print(f"Hourly Temp: {weather.properties['_raw_data']['hourly']['temperature_2m'][:5]}")
 
-# 4. ISRIC SoilGrids 3D Soil Chemistry & Texture Profile
+# 6. ISRIC SoilGrids 3D Soil Chemistry & Texture Profile
 soil = client.get_soil(bbox=bbox, depth="0-5cm")
 print("Topsoil Summary:", soil.properties["summary_topsoil"])
 ```
 
-### Step 9: On-the-Fly Index Computation
+### Step 9: On-the-Fly Biophysical & Spectral Indices (9 Indices)
 ```python
-# Compute NDVI
-ndvi = client.compute_index("ndvi", nir=0.82, red=0.18)
-print("NDVI Mean:", ndvi["mean"])
+# Direct high-level function calls:
+savi_val = oe.calculate_savi(nir=0.82, red=0.18, l_factor=0.5)
+msavi_val = oe.calculate_msavi(nir=0.82, red=0.18)
+ndwi_val = oe.calculate_ndwi(green=0.45, nir=0.12)
+nbr_val = oe.calculate_nbr(nir=0.75, swir=0.25)
 
-# Compute NDRE (RedEdge)
-ndre = client.compute_index("ndre", nir=0.78, rededge=0.35)
-
-# Compute EVI
-evi = client.compute_index("evi", nir=0.80, red=0.15, blue=0.08)
+# Or via client.compute_index:
+savi = client.compute_index("savi", nir=0.82, red=0.18, l_factor=0.5)
+print("SAVI Mean:", savi["mean"])
 ```
 
 ### Step 10: Time-Series Extraction
@@ -417,8 +449,15 @@ const allPaths = await client.downloadMany(results, "visual", "./downloads", {
 console.log(`Batch downloaded ${allPaths.length} visual rasters.`);
 ```
 
-### Step 6: Zero-Config Convenience Shortcuts
+### Step 6: Zero-Config Convenience Shortcuts & TOA/SR Levels
 ```typescript
+// Optical Scenes (Instant SR or TOA)
+const optSR = await client.getOptical({ bbox: [78.50, 20.65, 78.60, 20.72], level: "sr" });
+const optTOA = await client.getOptical({ bbox: [78.50, 20.65, 78.60, 20.72], level: "toa" });
+
+// SAR Radar Scene (Sentinel-1 GRD)
+const sar = await client.getSar({ bbox: [78.50, 20.65, 78.60, 20.72] });
+
 // Elevation DEM
 const dem = await client.getElevation([78.50, 20.65, 78.60, 20.72], "copernicus");
 
@@ -432,15 +471,20 @@ console.log("Weather elevation:", wx?.properties.elevation);
 // SoilGrids 3D Profile
 const soil = await client.getSoil([78.50, 20.65, 78.60, 20.72], "0-5cm");
 console.log("Topsoil profile:", soil?.properties.summary_topsoil);
+
+// Pure TypeScript Ray-Casting Polygon Containment
+const aoi = client.resolveAOI({ geojson: "./field_boundary.geojson" });
+const inside = aoi.contains(78.55, 20.68);
+console.log("Point within boundary:", inside);
 ```
 
 ### Step 7: Index Computation & Time-Series
 ```typescript
-// Radiometric Index calculation
-const ndvi = client.computeIndex("ndvi", { nir: 0.82, red: 0.18 });
-console.log("Computed NDVI:", ndvi);
+// Radiometric Index calculation (9 indices supported, including SAVI with lFactor)
+const savi = client.computeIndex("savi", { nir: 0.82, red: 0.18, lFactor: 0.5 });
+console.log("Computed SAVI:", savi);
 
-// Time-series extraction
+// Time-series extraction (chronological ascending)
 const timeSeries = await client.getTimeSeries({
   category: Category.WEATHER,
   bbox: [78.50, 20.65, 78.60, 20.72]
