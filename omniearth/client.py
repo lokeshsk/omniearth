@@ -111,6 +111,12 @@ class OmniEarth:
         cat_enum = Category(category) if isinstance(category, str) else category
         resolved_aoi = self._resolve_aoi(aoi, bbox, point, geojson)
 
+        effective_start = start_date
+        effective_end = end_date
+        if year and not effective_start and not effective_end:
+            effective_start = f"{year}-01-01"
+            effective_end = f"{year}-12-31"
+
         filters = FilterOptions(
             max_cloud_cover=max_cloud_cover,
             bands=bands,
@@ -128,8 +134,8 @@ class OmniEarth:
 
         return provider.search(
             aoi=resolved_aoi,
-            start_date=start_date,
-            end_date=end_date,
+            start_date=effective_start,
+            end_date=effective_end,
             filters=filters
         )
 

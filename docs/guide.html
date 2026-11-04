@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniEarth - In-Depth User Guide & Complete API Reference</title>
+  <meta name="description" content="Comprehensive, in-depth beginner to advanced user guide for OmniEarth. Covers all 14 Earth observation modalities, CLI arguments, Python and TypeScript SDKs, STAC search, download, and spectral indices.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1d;
+      --sidebar-bg: #0f172a;
+      --card-bg: #111827;
+      --card-border: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #10b981;
+      --primary-light: #34d399;
+      --primary-glow: rgba(16, 185, 129, 0.15);
+      --accent-blue: #38bdf8;
+      --accent-purple: #a855f7;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --code-bg: #070d19;
+      --code-border: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.65;
+    }
+
+    /* Top Navigation Bar */
+    header.top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 0.85rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-main);
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .brand span.badge-ver {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--primary-light);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--primary-light);
+    }
+
+    /* App Layout */
+    .docs-layout {
+      display: flex;
+      max-width: 1440px;
+      margin: 0 auto;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* Sticky Sidebar */
+    aside.sidebar {
+      width: 290px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      padding: 2rem 1.25rem 3rem;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--card-border);
+      font-size: 0.875rem;
+    }
+
+    aside.sidebar::-webkit-scrollbar { width: 6px; }
+    aside.sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    .sidebar-section {
+      margin-bottom: 1.75rem;
+    }
+    .sidebar-heading {
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--accent-blue);
+      margin-bottom: 0.75rem;
+      padding-left: 0.5rem;
+    }
+    .sidebar-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .sidebar-menu a {
+      display: block;
+      padding: 0.45rem 0.65rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      line-height: 1.4;
+    }
+    .sidebar-menu a:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+      padding-left: 0.85rem;
+    }
+
+    /* Main Content Area */
+    main.content {
+      flex: 1;
+      padding: 2.5rem 3rem 5rem;
+      max-width: 1050px;
+      overflow-x: hidden;
+    }
+
+    h1.doc-title {
+      font-size: 2.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 40%, var(--primary-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.doc-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    h2 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-top: 3.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      color: #fff;
+    }
+    h3 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--primary-light);
+    }
+    h4 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent-blue);
+    }
+
+    p, ul, ol {
+      color: #cbd5e1;
+      margin-bottom: 1.2rem;
+    }
+    ul, ol { padding-left: 1.5rem; }
+    li { margin-bottom: 0.4rem; }
+
+    strong { color: #fff; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875em;
+      background: rgba(255, 255, 255, 0.07);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+
+    /* Callouts & Alert Boxes */
+    .callout {
+      border-left: 4px solid var(--accent-blue);
+      background: rgba(56, 189, 248, 0.08);
+      border-radius: 0 8px 8px 0;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .callout-title {
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .callout.tip {
+      border-left-color: var(--primary);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .callout.tip .callout-title { color: var(--primary-light); }
+    .callout.warn {
+      border-left-color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .callout.warn .callout-title { color: var(--accent-amber); }
+
+    /* Code Blocks */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1.25rem 0 1.75rem;
+      position: relative;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: #e2e8f0;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0 2rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: top;
+    }
+    th {
+      background: #0f172a;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+      margin: 1.5rem 0 2rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card:hover {
+      border-color: rgba(16, 185, 129, 0.4);
+      transform: translateY(-2px);
+    }
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+    }
+
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      aside.sidebar { display: none; }
+      main.content { padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAV -->
+  <header class="top-nav">
+    <a href="index.html" class="brand">
+      OmniEarth <span class="badge-ver">v1.2.0</span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html">Overview</a>
+      <a href="guide.html" class="active">Complete User Guide</a>
+      <a href="https://github.com/lokeshsk/omniearth" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/omniearth/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://www.npmjs.com/package/omniearth" target="_blank" rel="noopener">npm</a>
+    </nav>
+  </header>
+
+  <div class="docs-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">1. Fundamentals</div>
+        <ul class="sidebar-menu">
+          <li><a href="#quickstart">Novice Quickstart</a></li>
+          <li><a href="#spatial-coordinates">Coordinates, BBox & GeoJSON</a></li>
+          <li><a href="#satellite-dynamics">Satellite Orbits & Tasking</a></li>
+          <li><a href="#processing-levels">Processing Levels (SR vs TOA)</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">2. CLI Command Manual</div>
+        <ul class="sidebar-menu">
+          <li><a href="#cli-search">omniearth search (All Flags)</a></li>
+          <li><a href="#cli-download">omniearth download</a></li>
+          <li><a href="#cli-compute">omniearth compute (Indices)</a></li>
+          <li><a href="#cli-timeseries">omniearth timeseries</a></li>
+          <li><a href="#cli-diagnostics">categories & info</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">3. Python & TypeScript SDKs</div>
+        <ul class="sidebar-menu">
+          <li><a href="#sdk-python">Python SDK Architecture</a></li>
+          <li><a href="#sdk-node">Node.js & TypeScript SDK</a></li>
+          <li><a href="#sdk-shortcuts">Convenience Shortcuts</a></li>
+          <li><a href="#sdk-polygon">GeoJSON Polygon Containment</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">4. All 14 Modalities</div>
+        <ul class="sidebar-menu">
+          <li><a href="#mod-optical">1. Optical Multispectral</a></li>
+          <li><a href="#mod-sar">2. Synthetic Aperture Radar (SAR)</a></li>
+          <li><a href="#mod-hyperspectral">3. Hyperspectral (EnMAP, EMIT)</a></li>
+          <li><a href="#mod-elevation">4. Digital Elevation (DEM 30m)</a></li>
+          <li><a href="#mod-landcover">5. Land Cover (10m LULC)</a></li>
+          <li><a href="#mod-soil">6. SoilGrids (3D Physical/Chemical)</a></li>
+          <li><a href="#mod-weather">7. Agro-Weather & ET0 Climate</a></li>
+          <li><a href="#mod-atmosphere">8. Atmosphere & Air Quality</a></li>
+          <li><a href="#mod-fire">9. Active Fire (NASA FIRMS)</a></li>
+          <li><a href="#mod-ocean">10. Ocean & Marine (Sentinel-3)</a></li>
+          <li><a href="#mod-altimetry">11. Altimetry (Sentinel-6)</a></li>
+          <li><a href="#mod-precipitation">12. Precipitation (GPM & CHIRPS)</a></li>
+          <li><a href="#mod-hydrology">13. Hydrology & Soil Moisture</a></li>
+          <li><a href="#mod-nightlights">14. Nighttime Lights (Black Marble)</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">5. Troubleshooting</div>
+        <ul class="sidebar-menu">
+          <li><a href="#faq">Frequently Asked Questions</a></li>
+          <li><a href="#troubleshooting">Common Novice Pitfalls</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+
+      <h1 class="doc-title">OmniEarth Technical Manual & User Guide</h1>
+      <p class="doc-subtitle">
+        A step-by-step, in-depth guide covering core geospatial concepts, CLI options, Python/TypeScript SDK methods, and modality-specific architectures. Designed for both first-time GIS novices and experienced remote sensing engineers.
+      </p>
+
+      <!-- SECTION 1: FUNDAMENTALS -->
+      <section id="quickstart">
+        <h2>1. Fundamentals and Core Concepts</h2>
+        <p>
+          Earth observation (EO) data traditionally requires registering for multiple government portals (Copernicus SciHub/Dataspace, NASA Earthdata, USGS EarthExplorer, DLR EOC, Open-Meteo), writing custom download scripts, and translating inconsistent coordinate formats.
+        </p>
+        <p>
+          <strong>OmniEarth</strong> unifies 14 planetary data layers under a single standardized interface across both Python and TypeScript with native parallel chunked downloading and zero mandatory API keys for open-access tiers.
+        </p>
+
+        <div class="callout tip">
+          <div class="callout-title">Instant Installation</div>
+          <p>
+            <strong>Python (uv or pip)</strong>: <code>pip install omniearth</code><br>
+            <strong>Node.js (pnpm or npm)</strong>: <code>npm install omniearth</code> (or run instantly with <code>npx omniearth</code>)
+          </p>
+        </div>
+      </section>
+
+      <section id="spatial-coordinates">
+        <h3>Spatial Coordinates: Bounding Box vs Point vs GeoJSON</h3>
+        <p>OmniEarth supports three universal ways to define an Area of Interest (AOI):</p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Format</th>
+                <th>CLI Argument</th>
+                <th>Example Value</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Bounding Box</strong></td>
+                <td><code>--bbox</code></td>
+                <td><code>--bbox 77.1 28.5 77.3 28.7</code></td>
+                <td>Standard WGS84 rectangular envelope: <code>min_lon min_lat max_lon max_lat</code>. Always use longitude first, then latitude.</td>
+              </tr>
+              <tr>
+                <td><strong>Point with Radius</strong></td>
+                <td><code>--point</code></td>
+                <td><code>--point 77.209 28.614 10.0</code></td>
+                <td>A center coordinate: <code>lon lat [radius_km]</code>. OmniEarth automatically converts this into an accurate bounding box around the point.</td>
+              </tr>
+              <tr>
+                <td><strong>GeoJSON Polygon</strong></td>
+                <td><code>--geojson</code></td>
+                <td><code>--geojson farm.geojson</code></td>
+                <td>Path to a <code>.geojson</code> file (or inline JSON). Automatically parses FeatureCollection, Polygon, or MultiPolygon geometries and extracts bounds.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn">
+          <div class="callout-title">Coordinate Order Warning (Lon / Lat)</div>
+          <p>
+            Standard GIS / GeoJSON formats specify <strong>Longitude (X, Easting) first</strong> and <strong>Latitude (Y, Northing) second</strong>. In India, for example, New Delhi is approximately <code>77.209° Longitude, 28.614° Latitude</code>. Always pass <code>77.209 28.614</code>, not the reverse!
+          </p>
+        </div>
+      </section>
+
+      <section id="satellite-dynamics">
+        <h3>Satellite Orbits & Sensor Acquisition Types</h3>
+        <p>Understanding why some searches return hundreds of scenes while others return only a few:</p>
+
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-title">Continuous Systematic Mapping <span class="card-tag">Sentinel-2 / Landsat</span></div>
+            <p>
+              Multispectral optical and SAR satellites (like Copernicus Sentinel-2 and Sentinel-1) have wide swaths (290 km) and orbit continuously. They image the entire land surface of Earth systematically every 5 to 10 days. A search over a 1-year window will typically yield <strong>50 to 70 scenes</strong>.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Targeted Hyperspectral Tasking <span class="card-tag">EnMAP / PRISMA / EMIT</span></div>
+            <p>
+              Hyperspectral satellites capture hundreds of contiguous spectral bands (200–250+ bands) across a narrow swath (30 km). Because transmitting and storing hundreds of bands requires massive bandwidth, sensors like <strong>DLR EnMAP</strong> and <strong>ASI PRISMA</strong> are <em>tasked</em>: they point and acquire imagery only when requested by research or commercial proposals. A search over any given field might only yield <strong>2 to 5 acquisitions per year</strong>.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Continuous Grid Reanalysis <span class="card-tag">Weather / Atmosphere / Soil</span></div>
+            <p>
+              Numerical weather models (ECMWF IFS, GFS), air quality assimilation (CAMS, Sentinel-5P), and SoilGrids do not have swath gaps; they represent continuous spatial grids available 24/7/365 at hourly or daily time-steps.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="processing-levels">
+        <h3>Optical Processing Levels: Surface Reflectance (SR) vs Top-of-Atmosphere (TOA)</h3>
+        <p>
+          When querying optical imagery (Sentinel-2 or Landsat), OmniEarth provides the <code>--level</code> parameter (or <code>level="sr"|"toa"</code>):
+        </p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Underlying Collection</th>
+                <th>When to Use</th>
+                <th>Bands Available</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SR / BOA</strong> (Default)</td>
+                <td><code>sentinel-2-l2a</code></td>
+                <td>Vegetation monitoring, agriculture, soil indices, land use classification. Atmosphere scattering has been removed.</td>
+                <td>B01–B08, B8A, B11, B12, visual RGB, Scene Classification (SCL). Note: Band 10 (Cirrus) is omitted in L2A.</td>
+              </tr>
+              <tr>
+                <td><strong>TOA</strong></td>
+                <td><code>sentinel-2-l1c</code></td>
+                <td>Water quality, coastal & lake limnology, high-altitude cirrus cloud detection, deep learning foundation model pre-training.</td>
+                <td>B01–B12, including <strong>Band 10 (Cirrus - 1375 nm)</strong>, coastal aerosol, visual RGB, and raw top-of-atmosphere reflectances.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 2: CLI REFERENCE -->
+      <section id="cli-search">
+        <h2>2. Complete CLI Command Reference</h2>
+
+        <h3><code>omniearth search</code></h3>
+        <p>Search STAC catalogs, satellite archives, weather models, or soil databases without downloading files.</p>
+
+        <pre><code>omniearth search --category &lt;category&gt; [options]</code></pre>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Flag</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>--category, -c</code></td>
+                <td>String</td>
+                <td><em>Required</em></td>
+                <td>Modality: <code>optical</code>, <code>sar</code>, <code>hyperspectral</code>, <code>elevation</code>, <code>landcover</code>, <code>weather</code>, <code>soil</code>, <code>atmosphere</code>, <code>fire</code>, <code>ocean</code>, <code>altimetry</code>, <code>precipitation</code>, <code>hydrology</code>, <code>nightlights</code>.</td>
+              </tr>
+              <tr>
+                <td><code>--bbox</code></td>
+                <td>4 Floats</td>
+                <td>None</td>
+                <td>Bounding box coordinates: <code>min_lon min_lat max_lon max_lat</code>.</td>
+              </tr>
+              <tr>
+                <td><code>--point</code></td>
+                <td>2-3 Floats</td>
+                <td>None</td>
+                <td>Center point: <code>lon lat [radius_km]</code> (radius defaults to 5.0 km).</td>
+              </tr>
+              <tr>
+                <td><code>--geojson</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Path to a GeoJSON file or inline JSON string with Polygon coordinates.</td>
+              </tr>
+              <tr>
+                <td><code>--start</code></td>
+                <td>YYYY-MM-DD</td>
+                <td>None</td>
+                <td>Filter acquisitions on or after this date.</td>
+              </tr>
+              <tr>
+                <td><code>--end</code></td>
+                <td>YYYY-MM-DD</td>
+                <td>None</td>
+                <td>Filter acquisitions on or before this date.</td>
+              </tr>
+              <tr>
+                <td><code>--year</code></td>
+                <td>Integer</td>
+                <td>None</td>
+                <td>Convenience filter: automatically constrains date range to <code>YYYY-01-01</code> through <code>YYYY-12-31</code>.</td>
+              </tr>
+              <tr>
+                <td><code>--level</code></td>
+                <td><code>sr</code> | <code>toa</code></td>
+                <td><code>sr</code></td>
+                <td>Processing level for optical data: <code>sr</code> (Sentinel-2 L2A Surface Reflectance) or <code>toa</code> (Sentinel-2 L1C Top of Atmosphere).</td>
+              </tr>
+              <tr>
+                <td><code>--max-cloud</code></td>
+                <td>Float (0-100)</td>
+                <td>None</td>
+                <td>Maximum allowable scene cloud cover percentage (e.g. <code>--max-cloud 15.0</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--limit</code></td>
+                <td>Integer</td>
+                <td><code>5</code></td>
+                <td>Maximum number of scenes/items to return. Pass <code>--limit 20</code> or higher for comprehensive multi-year historical queries.</td>
+              </tr>
+              <tr>
+                <td><code>--dataset</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Specific dataset variant (e.g. <code>copernicus</code>, <code>srtm</code> for DEM).</td>
+              </tr>
+              <tr>
+                <td><code>--variables</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Comma-separated variables for weather or soil (e.g. <code>temperature_2m,precipitation</code> or <code>clay,phh2o,soc</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--depth</code></td>
+                <td>String</td>
+                <td><code>0-5cm</code></td>
+                <td>Soil depth slice for SoilGrids (<code>0-5cm</code>, <code>5-15cm</code>, <code>15-30cm</code>, <code>30-60cm</code>, <code>60-100cm</code>, <code>100-200cm</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--json</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Outputs raw structured JSON to stdout. Ideal for piping into <code>jq</code>, shell scripts, or downstream analysis pipelines.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="cli-download">
+        <h3><code>omniearth download</code></h3>
+        <p>Download scenes or specific assets directly with parallel multipart chunking and byte-range resumption.</p>
+
+        <pre><code># Download by exact product ID
+omniearth download --category optical --id S2B_43RFM_20261022_0_L2A --asset visual
+
+# Find latest scene in bbox and download specific band
+omniearth download --category optical --bbox 77.1 28.5 77.3 28.7 --asset red -o ./my_data
+
+# Download all 13 assets of a hyperspectral scene concurrently
+omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_... --all --threads 6</code></pre>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Flag</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>--id</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Exact scene/product ID from a previous search.</td>
+              </tr>
+              <tr>
+                <td><code>--asset</code></td>
+                <td>String</td>
+                <td><code>visual</code> / <code>data</code></td>
+                <td>Specific asset key to download (e.g. <code>visual</code>, <code>red</code>, <code>cirrus</code>, <code>swir</code>, <code>dem</code>, <code>map</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--outdir, -o</code></td>
+                <td>String</td>
+                <td><code>./omniearth_downloads</code></td>
+                <td>Destination directory on disk where downloaded files are saved.</td>
+              </tr>
+              <tr>
+                <td><code>--all</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Downloads every single asset associated with the scene in parallel.</td>
+              </tr>
+              <tr>
+                <td><code>--threads, -t</code></td>
+                <td>Integer</td>
+                <td><code>4</code></td>
+                <td>Number of parallel worker threads for chunked multipart downloading.</td>
+              </tr>
+              <tr>
+                <td><code>--no-resume</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Disables HTTP byte-range resumption and starts downloads from byte 0.</td>
+              </tr>
+              <tr>
+                <td><code>--no-multipart</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Disables parallel range chunking and downloads via a single HTTP stream.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="cli-compute">
+        <h3><code>omniearth compute</code></h3>
+        <p>Sensor-agnostic radiometric and biophysical index engine. Accepts single scalar reflectances or JSON arrays.</p>
+
+        <pre><code># Compute NDVI on scalar values
+omniearth compute --index ndvi --nir 0.82 --red 0.18
+
+# Compute Soil-Adjusted Vegetation Index (SAVI) with L factor
+omniearth compute --index savi --nir 0.75 --red 0.22 --l-factor 0.5
+
+# Compute Bare Soil Index (BSI) on array of pixels and save summary JSON
+omniearth compute --index bsi --nir "[0.4, 0.5]" --red "[0.3, 0.25]" --blue "[0.1, 0.15]" --swir "[0.55, 0.6]" --outpath bsi_stats.json</code></pre>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Index</th>
+                <th>Name</th>
+                <th>Formula</th>
+                <th>Required Bands</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ndvi</code></td>
+                <td>Normalized Difference Vegetation Index</td>
+                <td><code>(NIR - Red) / (NIR + Red)</code></td>
+                <td><code>--nir</code>, <code>--red</code></td>
+              </tr>
+              <tr>
+                <td><code>ndwi</code></td>
+                <td>Normalized Difference Water Index (McFeeters)</td>
+                <td><code>(Green - NIR) / (Green + NIR)</code></td>
+                <td><code>--green</code>, <code>--nir</code></td>
+              </tr>
+              <tr>
+                <td><code>ndre</code></td>
+                <td>Normalized Difference Red Edge</td>
+                <td><code>(NIR - RedEdge) / (NIR + RedEdge)</code></td>
+                <td><code>--nir</code>, <code>--rededge</code></td>
+              </tr>
+              <tr>
+                <td><code>evi</code></td>
+                <td>Enhanced Vegetation Index</td>
+                <td><code>2.5 * (NIR - Red) / (NIR + 6*Red - 7.5*Blue + 1)</code></td>
+                <td><code>--nir</code>, <code>--red</code>, <code>--blue</code></td>
+              </tr>
+              <tr>
+                <td><code>nbr</code></td>
+                <td>Normalized Burn Ratio</td>
+                <td><code>(NIR - SWIR) / (NIR + SWIR)</code></td>
+                <td><code>--nir</code>, <code>--swir</code></td>
+              </tr>
+              <tr>
+                <td><code>savi</code></td>
+                <td>Soil-Adjusted Vegetation Index</td>
+                <td><code>(1 + L) * (NIR - Red) / (NIR + Red + L)</code></td>
+                <td><code>--nir</code>, <code>--red</code>, <code>--l-factor</code></td>
+              </tr>
+              <tr>
+                <td><code>msavi</code></td>
+                <td>Modified Soil-Adjusted Vegetation Index</td>
+                <td><code>(2*NIR + 1 - sqrt((2*NIR + 1)^2 - 8*(NIR - Red))) / 2</code></td>
+                <td><code>--nir</code>, <code>--red</code></td>
+              </tr>
+              <tr>
+                <td><code>bsi</code></td>
+                <td>Bare Soil Index</td>
+                <td><code>((SWIR + Red) - (NIR + Blue)) / ((SWIR + Red) + (NIR + Blue))</code></td>
+                <td><code>--nir</code>, <code>--red</code>, <code>--blue</code>, <code>--swir</code></td>
+              </tr>
+              <tr>
+                <td><code>mndwi</code></td>
+                <td>Modified Normalized Difference Water Index</td>
+                <td><code>(Green - SWIR) / (Green + SWIR)</code></td>
+                <td><code>--green</code>, <code>--swir</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 3: SDK ARCHITECTURE -->
+      <section id="sdk-python">
+        <h2>3. Python and TypeScript SDK Guide</h2>
+
+        <h3>Python SDK Architecture</h3>
+        <pre><code class="language-python">from omniearth import OmniEarth, Category, AOI
+
+client = OmniEarth()
+
+# 1. Search optical imagery with Top-of-Atmosphere (L1C)
+scenes = client.search(
+    category=Category.OPTICAL,
+    bbox=[77.1, 28.5, 77.3, 28.7],
+    year=2026,
+    level="toa",
+    max_cloud_cover=20.0,
+    limit=5
+)
+
+for scene in scenes:
+    print(f"Scene: {scene.id} | Datetime: {scene.datetime} | Cloud: {scene.cloud_cover}%")
+    for key, asset in scene.assets.items():
+        print(f"  * Asset [{key}]: {asset.href}")
+
+# 2. Download the high-resolution visual RGB GeoTIFF
+local_path = client.download(scenes[0], asset_key="visual", outdir="./imagery")
+print(f"Downloaded GeoTIFF to: {local_path}")</code></pre>
+      </section>
+
+      <section id="sdk-node">
+        <h3>Node.js & TypeScript SDK</h3>
+        <pre><code class="language-typescript">import { OmniEarth, Category } from "omniearth";
+
+const client = new OmniEarth();
+
+// Search active wildfire hotspots from NASA FIRMS
+const fires = await client.search({
+  category: Category.FIRE,
+  bbox: [-121.0, 37.0, -120.0, 38.0],
+  startDate: "2026-10-01",
+  limit: 10
+});
+
+console.log(`Found ${fires.length} active fire record(s)`);
+for (const fire of fires) {
+  console.log(`Hotspot: ${fire.id} | Brightness: ${fire.properties.brightness_ti4}K | FRP: ${fire.properties.frp} MW`);
+}</code></pre>
+      </section>
+
+      <section id="sdk-polygon">
+        <h3>GeoJSON Polygon Containment (Ray Casting)</h3>
+        <p>
+          OmniEarth includes built-in polygon ray-casting containment tests with <strong>zero external C/C++ dependencies</strong> (no GDAL or GEOS installation required):
+        </p>
+        <pre><code class="language-python">from omniearth.models import AOI
+
+# Load field boundary polygon from GeoJSON
+aoi = AOI.from_geojson("sugarcane_field.geojson")
+
+# Test whether a GPS coordinate is inside the boundary
+is_inside = aoi.contains(lon=80.208, lat=27.875)
+print(f"Point inside polygon boundary: {is_inside}")</code></pre>
+      </section>
+
+      <!-- SECTION 4: ALL 14 MODALITIES -->
+      <section id="mod-optical">
+        <h2>4. Modality-by-Modality Reference Guide</h2>
+
+        <h3>1. Optical Multispectral Imagery (<code>optical</code>)</h3>
+        <p>
+          High-resolution 10m to 30m multispectral imagery from <strong>Copernicus Sentinel-2</strong> (L2A Surface Reflectance & L1C Top-of-Atmosphere) and <strong>USGS Landsat 8/9</strong>.
+        </p>
+        <ul>
+          <li><strong>Bands Available</strong>: Coastal (B01), Blue (B02), Green (B03), Red (B04), Red Edge (B05, B06, B07), NIR (B08, B8A), Water Vapor (B09), Cirrus (B10 in TOA), SWIR (B11, B12), and Visual RGB.</li>
+          <li><strong>CLI Command</strong>:
+            <pre><code>omniearth search --category optical --bbox 77.1 28.5 77.3 28.7 --year 2026 --max-cloud 10.0</code></pre>
+          </li>
+        </ul>
+      </section>
+
+      <section id="mod-hyperspectral">
+        <h3>3. Hyperspectral Data Cubes (<code>hyperspectral</code>)</h3>
+        <p>
+          Continuous contiguous spectra with 200+ narrow spectral bands (400 nm to 2500 nm) from <strong>DLR EnMAP</strong> (224 bands), <strong>NASA EMIT</strong> (285 bands on the ISS), and <strong>ASI PRISMA</strong> (240 bands).
+        </p>
+        <div class="callout tip">
+          <div class="callout-title">Understanding Hyperspectral Asset Structure</div>
+          <p>
+            When searching EnMAP, the primary image cube is split into two spectrometer files:
+            <br>• <code>vnir</code>: Visible and Near-Infrared spectrometer (420 nm – 1000 nm, 30m resolution COG)
+            <br>• <code>swir</code>: Shortwave Infrared spectrometer (900 nm – 2450 nm, 30m resolution COG)
+            <br>• <code>quality_classes</code>: Pixel-level land/water/cloud classification mask
+          </p>
+        </div>
+        <pre><code># Search and filter strictly by year
+omniearth search --category hyperspectral --geojson field.geojson --year 2026
+
+# Download only the VNIR spectrometer cube
+omniearth download --category hyperspectral --id ENMAP01-____L2A-... --asset vnir</code></pre>
+      </section>
+
+      <section id="mod-weather">
+        <h3>7. Agro-Weather & ET0 Evapotranspiration (<code>weather</code>)</h3>
+        <p>
+          Global high-resolution numerical reanalysis and forecast profiles from ECMWF IFS and GFS via Open-Meteo with zero mandatory API key.
+        </p>
+        <ul>
+          <li><strong>Physical & Agricultural Variables</strong>: <code>temperature_2m</code>, <code>relative_humidity_2m</code>, <code>precipitation</code>, <code>et0_fao_evapotranspiration</code> (FAO-56 reference crop evapotranspiration), <code>vapour_pressure_deficit</code> (VPD), <code>shortwave_radiation_sum</code>, <code>dew_point_2m</code>, <code>surface_pressure</code>, <code>wind_speed_10m</code>.</li>
+          <li><strong>CLI Command</strong>:
+            <pre><code>omniearth search --category weather --point 77.209 28.614 --variables temperature_2m,et0_fao_evapotranspiration,vapour_pressure_deficit</code></pre>
+          </li>
+        </ul>
+      </section>
+
+      <!-- SECTION 5: FAQ -->
+      <section id="faq">
+        <h2>5. Frequently Asked Questions & Troubleshooting</h2>
+
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-title">Why did my search return only 2 or 5 results?</div>
+            <p>
+              1. <strong>Default Limit</strong>: The CLI defaults to <code>--limit 5</code>. Pass <code>--limit 25</code> or higher if you want to inspect dozens of historical scenes.
+              <br>2. <strong>Hyperspectral Tasking</strong>: Sensors like EnMAP and EMIT have a narrow 30 km swath and are targeted on-demand. Unlike Sentinel-2 which maps the entire globe continuously every 5 days, a specific 10 km field might only be acquired 2 to 5 times per year.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Why were older scenes appearing before?</div>
+            <p>
+              When no date filter is passed, STAC APIs return the most recent available scenes in their catalog. If a field had acquisitions in 2026, 2024, and 2023, passing <code>--year 2026</code> ensures OmniEarth constrains the search window strictly to <code>2026-01-01</code> through <code>2026-12-31</code>.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">How do I download just the visual PNG/GeoTIFF?</div>
+            <p>
+              Full satellite products often exceed 1 GB because they contain 13 raw 16-bit raster bands. Pass <code>--asset visual</code> to download only the pre-rendered True Color RGB GeoTIFF, saving over 90% in bandwidth and download time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div>
+          OmniEarth is maintained by <a href="https://lokeshsk.github.io" target="_blank">Lokesh Kumar</a>.
+          <br>Archived on Zenodo under DOI <a href="https://doi.org/10.5281/zenodo.23689449" target="_blank">10.5281/zenodo.23689449</a>.
+        </div>
+        <div>
+          Published under the Apache 2.0 License.
+        </div>
+      </footer>
+
+    </main>
+  </div>
+
+</body>
+</html>

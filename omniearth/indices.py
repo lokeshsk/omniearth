@@ -178,3 +178,4 @@ def calculate_bsi(nir: Any, red: Any, blue: Any, swir: Any) -> Dict[str, Any]:
 def calculate_mndwi(green: Any, swir: Any) -> Dict[str, Any]:
     """Convenience function for Modified NDWI (MNDWI)."""
     return compute_spectral_index("mndwi", nir=0.0, green=green, swir=swir)
+

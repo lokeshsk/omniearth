@@ -133,6 +133,13 @@ export class OmniEarth {
     }
 
     const aoi = this.resolveAOI(params);
+    let startDate = params.startDate;
+    let endDate = params.endDate;
+    if (params.year && !startDate && !endDate) {
+      startDate = `${params.year}-01-01`;
+      endDate = `${params.year}-12-31`;
+    }
+
     const filters: FilterOptions = {
       maxCloudCover: params.maxCloudCover,
       bands: params.bands,
@@ -144,7 +151,7 @@ export class OmniEarth {
       limit: params.limit
     };
 
-    return provider.search(aoi, params.startDate, params.endDate, filters);
+    return provider.search(aoi, startDate, endDate, filters);
   }
 
   public async download(
