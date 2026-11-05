@@ -46,3 +46,4 @@ updates:
     labels:
       - "ci"
       - "github-actions"
+

@@ -62,3 +62,4 @@ OmniEarth is designed with privacy-first and defense-in-depth principles:
 - **PyPI Provenance (PEP 740)**: Built using GitHub Actions with OpenID Connect (OIDC) Trusted Publishing, accompanied by cryptographic build attestations signed via Sigstore.
 - **npm Provenance (SLSA)**: Published with `--provenance`, generating an in-toto SLSA attestation on npm and Rekor public transparency log.
 - **Automated Dependency Audits**: Continuous scanning via GitHub Advanced Security CodeQL and Dependabot to guard against vulnerable or compromised upstream dependencies.
+

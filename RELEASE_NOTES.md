@@ -1,3 +1,59 @@
+# OmniEarth v1.3.1 Release Notes
+
+**Release Date:** November 5, 2026  
+**DOI:** [10.5281/zenodo.23689449](https://doi.org/10.5281/zenodo.23689449)  
+**PyPI:** [omniearth 1.3.1](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.3.1](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.3.1 is a dedicated **Security, Provenance & Supply-Chain Integrity** patch release. This release equips OmniEarth with cryptographically verifiable build provenance (PyPI PEP 740 & npm Sigstore), automated Static Application Security Testing (CodeQL SAST), continuous dependency vulnerability auditing (Dependabot), an official Vulnerability Disclosure Policy (`SECURITY.md`), and PEP 639 SPDX license metadata modernization.
+
+---
+
+## Key Security & Integrity Enhancements
+
+### 1. Cryptographic Build Provenance (PEP 740 & Sigstore SLSA)
+- **PyPI Trusted Publishing & PEP 740 Attestations**:
+  - Upgraded publishing workflow (`.github/workflows/publish.yml`) to authenticate via GitHub Actions OpenID Connect (OIDC) identities.
+  - Generates verifiable Sigstore digital attestations published directly to PyPI, resolving the *"No provenance found"* warning and establishing cryptographic proof of build origin.
+- **npm Build Provenance (`--provenance`)**:
+  - Published using `npm publish --provenance --access public` backed by `permissions: id-token: write`.
+  - Publishes in-toto SLSA Level 2+ provenance records logged to the public Rekor transparency log, granting the verified publisher badge on npm.
+- **GitHub Build Attestation Action**:
+  - Integrated `actions/attest-build-provenance@v2` across all Python distribution artifacts (`.whl`, `.tar.gz`) and npm distribution tarballs (`.tgz`).
+
+### 2. Automated Static Application Security Testing (CodeQL SAST)
+- Integrated GitHub Advanced Security CodeQL workflow (`.github/workflows/codeql.yml`).
+- Scans both Python and JavaScript/TypeScript codebases on every `push` to `main`, every `pull_request`, and on a weekly automated schedule.
+- Actively guards against common CWEs, injection, and improper input handling.
+
+### 3. Automated Dependency Vulnerability Monitoring (Dependabot)
+- Added `.github/dependabot.yml` configured for weekly security scans across:
+  - `pip` (monitoring `pyproject.toml` dependencies).
+  - `npm` (monitoring `package.json` dependencies).
+  - `github-actions` (keeping CI/CD action versions pinned and up-to-date).
+- **Audit Verification**:
+  - `pip-audit`: **0 known vulnerabilities found**.
+  - `pnpm audit`: **0 known vulnerabilities found**.
+
+### 4. Official Vulnerability Disclosure Policy & Threat Model (`SECURITY.md`)
+- Created `SECURITY.md` in repository root and bundled it into npm and Python release packages:
+  - Establishes private vulnerability disclosure channels via GitHub Private Vulnerability Reporting and direct security email (`lokesh.skshukla@gmail.com`).
+  - Commits to a **24 to 48 hour SLA** for initial report response and triage.
+  - Documents our privacy-first threat model: **zero telemetry**, zero usage tracking, and local-only execution with credentials strictly kept on client machines.
+
+### 5. PEP 639 & SPDX License Modernization
+- Converted license metadata in `pyproject.toml` to PEP 639 standard (`license = "LicenseRef-OmniEarth-Attribution-1.0"`, `license-files = ["LICENSE"]`).
+- Converted `package.json` license string to `"LicenseRef-OmniEarth-Attribution-1.0"`.
+- Eliminates setuptools build deprecation warnings and resolves Socket.dev "Ambiguous / Unrecognized License" flags.
+
+### 6. Supply-Chain Rules Enforcement (`socket.yml`)
+- Added `socket.yml` in repository root declaring strict supply-chain policies:
+  - Enforces zero install scripts (`preinstall`/`postinstall`).
+  - Flags unvetted network access during install phases.
+  - Signals active security management to Socket.dev crawlers.
+
+---
+
 # OmniEarth v1.3.0 Release Notes
 
 **Release Date:** November 4, 2026  

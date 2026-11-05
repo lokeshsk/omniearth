@@ -16,3 +16,4 @@ issueRules:
   deprecated: true
   # Flag critical vulnerabilities
   cve: true
+
