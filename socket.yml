@@ -1,0 +1,19 @@
+version: 2
+project:
+  name: "omniearth"
+  description: "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine"
+  environments:
+    - "production"
+    - "development"
+
+# Supply chain security enforcement
+issueRules:
+  # Flag packages with network access during installation
+  networkAccess: true
+  # Flag packages with arbitrary shell / install scripts
+  shellAccess: true
+  # Flag unmaintained or deprecated packages
+  deprecated: true
+  # Flag critical vulnerabilities
+  cve: true
+
