@@ -56,7 +56,7 @@
   "homepage": "https://lokeshsk.github.io/omniearth/",
   "dependencies": {
     "commander": "^12.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^18.0.9"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",

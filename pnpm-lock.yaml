@@ -12,8 +12,8 @@ importers:
         specifier: ^12.0.0
         version: 12.1.0
       dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
+        specifier: ^18.0.9
+        version: 18.0.9
     devDependencies:
       '@types/node':
         specifier: ^20.12.0
@@ -190,9 +190,10 @@ packages:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
-  dotenv@16.6.1:
-    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+  dotenv@18.0.9:
+    resolution: {integrity: sha512-3fVOW4cB02R066PUSwn8O4TJyz9NckQl7F81blIbaq9jKBm2tSmOKky7ZHIXzGvkVPXCSn6jkpziBPZdGFs8Tw==}
     engines: {node: '>=12'}
+    hasBin: true
 
   esbuild@0.28.2:
     resolution: {integrity: sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==}
@@ -303,7 +304,7 @@ snapshots:
 
   commander@12.1.0: {}
 
-  dotenv@16.6.1: {}
+  dotenv@18.0.9: {}
 
   esbuild@0.28.2:
     optionalDependencies:
