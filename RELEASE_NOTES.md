@@ -1,3 +1,26 @@
+# OmniEarth v1.3.2 Release Notes
+
+**Release Date:** November 5, 2026  
+**DOI:** [10.5281/zenodo.23689449](https://doi.org/10.5281/zenodo.23689449)  
+**PyPI:** [omniearth 1.3.2](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.3.2](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.3.2 enforces pure OpenID Connect (OIDC) Trusted Publishing for PyPI via the official Python Packaging Authority (`pypa/gh-action-pypi-publish`) workflow, activating Sigstore PEP 740 Digital Attestations and verifiable build provenance. It also implements Grouped Version Updates in Dependabot to streamline dependency management into unified pull requests.
+
+---
+
+## What's New in v1.3.2
+
+### 1. PyPA Official Action for PyPI PEP 740 Digital Attestations
+- Upgraded `.github/workflows/publish.yml` to utilize `pypa/gh-action-pypi-publish@release/v1` with GitHub Environment `pypi`.
+- Completely transitioned away from legacy static API tokens in favor of pure OIDC cryptographic exchange, guaranteeing verifiable build provenance ("Signed by GitHub Actions") on PyPI.
+
+### 2. Grouped Dependabot Updates
+- Configured `groups` in `.github/dependabot.yml` for `python-dependencies`, `node-dependencies`, and `actions-dependencies`.
+- Reduced open pull requests limit to 1 per ecosystem, eliminating separate single-dependency PR clutter while maintaining continuous automated security scanning.
+
+---
+
 # OmniEarth v1.3.1 Release Notes
 
 **Release Date:** November 5, 2026  

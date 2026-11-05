@@ -43,24 +43,11 @@ jobs:
         with:
           subject-path: "dist/*"
 
-      - name: Publish to PyPI
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN || secrets.UV_PUBLISH_TOKEN }}
-        run: |
-          CURRENT_VERSION=$(uv run python -c "import omniearth; print(omniearth.__version__)")
-          echo "Preparing publication for OmniEarth v${CURRENT_VERSION}..."
-          
-          # Priority 1: Trusted Publishing (OIDC + PEP 740 Sigstore Attestations)
-          echo "Attempting PyPI publication with Trusted Publishing (OIDC)..."
-          if uv publish --check-url https://pypi.org/simple/ --trusted-publishing always; then
-            echo "Successfully published to PyPI with verifiable OIDC build provenance!"
-          elif [ -n "$UV_PUBLISH_TOKEN" ]; then
-            echo "Notice: OIDC Trusted Publishing not yet activated on PyPI project settings. Falling back to API token..."
-            uv publish --check-url https://pypi.org/simple/ --token "$UV_PUBLISH_TOKEN" || echo "Notice: Package version already on PyPI"
-          else
-            echo "Error: Publication to PyPI failed with Trusted Publishing and no fallback token was configured."
-            exit 1
-          fi
+      - name: Publish to PyPI (PEP 740 Provenance via PyPA)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
 
   publish-npm:
     name: Publish to npm (Sigstore Provenance)
