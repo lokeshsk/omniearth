@@ -39,7 +39,7 @@ jobs:
         run: uv build
 
       - name: Generate Cryptographic Build Provenance Attestations
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
 
@@ -97,7 +97,7 @@ jobs:
         run: pnpm pack
 
       - name: Generate Cryptographic Build Provenance Attestations
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "omniearth-*.tgz"
 
