@@ -13,14 +13,19 @@ on:
 permissions:
   id-token: write
   contents: read
+  attestations: write
 
 jobs:
   publish-pypi:
-    name: Publish to PyPI (uv)
+    name: Publish to PyPI (Trusted Publishing & PEP 740 Provenance)
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/omniearth
     permissions:
-      id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
+      id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC) & PEP 740 Attestations
       contents: read
+      attestations: write  # Mandatory for GitHub artifact attestations
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -33,24 +38,37 @@ jobs:
       - name: Build Wheel & Sdist
         run: uv build
 
+      - name: Generate Cryptographic Build Provenance Attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*"
+
       - name: Publish to PyPI
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN || secrets.UV_PUBLISH_TOKEN }}
         run: |
-          if [ -n "$UV_PUBLISH_TOKEN" ]; then
-            echo "Publishing to PyPI using repository secret token..."
+          CURRENT_VERSION=$(uv run python -c "import omniearth; print(omniearth.__version__)")
+          echo "Preparing publication for OmniEarth v${CURRENT_VERSION}..."
+          
+          # Priority 1: Trusted Publishing (OIDC + PEP 740 Sigstore Attestations)
+          echo "Attempting PyPI publication with Trusted Publishing (OIDC)..."
+          if uv publish --check-url https://pypi.org/simple/ --trusted-publishing always; then
+            echo "Successfully published to PyPI with verifiable OIDC build provenance!"
+          elif [ -n "$UV_PUBLISH_TOKEN" ]; then
+            echo "Notice: OIDC Trusted Publishing not yet activated on PyPI project settings. Falling back to API token..."
             uv publish --check-url https://pypi.org/simple/ --token "$UV_PUBLISH_TOKEN" || echo "Notice: Package version already on PyPI"
           else
-            echo "Publishing to PyPI using Trusted Publishing (OIDC)..."
-            uv publish --check-url https://pypi.org/simple/ --trusted-publishing always || echo "Notice: Package version already on PyPI"
+            echo "Error: Publication to PyPI failed with Trusted Publishing and no fallback token was configured."
+            exit 1
           fi
 
   publish-npm:
-    name: Publish to npm
+    name: Publish to npm (Sigstore Provenance)
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # Mandatory for npm Trusted Publishing (OIDC)
+      id-token: write  # Mandatory for npm Provenance (Sigstore)
       contents: read
+      attestations: write  # Mandatory for GitHub artifact attestations
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -75,10 +93,17 @@ jobs:
       - name: Run Test Suite
         run: pnpm test
 
+      - name: Pack Distribution Tarball
+        run: pnpm pack
+
+      - name: Generate Cryptographic Build Provenance Attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "omniearth-*.tgz"
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_AUTH_TOKEN || secrets.NPM_API_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_AUTH_TOKEN || secrets.NPM_API_TOKEN }}
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           REMOTE_VERSION=$(npm view omniearth@${CURRENT_VERSION} version 2>/dev/null || true)
@@ -89,9 +114,7 @@ jobs:
               echo "Configuring npm authentication from repository secret..."
               echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
               echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
-              npm publish --access public
-            else
-              echo "Publishing via npm Trusted Publishing (OIDC)..."
-              npm publish --provenance --access public
             fi
+            echo "Publishing to npm with cryptographic provenance (--provenance)..."
+            npm publish --provenance --access public
           fi

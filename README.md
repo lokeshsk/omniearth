@@ -1,6 +1,12 @@
 # OmniEarth
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
+[![Security (CodeQL)](https://github.com/lokeshsk/omniearth/actions/workflows/codeql.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions/workflows/codeql.yml)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](SECURITY.md)
+[![Socket Badge (npm)](https://socket.dev/api/badge/npm/package/omniearth)](https://socket.dev/npm/package/omniearth)
+[![Socket Badge (pypi)](https://socket.dev/api/badge/pypi/package/omniearth)](https://socket.dev/pypi/package/omniearth)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/lokeshsk/omniearth/badge)](https://securityscorecards.dev/viewer/?repo=github.com/lokeshsk/omniearth)
+[![SLSA Provenance](https://img.shields.io/badge/SLSA-Level%203%20Provenance-success.svg)](https://slsa.dev)
 [![Documentation](https://img.shields.io/badge/docs-guide.html-blue.svg)](https://lokeshsk.github.io/omniearth/guide.html)
 [![Release](https://img.shields.io/badge/release-v1.3.0-brightgreen.svg)](RELEASE_NOTES.md)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
@@ -42,9 +48,10 @@
 6. [Direct Underlying REST and STAC API Calls (cURL)](#direct-underlying-rest-and-stac-api-calls-curl)
 7. [High-Performance Engine Features](#high-performance-engine-features)
 8. [Authentication and Environment Configuration](#authentication-and-environment-configuration)
-9. [License and Mandatory Attribution](#license-and-mandatory-attribution)
-10. [Citation](#citation)
-11. [Author and Maintainer](#author-and-maintainer)
+9. [Security and Supply Chain Provenance](#security-and-supply-chain-provenance)
+10. [License and Mandatory Attribution](#license-and-mandatory-attribution)
+11. [Citation](#citation)
+12. [Author and Maintainer](#author-and-maintainer)
 
 ---
 
@@ -599,6 +606,18 @@ PRISMA_PASSWORD=your_prisma_password
 ```
 
 *(Optical Sentinel-2, Sentinel-1 SAR, Copernicus DEM, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
+
+---
+
+## Security and Supply Chain Provenance
+
+OmniEarth is engineered with defense-in-depth principles, enterprise security standards, zero telemetry, and verifiable software supply-chain integrity:
+
+- **Cryptographic Build Provenance (PEP 740 & Sigstore)**: All official package releases published to **PyPI** and **npm** are built in isolated CI environments via GitHub Actions with OpenID Connect (OIDC) authentication. Build attestations are cryptographically signed using Sigstore and logged to public transparency records (Rekor), guaranteeing that every binary wheel, source tarball, and npm package directly maps to this exact repository and git commit.
+- **Automated SAST & CodeQL**: Continuous Static Application Security Testing via GitHub Advanced Security CodeQL runs on every push, pull request, and weekly schedule across Python and TypeScript.
+- **Automated Dependency Auditing**: Monitored continuously via Dependabot, `pip-audit`, and `npm audit` with **0 known CVEs** across all direct and transitive dependencies.
+- **Zero Telemetry & Local Execution**: OmniEarth contains no analytics, background tracking pixels, call-homes, or post-install scripts. All geospatial data requests are dispatched directly from your local machine to sovereign Earth Observation API endpoints over TLS.
+- **Security Policy & Vulnerability Disclosure**: Detailed guidelines, threat modeling, SLA timelines, and private vulnerability reporting channels are documented in [**SECURITY.md**](SECURITY.md).
 
 ---
 

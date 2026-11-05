@@ -1,0 +1,48 @@
+version: 2
+updates:
+  # Maintain Python dependencies defined in pyproject.toml
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps-python)"
+    labels:
+      - "dependencies"
+      - "python"
+      - "security"
+
+  # Maintain Node.js / TypeScript dependencies defined in package.json
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:30"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps-node)"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "security"
+
+  # Maintain GitHub Actions workflow dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci(deps-actions)"
+    labels:
+      - "ci"
+      - "github-actions"

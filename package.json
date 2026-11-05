@@ -16,6 +16,7 @@
     "dist/**/*.d.ts.map",
     "bin",
     "LICENSE",
+    "SECURITY.md",
     "README.md"
   ],
   "scripts": {
@@ -44,7 +45,11 @@
     "soilgrids"
   ],
   "author": "Lokesh Kumar <lokesh.skshukla@gmail.com> (https://lokeshsk.github.io)",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "LicenseRef-OmniEarth-Attribution-1.0",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/lokeshsk"
+  },
   "bugs": {
     "url": "https://github.com/lokeshsk/omniearth/issues"
   },
