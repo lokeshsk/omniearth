@@ -209,11 +209,36 @@ def test_cmd_download_by_id_and_fallbacks(capsys, tmp_path):
     args_fallback.asset = None
     args_fallback.outdir = str(tmp_path)
 
-    with patch.object(client, "search", return_value=[]), \
+    with patch.object(client, "get_item", return_value=None), \
+         patch.object(client, "search", return_value=[]), \
          patch.object(client, "download", return_value=str(tmp_path / "fallback.tif")):
         cmd_download(args_fallback, client)
         captured = capsys.readouterr()
         assert "attempting direct provider resolution" in captured.out
+
+    # 1b-ii. Hyperspectral fallbacks for ENMAP, EMIT, PRS
+    for prefix in ["ENMAP_TEST", "EMIT_TEST", "PRS_TEST"]:
+        args_hs = MagicMock()
+        args_hs.category = "hyperspectral"
+        args_hs.id = prefix
+        args_hs.bbox = None
+        args_hs.asset = None
+        args_hs.outdir = str(tmp_path)
+        with patch.object(client, "get_item", return_value=None), \
+             patch.object(client, "search", return_value=[]), \
+             patch.object(client, "download", return_value=str(tmp_path / "hs.tif")):
+            cmd_download(args_hs, client)
+
+    # 1b-iii. Direct get_item hit
+    args_direct = MagicMock()
+    args_direct.category = "hyperspectral"
+    args_direct.id = "ENMAP_DIRECT"
+    args_direct.bbox = None
+    args_direct.asset = None
+    args_direct.outdir = str(tmp_path)
+    with patch.object(client, "get_item", return_value=mock_res), \
+         patch.object(client, "download", return_value=str(tmp_path / "direct.tif")):
+        cmd_download(args_direct, client)
 
     # 1c. Bbox search with no scenes found -> exits 1
     args_bbox_empty = MagicMock()
@@ -450,3 +475,264 @@ def test_cmd_timeseries(capsys):
     # test no args -> exits with help
     with patch("sys.argv", ["omniearth"]), pytest.raises(SystemExit):
         main()
+
+
+def test_cmd_search_download_actions(capsys, tmp_path):
+    import builtins
+    client = OmniEarth()
+    item1 = SearchResult(
+        id="SEARCH_ITEM_1", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/item1.tif")}
+    )
+    item2 = SearchResult(
+        id="SEARCH_ITEM_2", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/item2.tif")}
+    )
+    from omniearth.models import SearchResults
+    results = SearchResults([item1, item2], client=client)
+
+    # 1. --download-all
+    args_all = MagicMock()
+    args_all.category = "optical"
+    args_all.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_all.point = None
+    args_all.geojson = None
+    args_all.variables = None
+    args_all.dataset = None
+    args_all.year = None
+    args_all.level = "sr"
+    args_all.limit = 2
+    args_all.json = False
+    args_all.download_all = True
+    args_all.download_top = None
+    args_all.select = None
+    args_all.interactive = False
+    args_all.outdir = str(tmp_path)
+    args_all.no_resume = False
+    args_all.no_multipart = False
+    args_all.threads = 2
+    args_all.asset = "visual"
+
+    with patch.object(client, "search", return_value=results), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]) as mock_dm:
+        cmd_search(args_all, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 2 scene(s)" in captured.out
+        assert "Successfully downloaded 2 scene(s)" in captured.out
+        mock_dm.assert_called_once()
+
+    # 2. --download-top
+    args_top = MagicMock()
+    args_top.category = "optical"
+    args_top.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_top.point = None
+    args_top.geojson = None
+    args_top.variables = None
+    args_top.dataset = None
+    args_top.year = None
+    args_top.level = "sr"
+    args_top.limit = 2
+    args_top.json = False
+    args_top.download_all = False
+    args_top.download_top = 1
+    args_top.select = None
+    args_top.interactive = False
+    args_top.outdir = str(tmp_path)
+    args_top.no_resume = False
+    args_top.no_multipart = False
+    args_top.threads = 2
+    args_top.asset = None
+
+    with patch.object(client, "search", return_value=results), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif")]):
+        cmd_search(args_top, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 1 scene(s)" in captured.out
+
+    # 3. --select with single index and range '1-2'
+    args_select = MagicMock()
+    args_select.category = "optical"
+    args_select.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_select.point = None
+    args_select.geojson = None
+    args_select.variables = None
+    args_select.dataset = None
+    args_select.year = None
+    args_select.level = "sr"
+    args_select.limit = 2
+    args_select.json = False
+    args_select.download_all = False
+    args_select.download_top = None
+    args_select.select = "1, 2-2"
+    args_select.interactive = False
+    args_select.outdir = str(tmp_path)
+    args_select.no_resume = False
+    args_select.no_multipart = False
+    args_select.threads = 2
+    args_select.asset = None
+
+    with patch.object(client, "search", return_value=results), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]):
+        cmd_search(args_select, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 2 scene(s)" in captured.out
+
+    # 4. --interactive with various inputs
+    args_interactive = MagicMock()
+    args_interactive.category = "optical"
+    args_interactive.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_interactive.point = None
+    args_interactive.geojson = None
+    args_interactive.variables = None
+    args_interactive.dataset = None
+    args_interactive.year = None
+    args_interactive.level = "sr"
+    args_interactive.limit = 2
+    args_interactive.json = False
+    args_interactive.download_all = False
+    args_interactive.download_top = None
+    args_interactive.select = None
+    args_interactive.interactive = True
+    args_interactive.outdir = str(tmp_path)
+    args_interactive.no_resume = False
+    args_interactive.no_multipart = False
+    args_interactive.threads = 2
+    args_interactive.asset = None
+
+    # 4a. input 'all'
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", return_value="all"), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 2 scene(s)" in captured.out
+
+    # 4b. input '1,2' (comma separated)
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", return_value="1, 2"), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 2 scene(s)" in captured.out
+
+    # 4b-ii. input '1-2' (range)
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", return_value="1-2"), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download for 2 scene(s)" in captured.out
+
+    # 4c. input 'q'
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", return_value="q"):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download" not in captured.out
+
+    # 4c-ii. input empty string ''
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", return_value=""):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download" not in captured.out
+
+    # 4d. input KeyboardInterrupt/EOFError
+    with patch.object(client, "search", return_value=results), \
+         patch.object(builtins, "input", side_effect=EOFError):
+        cmd_search(args_interactive, client)
+        captured = capsys.readouterr()
+        assert "Dispatching concurrent download" not in captured.out
+
+
+def test_cmd_download_multi_id_and_all_scenes(capsys, tmp_path):
+    client = OmniEarth()
+    item1 = SearchResult(
+        id="MULTI_1", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/1.tif")}
+    )
+    item2 = SearchResult(
+        id="MULTI_2", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/2.tif")}
+    )
+
+    # 1. Comma-separated IDs: --id "MULTI_1, MULTI_2"
+    args_multi_id = MagicMock()
+    args_multi_id.category = "optical"
+    args_multi_id.id = "MULTI_1, MULTI_2"
+    args_multi_id.bbox = None
+    args_multi_id.geojson = None
+    args_multi_id.dataset = None
+    args_multi_id.year = None
+    args_multi_id.outdir = str(tmp_path)
+    args_multi_id.no_resume = False
+    args_multi_id.no_multipart = False
+    args_multi_id.threads = 2
+    args_multi_id.asset = None
+    args_multi_id.all = False
+
+    with patch.object(client, "get_item", side_effect=[item1, item2]), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]) as mock_dm:
+        cmd_download(args_multi_id, client)
+        captured = capsys.readouterr()
+        assert "Target(s):  2 item(s)" in captured.out
+        assert "Successfully downloaded 2 scene(s)" in captured.out
+        mock_dm.assert_called_once()
+
+    # 2. AOI with --all-scenes
+    args_aoi_all = MagicMock()
+    args_aoi_all.category = "optical"
+    args_aoi_all.id = None
+    args_aoi_all.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_aoi_all.geojson = None
+    args_aoi_all.start = None
+    args_aoi_all.end = None
+    args_aoi_all.max_cloud = None
+    args_aoi_all.dataset = None
+    args_aoi_all.year = None
+    args_aoi_all.level = "sr"
+    args_aoi_all.limit = 5
+    args_aoi_all.all_scenes = True
+    args_aoi_all.outdir = str(tmp_path)
+    args_aoi_all.no_resume = False
+    args_aoi_all.no_multipart = False
+    args_aoi_all.threads = 2
+    args_aoi_all.asset = None
+    args_aoi_all.all = False
+
+    with patch.object(client, "search", return_value=[item1, item2]), \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "1.tif"), str(tmp_path / "2.tif")]):
+        cmd_download(args_aoi_all, client)
+        captured = capsys.readouterr()
+        assert "Found 2 scene(s) matching criteria." in captured.out
+        assert "Successfully downloaded 2 scene(s)" in captured.out
+
+    # 3. AOI with GeoJSON
+    args_geojson = MagicMock()
+    args_geojson.category = "optical"
+    args_geojson.id = None
+    args_geojson.bbox = None
+    args_geojson.geojson = '{"type": "Point", "coordinates": [78.0, 20.0]}'
+    args_geojson.start = None
+    args_geojson.end = None
+    args_geojson.max_cloud = None
+    args_geojson.dataset = None
+    args_geojson.year = None
+    args_geojson.level = "sr"
+    args_geojson.limit = 1
+    args_geojson.all_scenes = False
+    args_geojson.outdir = str(tmp_path)
+    args_geojson.no_resume = False
+    args_geojson.no_multipart = False
+    args_geojson.threads = 2
+    args_geojson.asset = None
+    args_geojson.all = False
+
+    with patch.object(client, "search", return_value=[item1]), \
+         patch.object(client, "download", return_value=str(tmp_path / "1.tif")):
+        cmd_download(args_geojson, client)
+        captured = capsys.readouterr()
+        assert "Searching for matching scenes in geojson" in captured.out
+        assert "Selected latest scene: MULTI_1" in captured.out
+
+

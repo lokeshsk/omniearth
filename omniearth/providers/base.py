@@ -44,6 +44,13 @@ class BaseProvider(ABC):
         """Download asset to local disk and return absolute file path."""
         pass  # pragma: no cover
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """
+        Directly retrieve a single STAC item by its ID without spatial search.
+        Can be overridden by providers that support direct item lookup endpoints.
+        """
+        return None
+
     def _multipart_download(
         self,
         url: str,

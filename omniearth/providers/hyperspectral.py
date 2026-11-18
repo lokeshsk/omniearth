@@ -207,6 +207,70 @@ class HyperspectralProvider(BaseProvider):
         except requests.exceptions.RequestException:
             return []
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly retrieves a specific hyperspectral scene by STAC item ID."""
+        # 1. EnMAP (DLR EOC STAC direct item endpoint)
+        if item_id.startswith("ENMAP") or "ENMAP" in item_id:
+            url = f"https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items/{item_id}"
+            try:
+                resp = requests.get(url, timeout=config.timeout)
+                if resp.status_code == 200:
+                    f = resp.json()
+                    props = f.get("properties", {})
+                    assets_dict = {}
+                    for k, a in f.get("assets", {}).items():
+                        assets_dict[k] = Asset(
+                            key=k,
+                            href=a.get("href"),
+                            title=a.get("title", k),
+                            media_type=a.get("type"),
+                            roles=a.get("roles", [])
+                        )
+                    return SearchResult(
+                        id=f.get("id", item_id),
+                        collection="enmap-hsi-l2a",
+                        category=self.category,
+                        provider="dlr_enmap",
+                        datetime=props.get("datetime"),
+                        bbox=f.get("bbox"),
+                        properties=props,
+                        assets=assets_dict
+                    )
+            except requests.exceptions.RequestException:
+                pass
+
+        # 2. NASA EMIT (CMR STAC direct item endpoint)
+        if item_id.startswith("EMIT") or "EMIT" in item_id:
+            url = f"https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL_001/items/{item_id}"
+            try:
+                resp = requests.get(url, timeout=config.timeout)
+                if resp.status_code == 200:
+                    f = resp.json()
+                    props = f.get("properties", {})
+                    assets_dict = {}
+                    for k, a in f.get("assets", {}).items():
+                        assets_dict[k] = Asset(
+                            key=k,
+                            href=a.get("href"),
+                            title=a.get("title", k),
+                            media_type=a.get("type"),
+                            roles=a.get("roles", [])
+                        )
+                    return SearchResult(
+                        id=f.get("id", item_id),
+                        collection="emit-l2a-rfl",
+                        category=self.category,
+                        provider="nasa_lpdaac",
+                        datetime=props.get("datetime"),
+                        bbox=f.get("bbox"),
+                        properties=props,
+                        assets=assets_dict
+                    )
+            except requests.exceptions.RequestException:
+                pass
+
+        return None
+
     def download(
         self,
         result: SearchResult,
@@ -217,8 +281,16 @@ class HyperspectralProvider(BaseProvider):
         max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
+        provider_name = result.provider
+        if provider_name == "hyperspectral":
+            if result.id.startswith("ENMAP") or "ENMAP" in result.id:
+                provider_name = "dlr_enmap"
+            elif result.id.startswith("EMIT") or "EMIT" in result.id:
+                provider_name = "nasa_lpdaac"
+            elif result.id.startswith("PRS") or "PRISMA" in result.id:
+                provider_name = "asi_prisma"
 
-        if result.provider == "dlr_enmap":
+        if provider_name == "dlr_enmap":
             u, p = config.dlr_credentials
             if not u or not p:
                 raise ValueError("DLR credentials (DLR_USERNAME, DLR_PASSWORD) required in .env for EnMAP downloads.")
@@ -240,7 +312,7 @@ class HyperspectralProvider(BaseProvider):
                 max_workers=max_workers
             )
 
-        elif result.provider == "asi_prisma":
+        elif provider_name == "asi_prisma":
             u, p = config.prisma_credentials
             auth = (u, p) if (u and p) else None
             chosen_key = asset_key or next(iter(result.assets.keys()))
@@ -260,7 +332,7 @@ class HyperspectralProvider(BaseProvider):
                 max_workers=max_workers
             )
 
-        elif result.provider == "nasa_lpdaac":
+        elif provider_name == "nasa_lpdaac":
             chosen_key = asset_key or ("browse" if "browse" in result.assets else next(iter(result.assets.keys())))
             target_asset = result.assets[chosen_key]
             url = target_asset.href

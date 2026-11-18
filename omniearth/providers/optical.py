@@ -92,6 +92,43 @@ class OpticalProvider(BaseProvider):
             print(f"[ERROR] Optical STAC search error: {e}")
             return []
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly retrieves a specific Sentinel-2 or Landsat STAC item by ID."""
+        payload = {"ids": [item_id]}
+        try:
+            resp = requests.post(self.STAC_SEARCH_URL, json=payload, timeout=config.timeout)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            features = data.get("features", [])
+            if not features:
+                return None
+            f = features[0]
+            props = f.get("properties", {})
+            assets_dict = {
+                k: Asset(
+                    key=k,
+                    href=a.get("href"),
+                    title=a.get("title", k),
+                    media_type=a.get("type"),
+                    roles=a.get("roles", [])
+                )
+                for k, a in f.get("assets", {}).items()
+            }
+            return SearchResult(
+                id=f.get("id"),
+                collection=f.get("collection", "sentinel-2-l2a"),
+                category=self.category,
+                provider="aws_earth_search",
+                datetime=props.get("datetime"),
+                bbox=f.get("bbox"),
+                cloud_cover=props.get("eo:cloud_cover"),
+                properties=props,
+                assets=assets_dict
+            )
+        except requests.exceptions.RequestException:
+            return None
+
     def download(
         self,
         result: SearchResult,
@@ -103,6 +140,9 @@ class OpticalProvider(BaseProvider):
     ) -> str:
         target_dir = outdir or config.default_outdir
         
+        if not result.assets:
+            raise ValueError(f"No downloadable assets found for optical scene '{result.id}'.")
+
         # Determine asset to download
         # For optical: prefer visual RGB or red band or requested band
         chosen_key = asset_key or ("visual" if "visual" in result.assets else "red")

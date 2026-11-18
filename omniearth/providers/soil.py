@@ -110,6 +110,8 @@ class SoilProvider(BaseProvider):
             return os.path.abspath(outpath)
 
         target_asset = result.assets.get(asset_key or "data")
+        if not target_asset or not target_asset.href:
+            raise ValueError(f"No download asset found for SoilGrids result '{result.id}'.")
         return self._stream_download(
             url=target_asset.href,
             outpath=outpath,

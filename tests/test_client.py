@@ -408,3 +408,49 @@ def test_client_new_modalities_shortcuts():
         assert atmo_ts[0]["nitrogen_dioxide"] == 10.5
 
 
+def test_client_get_item():
+    client = OmniEarth()
+    mock_item = SearchResult(
+        id="ENMAP_TEST_1", collection="enmap-hsi-l2a", category=Category.HYPERSPECTRAL, provider="dlr_enmap",
+        assets={"image": Asset(key="image", href="https://example.com/enmap.tif")}
+    )
+    with patch.object(client._providers[Category.HYPERSPECTRAL], "get_item", return_value=mock_item):
+        res = client.get_item("hyperspectral", "ENMAP_TEST_1")
+        assert res is not None
+        assert res.id == "ENMAP_TEST_1"
+        assert res.provider == "dlr_enmap"
+
+    with patch.object(client._providers[Category.HYPERSPECTRAL], "get_item", return_value=None):
+        assert client.get_item(Category.HYPERSPECTRAL, "NONEXISTENT") is None
+
+
+def test_client_search_and_download():
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="SEARCH_DL_TEST", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/s2.tif")}
+    )
+    from omniearth.models import SearchResults
+    results = SearchResults([mock_res], client=client)
+
+    with patch.object(client, "search", return_value=results), \
+         patch.object(client, "download_many", return_value=["/tmp/downloaded_s2.tif"]) as mock_dm:
+        paths = client.search_and_download(
+            category="optical",
+            bbox=[78.0, 20.0, 78.5, 20.5],
+            outdir="/tmp",
+            max_workers=2
+        )
+        assert paths == ["/tmp/downloaded_s2.tif"]
+        mock_dm.assert_called_once_with(
+            results=[mock_res],
+            asset_key=None,
+            outdir="/tmp",
+            max_workers=2,
+            resume=True,
+            multipart=True
+        )
+
+
+
+

@@ -3,6 +3,7 @@ import {
   Category,
   AOI,
   SearchResult,
+  SearchResults,
   SearchParams,
   FilterOptions
 } from "./types.js";
@@ -125,7 +126,7 @@ export class OmniEarth {
     throw new Error("Must specify 'bbox' ([min_lon, min_lat, max_lon, max_lat]), 'point' ([lon, lat, radius_km?]), or 'geojson'");
   }
 
-  public async search(params: SearchParams): Promise<SearchResult[]> {
+  public async search(params: SearchParams): Promise<SearchResults> {
     const cat = typeof params.category === "string" ? (params.category as Category) : params.category;
     const provider = this.providers.get(cat);
     if (!provider) {
@@ -153,7 +154,26 @@ export class OmniEarth {
 
     const results = await provider.search(aoi, startDate, endDate, filters);
     results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
-    return results;
+    return new SearchResults(results, this);
+  }
+
+  public async searchAndDownload(
+    params: SearchParams,
+    assetKey?: string,
+    outdir?: string,
+    options?: DownloadOptions
+  ): Promise<string[]> {
+    const results = await this.search(params);
+    return results.downloadAll(assetKey, outdir, options);
+  }
+
+  public async getItem(category: Category | string, itemId: string): Promise<SearchResult | null> {
+    const cat = typeof category === "string" ? (category as Category) : category;
+    const provider = this.providers.get(cat);
+    if (!provider) {
+      throw new Error(`Unsupported category '${cat}'. Supported: ${this.listCategories().join(", ")}`);
+    }
+    return provider.getItem(itemId);
   }
 
   public async download(

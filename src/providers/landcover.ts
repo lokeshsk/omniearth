@@ -114,6 +114,22 @@ export class LandcoverProvider extends BaseProvider {
     return results.slice(0, limit);
   }
 
+  override async getItem(itemId: string): Promise<SearchResult | null> {
+    try {
+      if (itemId.startsWith("ESA_WorldCover_10m_")) {
+        const parts = itemId.split("_");
+        const year = parseInt(parts[3], 10);
+        const coord = parts[5];
+        const lat = parseInt(coord.slice(1, 3), 10) * (coord[0] === "S" ? -1 : 1);
+        const lon = parseInt(coord.slice(4, 7), 10) * (coord[3] === "W" ? -1 : 1);
+        return this.generateWorldCoverTile(lat, lon, year);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   override async download(
     result: SearchResult,
     assetKey?: string,

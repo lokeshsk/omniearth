@@ -51,6 +51,10 @@ export abstract class BaseProvider {
     filters?: FilterOptions
   ): Promise<SearchResult[]>;
 
+  async getItem(itemId: string): Promise<SearchResult | null> {
+    return null;
+  }
+
   async download(
     result: SearchResult,
     assetKey?: string,

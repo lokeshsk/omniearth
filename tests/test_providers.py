@@ -99,6 +99,37 @@ def test_optical_provider_date_filters_and_errors(tmp_path):
         out = provider.download(res_other, outdir=str(tmp_path))
         assert os.path.exists(out)
 
+    # 6. Empty assets ValueError
+    res_empty = SearchResult(
+        id="s2_empty", collection="col", category=Category.OPTICAL, provider="aws", assets={}
+    )
+    with pytest.raises(ValueError, match="No downloadable assets found"):
+        provider.download(res_empty, outdir=str(tmp_path))
+
+    # 7. get_item tests
+    mock_s2_json = {
+        "features": [{
+            "id": "S2A_TEST_01",
+            "collection": "sentinel-2-l2a",
+            "bbox": [10, 20, 11, 21],
+            "properties": {"datetime": "2026-01-01T00:00:00Z", "eo:cloud_cover": 5.0},
+            "assets": {"visual": {"href": "https://example.com/s2.tif", "type": "image/tiff"}}
+        }]
+    }
+    with patch("requests.post", return_value=MagicMock(status_code=200, json=lambda: mock_s2_json)):
+        item = provider.get_item("S2A_TEST_01")
+        assert item is not None
+        assert item.id == "S2A_TEST_01"
+
+    with patch("requests.post", return_value=MagicMock(status_code=404)):
+        assert provider.get_item("S2A_FAIL") is None
+
+    with patch("requests.post", return_value=MagicMock(status_code=200, json=lambda: {"features": []})):
+        assert provider.get_item("S2A_NONE") is None
+
+    with patch("requests.post", side_effect=requests.exceptions.RequestException):
+        assert provider.get_item("S2A_ERR") is None
+
 
 def test_sar_provider_search():
     provider = SARProvider()
@@ -198,7 +229,7 @@ def test_weather_provider_search_and_download(tmp_path):
         dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
         assert os.path.exists(dl_uncached)
 
-    # 5. Download without target_asset -> ValueError
+    # 4. Download without target_asset -> ValueError
     import pytest
     res_empty_asset = SearchResult(
         id="weather_no_asset",
@@ -256,6 +287,13 @@ def test_soil_provider_search_and_download(tmp_path):
     with patch("requests.head", return_value=mock_dl), patch("requests.get", return_value=mock_dl):
         dl_uncached = provider.download(res_uncached, outdir=str(tmp_path))
         assert os.path.exists(dl_uncached)
+
+    # 3. Download without assets raises ValueError
+    res_no_asset = SearchResult(
+        id="soil_empty", collection="isric-soilgrids-v2", category=Category.SOIL, provider="isric", assets={}, properties={}
+    )
+    with pytest.raises(ValueError, match="No download asset found for SoilGrids"):
+        provider.download(res_no_asset, outdir=str(tmp_path))
 
 
 def test_hyperspectral_enmap_and_emit(tmp_path):
@@ -407,6 +445,14 @@ def test_base_provider_download_stream(tmp_path):
         # Test cache hit / file already exists branch
         cached_file = provider.download(res, asset_key="visual", outdir=str(tmp_path))
         assert cached_file == out_file
+
+    from omniearth.providers.base import BaseProvider
+    class DummyProvider(BaseProvider):
+        category = Category.OPTICAL
+        name = "dummy"
+        def search(self, *a, **k): return []
+        def download(self, *a, **k): return ""
+    assert DummyProvider().get_item("test_id") is None
 
 
 def test_base_provider_multipart_download(tmp_path):
@@ -645,6 +691,75 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
     with pytest.raises(ValueError, match="Unknown hyperspectral provider"):
         provider.download(bad_res, outdir=str(tmp_path))
 
+    # 5. Auto-detect provider from hyperspectral category fallback
+    enmap_auto = SearchResult(
+        id="ENMAP_AUTO_1", collection="c", category=Category.HYPERSPECTRAL, provider="hyperspectral",
+        assets={"image": Asset(key="image", href="https://example.com/enmap.tif")}
+    )
+    with patch.dict(os.environ, {"DLR_USERNAME": "", "DLR_PASSWORD": ""}):
+        with pytest.raises(ValueError, match="DLR credentials"):
+            provider.download(enmap_auto, outdir=str(tmp_path))
+
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        out_enmap_auto = provider.download(enmap_auto, outdir=str(tmp_path))
+        assert os.path.exists(out_enmap_auto)
+
+    emit_auto = SearchResult(
+        id="EMIT_AUTO_1", collection="c", category=Category.HYPERSPECTRAL, provider="hyperspectral",
+        assets={"data": Asset(key="data", href="https://example.com/emit.nc")}
+    )
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        out_emit_auto = provider.download(emit_auto, outdir=str(tmp_path))
+        assert os.path.exists(out_emit_auto)
+
+    prs_auto = SearchResult(
+        id="PRS_AUTO_1", collection="c", category=Category.HYPERSPECTRAL, provider="hyperspectral",
+        assets={"he5": Asset(key="he5", href="https://example.com/prs.he5")}
+    )
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        out_prs_auto = provider.download(prs_auto, outdir=str(tmp_path))
+        assert os.path.exists(out_prs_auto)
+
+    # 6. get_item test cases
+    # EnMAP get_item success
+    mock_enmap_json = {
+        "id": "ENMAP01-TEST",
+        "properties": {"datetime": "2026-04-28T06:00:00Z"},
+        "bbox": [10.0, 20.0, 11.0, 21.0],
+        "assets": {"image": {"href": "https://example.com/img.tif", "type": "image/tiff"}}
+    }
+    with patch("requests.get", return_value=MagicMock(status_code=200, json=lambda: mock_enmap_json)):
+        item = provider.get_item("ENMAP01-TEST")
+        assert item is not None
+        assert item.provider == "dlr_enmap"
+
+    # EnMAP get_item failure
+    with patch("requests.get", return_value=MagicMock(status_code=404)):
+        assert provider.get_item("ENMAP01-FAIL") is None
+    with patch("requests.get", side_effect=requests.exceptions.RequestException):
+        assert provider.get_item("ENMAP01-ERR") is None
+
+    # EMIT get_item success
+    mock_emit_json = {
+        "id": "EMIT_TEST",
+        "properties": {"datetime": "2026-04-28T06:00:00Z"},
+        "bbox": [10.0, 20.0, 11.0, 21.0],
+        "assets": {"data": {"href": "https://example.com/emit.nc", "type": "application/x-netcdf"}}
+    }
+    with patch("requests.get", return_value=MagicMock(status_code=200, json=lambda: mock_emit_json)):
+        item = provider.get_item("EMIT_TEST")
+        assert item is not None
+        assert item.provider == "nasa_lpdaac"
+
+    # EMIT get_item failure
+    with patch("requests.get", return_value=MagicMock(status_code=404)):
+        assert provider.get_item("EMIT_FAIL") is None
+    with patch("requests.get", side_effect=requests.exceptions.RequestException):
+        assert provider.get_item("EMIT_ERR") is None
+
+    # Unknown ID format
+    assert provider.get_item("OTHER_123") is None
+
 
 def test_sar_download(tmp_path):
     sar_prov = SARProvider()
@@ -687,6 +802,37 @@ def test_sar_download(tmp_path):
         )
         out_other = sar_prov.download(res_other, outdir=str(tmp_path))
         assert os.path.exists(out_other)
+
+    # SAR empty assets ValueError
+    res_empty_sar = SearchResult(
+        id="s1_empty", collection="col", category=Category.SAR, provider="aws", assets={}
+    )
+    with pytest.raises(ValueError, match="No downloadable assets found"):
+        sar_prov.download(res_empty_sar, outdir=str(tmp_path))
+
+    # SAR get_item tests
+    mock_s1_json = {
+        "features": [{
+            "id": "S1_TEST_01",
+            "collection": "sentinel-1-grd",
+            "bbox": [10, 20, 11, 21],
+            "properties": {"datetime": "2026-01-01T00:00:00Z"},
+            "assets": {"vv": {"href": "https://example.com/s1.tif", "type": "image/tiff"}}
+        }]
+    }
+    with patch("requests.post", return_value=MagicMock(status_code=200, json=lambda: mock_s1_json)):
+        item = sar_prov.get_item("S1_TEST_01")
+        assert item is not None
+        assert item.id == "S1_TEST_01"
+
+    with patch("requests.post", return_value=MagicMock(status_code=404)):
+        assert sar_prov.get_item("S1_FAIL") is None
+
+    with patch("requests.post", return_value=MagicMock(status_code=200, json=lambda: {"features": []})):
+        assert sar_prov.get_item("S1_NONE") is None
+
+    with patch("requests.post", side_effect=requests.exceptions.RequestException):
+        assert sar_prov.get_item("S1_ERR") is None
 
 
 def test_elevation_provider_search_and_download(tmp_path):
@@ -772,6 +918,14 @@ def test_elevation_provider_search_and_download(tmp_path):
         with pytest.raises(ValueError, match="No valid DEM asset found"):
             provider.download(empty_res)
 
+    # 6. get_item tests
+    assert provider.get_item("Copernicus_DSM_COG_10_N20_00_E078_00_DEM") is not None
+    assert provider.get_item("SRTM_GL1_N20E078") is not None
+    assert provider.get_item("ALPSMLC30_N020E078_DSM") is not None
+    assert provider.get_item("INVALID_ELEV_ID") is None
+    assert provider.get_item("Copernicus_DSM_BAD_FORMAT") is None
+    assert provider.get_item("Copernicus_DSM_COG_10_BAD") is None
+
 
 def test_landcover_provider_search_and_download(tmp_path):
     from omniearth.providers.landcover import LandcoverProvider
@@ -850,6 +1004,12 @@ def test_landcover_provider_search_and_download(tmp_path):
         empty_res = SearchResult(id="E", collection="c", category=Category.LANDCOVER, provider="p", assets={})
         with pytest.raises(ValueError, match="No valid Landcover asset found"):
             provider.download(empty_res)
+
+    # 5. get_item tests
+    assert provider.get_item("ESA_WorldCover_10m_2021_v200_N20E078_Map") is not None
+    assert provider.get_item("INVALID_LC_ID") is None
+    assert provider.get_item("ESA_WorldCover_BAD_FORMAT") is None
+    assert provider.get_item("ESA_WorldCover_10m_BAD") is None
 
 
 def test_atmosphere_provider_search_and_download(tmp_path):

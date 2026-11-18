@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
 [![Documentation](https://img.shields.io/badge/docs-guide.html-blue.svg)](https://lokeshsk.github.io/omniearth/guide.html)
-[![Release](https://img.shields.io/badge/release-v1.3.2-brightgreen.svg)](RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v1.4.0-brightgreen.svg)](RELEASE_NOTES.md)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
 [![npm version](https://img.shields.io/npm/v/omniearth.svg?color=green)](https://www.npmjs.com/package/omniearth)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/lokeshsk/omniearth)
@@ -169,16 +169,48 @@ Pipe search results directly to `jq` or downstream pipelines:
 omniearth search --category weather --point 78.55 20.68 --json | jq .
 ```
 
-### Step 6: Single-Asset Resumable Download
-Download a specific asset (e.g. `visual`, `red`, `dem`, `map`, `SPECTRAL_IMAGE_COG`, or `vv`):
+### Step 6: Unified Search-to-Download Pipeline & Interactive Selection
+Seamlessly bridge catalog search and concurrent asset download without copying IDs:
 ```bash
+# 1. Download ALL matching search results concurrently:
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --limit 3 --download-all --outdir ./downloads
+
+# 2. Download top N matching search results:
+omniearth search --category sar --point 78.55 20.68 5.0 --download-top 2 --outdir ./downloads
+
+# 3. Download specific search results by 1-based index or range:
+omniearth search --category hyperspectral --bbox 78.50 20.65 78.60 20.72 --select 1,3 --outdir ./downloads
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --select 1-2 --outdir ./downloads
+
+# 4. Interactive selection prompt after inspecting search results:
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 -i
+# Displays search results table, then prompts:
+# Enter indices to download (e.g. '1,3', '1-2', 'all', or 'q' to quit):
+```
+
+### Step 7: Single-Asset and Multi-Scene Batch Download
+Download specific assets or multiple scene IDs in one dispatch:
+```bash
+# Download a specific asset from a scene:
 omniearth download --category elevation \
   --bbox 78.50 20.65 78.60 20.72 \
   --dataset copernicus \
   --outdir ./downloads
+
+# Download multiple scene IDs in parallel via comma-separated list:
+omniearth download --category hyperspectral \
+  --id "ENMAP01-____L2A-DT0000191613_20260428T062203Z_019_V010506_20260501T163400Z,EMITL2ARFL_001_20260501T120000" \
+  --outdir ./downloads
+
+# Download all matching scenes in an AOI:
+omniearth download --category optical \
+  --bbox 78.50 20.65 78.60 20.72 \
+  --all-scenes \
+  --limit 5 \
+  --outdir ./downloads
 ```
 
-### Step 7: High-Speed Multi-Threaded All-Asset Download
+### Step 8: High-Speed Multi-Threaded All-Asset Download
 Download all assets associated with a scene concurrently using worker threads:
 ```bash
 omniearth download --category optical \
@@ -188,10 +220,10 @@ omniearth download --category optical \
   --outdir ./downloads
 ```
 
-### Step 8: Network Interruption Resumption
+### Step 9: Network Interruption Resumption
 If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
 
-### Step 9: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
+### Step 10: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
 Compute standard remote sensing vegetation, water, soil, and burn ratio indices directly from CLI:
 - Supported: `ndvi`, `ndwi`, `ndre`, `evi`, `nbr`, `savi`, `msavi`, `bsi`, `mndwi`.
 ```bash
@@ -344,7 +376,34 @@ all_paths = client.download_many(
 print(f"Successfully downloaded {len(all_paths)} scenes in parallel.")
 ```
 
-### Step 8: Zero-Config Convenience Shortcuts
+### Step 8: Fluent SearchResults Chaining & Search-and-Download
+OmniEarth v1.4.0 returns a list-compatible `SearchResults` collection supporting direct method chaining:
+```python
+# 1. Search and immediately download all scenes in parallel:
+paths = client.search_and_download(
+    category="optical",
+    bbox=bbox,
+    max_cloud_cover=15,
+    outdir="./downloads"
+)
+
+# 2. Or chain fluent methods directly on search results:
+results = client.search(category="optical", bbox=bbox, limit=5)
+
+# Download the latest/top scene directly:
+latest_path = results.first().download(asset_key="visual", outdir="./downloads")
+
+# Concurrently download all scenes in the results list:
+all_paths = results.download_all(outdir="./downloads")
+
+# Concurrently download selected scenes by index:
+selected_paths = results.download_indices([0, 2], outdir="./downloads")
+
+# In-memory filtering:
+cloud_free = results.filter(max_cloud_cover=5.0)
+```
+
+### Step 9: Zero-Config Convenience Shortcuts
 ```python
 # 1. Optical Scenes (Instant SR or TOA)
 opt_sr = client.get_optical(bbox=bbox, level="sr")

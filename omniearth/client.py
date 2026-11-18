@@ -6,7 +6,7 @@ The primary interface for searching and downloading multi-modal Earth data.
 
 import concurrent.futures
 from typing import List, Optional, Union, Dict, Any
-from omniearth.models import AOI, SearchResult, Category, FilterOptions
+from omniearth.models import AOI, SearchResult, SearchResults, Category, FilterOptions
 from omniearth.config import config
 from omniearth.providers.base import BaseProvider
 from omniearth.providers.optical import OpticalProvider
@@ -139,7 +139,69 @@ class OmniEarth:
             filters=filters
         )
         results.sort(key=lambda x: getattr(x, "datetime", None) or "", reverse=True)
-        return results
+        return SearchResults(results, client=self)
+
+    def search_and_download(
+        self,
+        category: Union[Category, str],
+        aoi: Optional[AOI] = None,
+        bbox: Optional[List[float]] = None,
+        point: Optional[tuple] = None,
+        geojson: Optional[Union[str, dict, Any]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        max_cloud_cover: Optional[float] = None,
+        bands: Optional[List[str]] = None,
+        variables: Optional[List[str]] = None,
+        depth: Optional[str] = None,
+        dataset: Optional[str] = None,
+        year: Optional[int] = None,
+        level: Optional[str] = "sr",
+        limit: int = 10,
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4
+    ) -> List[str]:
+        """
+        Searches for scenes and immediately downloads all matching results in parallel.
+        Returns list of downloaded absolute file paths.
+        """
+        results = self.search(
+            category=category,
+            aoi=aoi,
+            bbox=bbox,
+            point=point,
+            geojson=geojson,
+            start_date=start_date,
+            end_date=end_date,
+            max_cloud_cover=max_cloud_cover,
+            bands=bands,
+            variables=variables,
+            depth=depth,
+            dataset=dataset,
+            year=year,
+            level=level,
+            limit=limit
+        )
+        return results.download_all(
+            asset_key=asset_key,
+            outdir=outdir,
+            max_workers=max_workers,
+            resume=resume,
+            multipart=multipart
+        )
+
+    def get_item(self, category: Union[Category, str], item_id: str) -> Optional[SearchResult]:
+        """
+        Directly retrieves a specific STAC item by ID without running a spatial search query.
+        """
+        cat_enum = Category(category) if isinstance(category, str) else category
+        provider = self._providers.get(cat_enum)
+        if not provider:  # pragma: no cover
+            raise ValueError(f"Unsupported category '{cat_enum}'. Supported: {self.list_categories()}")
+        return provider.get_item(item_id)
 
     def download(
         self,

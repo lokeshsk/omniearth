@@ -1,3 +1,63 @@
+# OmniEarth v1.4.0 Release Notes
+
+**Release Date:** November 18, 2026  
+**DOI:** [10.5281/zenodo.23689449](https://doi.org/10.5281/zenodo.23689449)  
+**PyPI:** [omniearth 1.4.0](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.4.0](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.4.0 delivers a major architectural unification of **Search** and **Download** pipelines across the Python SDK, TypeScript SDK, and CLI, while introducing direct STAC item resolution and resilience hardening across all 14 data categories.
+
+---
+
+## Key Highlights in v1.4.0
+
+### 1. Unified Search-to-Download Pipeline & Fluent Chaining
+Previously, searching and downloading required disconnected two-step commands. OmniEarth v1.4.0 unifies them into a single, cohesive workflow:
+
+- **Fluent SDK Chaining (`SearchResults`)**:
+  - `client.search(...)` now returns a specialized `SearchResults` collection (subclassing `list` in Python and `Array` in TypeScript).
+  - Chain downloads immediately:
+    ```python
+    # Python
+    results = client.search(category="optical", bbox=[78.0, 20.0, 78.5, 20.5], max_cloud_cover=10)
+    downloaded_paths = results.download_all(outdir="./scenes")
+    first_scene = results.first().download(asset_key="visual")
+    selected_paths = results.download_indices([0, 2], outdir="./selected")
+    ```
+    ```typescript
+    // TypeScript / Node.js
+    const results = await client.search({ category: Category.OPTICAL, bbox: [78.0, 20.0, 78.5, 20.5] });
+    const downloadedPaths = await results.downloadAll("visual", "./scenes");
+    const topScene = results.first();
+    ```
+- **High-Level Helper**:
+  - `client.search_and_download(...)` / `client.searchAndDownload(...)` executes search and concurrent download in one unified call.
+- **CLI Search-to-Download Action Flags**:
+  - `--download-all`: Downloads all matching search results concurrently.
+  - `--download-top <N>`: Downloads top N matching results.
+  - `--select <indices>`: Downloads specified scenes by 1-based index (e.g. `--select 1,3` or `--select 1-3`).
+  - `-i, --interactive`: Launches an interactive selection prompt immediately following search output table display.
+- **CLI Download Multi-Scene Dispatch**:
+  - Comma-separated scene IDs: `omniearth download --category hyperspectral --id "ID1,ID2"`.
+  - AOI multi-scene batching: `omniearth download --category optical --bbox ... --all-scenes --limit 5`.
+
+### 2. Direct STAC Item Resolution (`get_item`) & Hyperspectral Fix
+- **Direct Scene Resolution**: Added `get_item(category, item_id)` to `OmniEarth` and concrete provider classes (`OpticalProvider`, `SARProvider`, `HyperspectralProvider`, `ElevationProvider`, `LandcoverProvider`).
+- **EnMAP & EMIT Direct Resolution**: Resolves exact STAC metadata and 13+ asset URLs directly from DLR EOC STAC (`ENMAP_HSI_L2A`) and NASA LP DAAC CMR STAC (`EMITL2ARFL_001`) in $< 200\text{ms}$ without requiring an AOI query.
+- **Provider Auto-Detection**: Auto-detects provider backend (`dlr_enmap`, `nasa_lpdaac`, `asi_prisma`) from scene ID prefixes, completely eliminating fallback `Unknown hyperspectral provider` exceptions.
+
+### 3. Category-Wide Hardening Across All 14 Modalities
+- **Optical & SAR**: Direct STAC item querying via AWS Earth Search `{"ids": [item_id]}` in O(1) time. Added empty asset guards preventing unhandled `StopIteration`.
+- **Elevation & Land Cover**: Deterministic tile coordinate parsing in `get_item` for Copernicus DEM GLO-30, SRTM GL1, ALOS AW3D30, and ESA WorldCover (2020 v100 and 2021 v200).
+- **SoilGrids**: Added asset existence guards preventing `AttributeError: 'NoneType' object has no attribute 'href'`.
+
+### 4. Dual SDK Parity & 100.00% Python Test Coverage
+- **Dual SDK Parity**: All new fluent methods and CLI flags exist identically in Python and TypeScript.
+- **Strict Coverage Policy**: 100.00% test coverage maintained across Python codebase (`1,894/1,894` statements, `fail_under = 100`).
+- **Test Suites**: 68 Python unit & integration tests and 19 TypeScript tests passing with zero failures.
+
+---
+
 # OmniEarth v1.3.2 Release Notes
 
 **Release Date:** November 5, 2026  

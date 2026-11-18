@@ -7,7 +7,7 @@ Standardized representations for areas of interest, search results, and assets.
 import os
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 
 class Category(str, Enum):
@@ -219,6 +219,7 @@ class SearchResult(BaseModel):
     bbox: Optional[List[float]] = None
     properties: Dict[str, Any] = Field(default_factory=dict)
     assets: Dict[str, Asset] = Field(default_factory=dict)
+    _client: Optional[Any] = PrivateAttr(default=None)
 
     @property
     def cloud_cover(self) -> Optional[float]:
@@ -236,9 +237,144 @@ class SearchResult(BaseModel):
             return next(iter(self.assets.values())).href
         return None
 
+    def download(
+        self,
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        resume: bool = True,
+        multipart: bool = True,
+        max_workers: int = 4,
+        client: Optional[Any] = None
+    ) -> str:
+        """Download this result directly to local storage."""
+        active_client = client or self._client
+        if not active_client:
+            from omniearth.client import OmniEarth
+            active_client = OmniEarth()
+        return active_client.download(
+            result=self,
+            asset_key=asset_key,
+            outdir=outdir,
+            resume=resume,
+            multipart=multipart,
+            max_workers=max_workers
+        )
+
+    def download_all(
+        self,
+        asset_keys: Optional[List[str]] = None,
+        outdir: Optional[str] = None,
+        max_workers: int = 4,
+        resume: bool = True,
+        multipart: bool = True,
+        client: Optional[Any] = None
+    ) -> Dict[str, str]:
+        """Download all or selected assets of this result concurrently."""
+        active_client = client or self._client
+        if not active_client:
+            from omniearth.client import OmniEarth
+            active_client = OmniEarth()
+        return active_client.download_all(
+            result=self,
+            asset_keys=asset_keys,
+            outdir=outdir,
+            max_workers=max_workers,
+            resume=resume,
+            multipart=multipart
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         """Return a JSON-serializable dictionary representation."""
         return self.model_dump(mode="json")
+
+
+class SearchResults(list):
+    """
+    List-compatible collection of SearchResult items with fluent batch download
+    and filtering methods.
+    """
+    def __init__(self, iterable=None, client: Optional[Any] = None):
+        super().__init__(iterable or [])
+        self._client = client
+        if self._client:
+            for item in self:
+                if isinstance(item, SearchResult):
+                    item._client = self._client
+
+    def first(self) -> Optional[SearchResult]:
+        """Returns the first search result in the collection, or None if empty."""
+        return self[0] if len(self) > 0 else None
+
+    def filter(
+        self,
+        provider: Optional[str] = None,
+        collection: Optional[str] = None,
+        max_cloud_cover: Optional[float] = None
+    ) -> "SearchResults":
+        """Filter results in-memory by provider, collection, or cloud cover."""
+        filtered = []
+        for r in self:
+            if provider and r.provider != provider:
+                continue
+            if collection and r.collection != collection:
+                continue
+            if max_cloud_cover is not None and r.cloud_cover is not None and r.cloud_cover > max_cloud_cover:
+                continue
+            filtered.append(r)
+        return SearchResults(filtered, client=self._client)
+
+    def download_all(
+        self,
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        max_workers: int = 4,
+        resume: bool = True,
+        multipart: bool = True,
+        client: Optional[Any] = None
+    ) -> List[str]:
+        """
+        Downloads all search results in the collection concurrently.
+        Returns list of downloaded absolute file paths.
+        """
+        active_client = client or self._client
+        if not active_client:
+            from omniearth.client import OmniEarth
+            active_client = OmniEarth()
+        return active_client.download_many(
+            results=list(self),
+            asset_key=asset_key,
+            outdir=outdir,
+            max_workers=max_workers,
+            resume=resume,
+            multipart=multipart
+        )
+
+    def download_indices(
+        self,
+        indices: List[int],
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        max_workers: int = 4,
+        resume: bool = True,
+        multipart: bool = True,
+        client: Optional[Any] = None
+    ) -> List[str]:
+        """
+        Downloads specific search results by their integer index in the collection.
+        """
+        selected = [self[i] for i in indices if 0 <= i < len(self)]
+        active_client = client or self._client
+        if not active_client:
+            from omniearth.client import OmniEarth
+            active_client = OmniEarth()
+        return active_client.download_many(
+            results=selected,
+            asset_key=asset_key,
+            outdir=outdir,
+            max_workers=max_workers,
+            resume=resume,
+            multipart=multipart
+        )
 
 
 class FilterOptions(BaseModel):

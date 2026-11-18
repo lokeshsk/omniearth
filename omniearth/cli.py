@@ -251,6 +251,62 @@ def cmd_search(args, client: OmniEarth):
     print("Tip: Download any scene using: omniearth download --category <cat> --id <ID>")
     print("+" + "-" * (width - 2) + "+")
 
+    target_to_download = None
+    if getattr(args, "download_all", False) is True:
+        target_to_download = list(results)
+    elif getattr(args, "download_top", None) is not None and isinstance(args.download_top, int) and args.download_top > 0:
+        target_to_download = list(results[:args.download_top])
+    elif getattr(args, "select", None) and isinstance(args.select, str):
+        indices = []
+        for part in args.select.split(","):
+            part = part.strip()
+            if "-" in part and not part.startswith("-"):
+                bounds = part.split("-")
+                if len(bounds) == 2 and bounds[0].isdigit() and bounds[1].isdigit():
+                    indices.extend(range(int(bounds[0]) - 1, int(bounds[1])))
+            elif part.isdigit():
+                indices.append(int(part) - 1)
+        target_to_download = [results[i] for i in indices if 0 <= i < len(results)]
+    elif getattr(args, "interactive", False) is True:
+        try:
+            choice = input("\nEnter indices to download (e.g. '1,3', '1-2', 'all', or 'q' to quit): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            choice = "q"
+        if choice.lower() == "all":
+            target_to_download = list(results)
+        elif choice.lower() in ("q", "quit", ""):
+            target_to_download = None
+        else:
+            indices = []
+            for part in choice.split(","):
+                part = part.strip()
+                if "-" in part and not part.startswith("-"):
+                    bounds = part.split("-")
+                    if len(bounds) == 2 and bounds[0].isdigit() and bounds[1].isdigit():
+                        indices.extend(range(int(bounds[0]) - 1, int(bounds[1])))
+                elif part.isdigit():
+                    indices.append(int(part) - 1)
+            target_to_download = [results[i] for i in indices if 0 <= i < len(results)]
+
+    if target_to_download:
+        outdir = getattr(args, "outdir", None) or "./omniearth_downloads"
+        resume = getattr(args, "no_resume", False) is not True
+        multipart = getattr(args, "no_multipart", False) is not True
+        threads_val = getattr(args, "threads", 4)
+        threads = threads_val if isinstance(threads_val, int) and threads_val > 0 else 4
+        print(f"\nDispatching concurrent download for {len(target_to_download)} scene(s) to: {outdir}")
+        paths = client.download_many(
+            results=target_to_download,
+            asset_key=getattr(args, "asset", None),
+            outdir=outdir,
+            max_workers=threads,
+            resume=resume,
+            multipart=multipart
+        )
+        print(f"\nSuccessfully downloaded {len(paths)} scene(s):")
+        for p in paths:
+            print(f"  * {p}")
+
 
 def cmd_download(args, client: OmniEarth):
     """Download an asset from search results or scene ID."""
@@ -260,40 +316,61 @@ def cmd_download(args, client: OmniEarth):
 
     geojson_raw = getattr(args, "geojson", None)
     geojson = geojson_raw if isinstance(geojson_raw, (str, dict)) else None
-    target_result = None
 
     id_raw = getattr(args, "id", None)
-    target_id = id_raw if isinstance(id_raw, str) else None
+    target_ids_str = id_raw if isinstance(id_raw, str) else None
 
     dataset_raw = getattr(args, "dataset", None)
     dataset = dataset_raw if isinstance(dataset_raw, str) else None
     year_raw = getattr(args, "year", None)
     year = year_raw if isinstance(year_raw, int) else None
 
-    if target_id:
-        print(f"Searching for item '{target_id}' in category '{args.category}'...")
-        search_bbox = bbox or [-180, -90, 180, 90]
-        results = client.search(category=args.category, bbox=search_bbox, limit=50)
-        for r in results:
-            if r.id == target_id:
-                target_result = r
-                break
+    target_results: List[omniearth.models.SearchResult] = []
 
-        if not target_result:
-            print(f"Notice: Item not found in recent catalog page; attempting direct provider resolution...")
-            target_result = omniearth.models.SearchResult(
-                id=target_id,
-                collection=args.category,
-                category=Category(args.category),
-                provider=args.category,
-                datetime="2026-01-01T00:00:00Z",
-                bbox=search_bbox,
-                assets={}
-            )
+    if target_ids_str:
+        id_list = [i.strip() for i in target_ids_str.split(",") if i.strip()]
+        for target_id in id_list:
+            print(f"Searching for item '{target_id}' in category '{args.category}'...")
+            target_result = client.get_item(args.category, target_id)
+            search_bbox = bbox or [-180, -90, 180, 90]
+
+            if not target_result:
+                results = client.search(category=args.category, bbox=search_bbox, limit=50)
+                for r in results:
+                    if r.id == target_id:
+                        target_result = r
+                        break
+
+            if not target_result:
+                print(f"Notice: Item not found in recent catalog page; attempting direct provider resolution...")
+                prov = args.category
+                coll = args.category
+                if args.category == "hyperspectral":
+                    if target_id.startswith("ENMAP"):
+                        prov = "dlr_enmap"
+                        coll = "enmap-hsi-l2a"
+                    elif target_id.startswith("EMIT"):
+                        prov = "nasa_lpdaac"
+                        coll = "emit-l2a-rfl"
+                    elif target_id.startswith("PRS"):
+                        prov = "asi_prisma"
+                        coll = "asi-prisma-l2d"
+
+                target_result = omniearth.models.SearchResult(
+                    id=target_id,
+                    collection=coll,
+                    category=Category(args.category),
+                    provider=prov,
+                    datetime="2026-01-01T00:00:00Z",
+                    bbox=search_bbox,
+                    assets={}
+                )
+            target_results.append(target_result)
     elif bbox or geojson:
         loc_desc = f"bbox {bbox}" if bbox else f"geojson '{geojson}'"
         print(f"Searching for matching scenes in {loc_desc}...")
         level = getattr(args, "level", "sr")
+        limit_val = getattr(args, "limit", 1) or 1
         results = client.search(
             category=args.category,
             bbox=bbox,
@@ -304,13 +381,17 @@ def cmd_download(args, client: OmniEarth):
             dataset=dataset,
             year=year,
             level=level,
-            limit=1
+            limit=limit_val
         )
         if not results:
             print("No matching scenes found to download.", file=sys.stderr)
             sys.exit(1)
-        target_result = results[0]
-        print(f"Selected latest scene: {target_result.id} ({target_result.datetime})")
+        if getattr(args, "all_scenes", False) or limit_val > 1:
+            target_results = list(results)
+            print(f"Found {len(target_results)} scene(s) matching criteria.")
+        else:
+            target_results = [results[0]]
+            print(f"Selected latest scene: {target_results[0].id} ({target_results[0].datetime})")
     else:
         print("Error: Must specify either --id, --bbox, or --geojson to download.", file=sys.stderr)
         sys.exit(1)
@@ -324,28 +405,44 @@ def cmd_download(args, client: OmniEarth):
     width = 75
     print("+" + "-" * (width - 2) + "+")
     print(f"| OmniEarth Download Dispatch".ljust(width - 1) + "|")
-    print(f"| Target ID:  {target_result.id}".ljust(width - 1) + "|")
-    print(f"| Category:   {target_result.category.value}".ljust(width - 1) + "|")
+    target_disp = target_results[0].id if len(target_results) == 1 else f"{len(target_results)} item(s)"
+    print(f"| Target(s):  {target_disp}".ljust(width - 1) + "|")
+    print(f"| Category:   {args.category}".ljust(width - 1) + "|")
     print(f"| Directory:  {outdir}".ljust(width - 1) + "|")
     print("+" + "-" * (width - 2) + "+")
 
     try:
-        if getattr(args, "all", False) is True:
-            print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
-            paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
-            print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
-            for k, p in paths.items():
-                print(f"  * {k}: {p}")
+        if len(target_results) == 1:
+            target_result = target_results[0]
+            if getattr(args, "all", False) is True:
+                print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
+                paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
+                print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
+                for k, p in paths.items():
+                    print(f"  * {k}: {p}")
+            else:
+                path = client.download(
+                    target_result,
+                    asset_key=getattr(args, "asset", None),
+                    outdir=outdir,
+                    resume=resume,
+                    multipart=multipart,
+                    max_workers=threads
+                )
+                print(f"\nSuccessfully downloaded: {path}")
         else:
-            path = client.download(
-                target_result,
+            print(f"Downloading {len(target_results)} scenes concurrently with {threads} worker thread(s)...")
+            paths = client.download_many(
+                target_results,
                 asset_key=getattr(args, "asset", None),
                 outdir=outdir,
+                max_workers=threads,
                 resume=resume,
-                multipart=multipart,
-                max_workers=threads
+                multipart=multipart
             )
-            print(f"\nSuccessfully downloaded: {path}")
+            print(f"\nSuccessfully downloaded {len(paths)} scene(s) to: {outdir}")
+            for p in paths:
+                print(f"  * {p}")
     except Exception as e:
         print(f"\nError: Download failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -473,12 +570,21 @@ def main():
     search_p.add_argument("--depth", type=str, help="Soil depth slice (e.g. 0-5cm)")
     search_p.add_argument("--variables", type=str, help="Comma-separated variables (e.g. soil or weather variables)")
     search_p.add_argument("--level", type=str, choices=["sr", "toa"], default="sr", help="Processing level for optical: 'sr' (Surface Reflectance / BOA L2A) or 'toa' (Top of Atmosphere L1C)")
+    search_p.add_argument("--download-all", action="store_true", help="Download all matching search results concurrently")
+    search_p.add_argument("--download-top", type=int, help="Download the top N matching search results")
+    search_p.add_argument("--select", type=str, help="Comma-separated 1-based indices to download (e.g. '1,3' or '1-2')")
+    search_p.add_argument("-i", "--interactive", action="store_true", help="Prompt interactively to select and download scenes from search results")
+    search_p.add_argument("--outdir", "-o", type=str, default="./omniearth_downloads", help="Output directory for downloads (default: ./omniearth_downloads)")
+    search_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
+    search_p.add_argument("--asset", type=str, help="Specific asset key to download (e.g. visual, dem, map, etc.)")
+    search_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")
+    search_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
     search_p.add_argument("--json", action="store_true", help="Output raw JSON format")
 
     # Download command
     dl_p = subparsers.add_parser("download", help="Download raw satellite data, hyperspectral cubes, or environmental profiles")
     dl_p.add_argument("--category", "-c", required=True, choices=[c.value for c in Category], help="Data category")
-    dl_p.add_argument("--id", type=str, help="Specific scene/product ID to download")
+    dl_p.add_argument("--id", type=str, help="Specific scene/product ID or comma-separated list of IDs to download")
     dl_p.add_argument("--bbox", nargs="+", type=float, help="Bounding box to find scene for: min_lon min_lat max_lon max_lat")
     dl_p.add_argument("--geojson", type=str, help="Path to GeoJSON file or inline GeoJSON string")
     dl_p.add_argument("--asset", type=str, help="Specific asset key to download (e.g. visual, dem, map, etc.)")
@@ -489,6 +595,8 @@ def main():
     dl_p.add_argument("--max-cloud", type=float, help="Max cloud cover if using bbox")
     dl_p.add_argument("--dataset", type=str, help="Specific dataset (e.g. copernicus, srtm, alos)")
     dl_p.add_argument("--year", type=int, help="Year (e.g. 2020, 2021)")
+    dl_p.add_argument("--limit", type=int, default=1, help="Maximum number of scenes to download when searching by AOI (default: 1)")
+    dl_p.add_argument("--all-scenes", action="store_true", help="Download all matching scenes found in AOI up to --limit")
     dl_p.add_argument("--all", action="store_true", help="Download all assets associated with the scene concurrently")
     dl_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
     dl_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")

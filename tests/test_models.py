@@ -229,3 +229,103 @@ def test_aoi_contains_and_polygon_masking():
     assert aoi_pt.contains(5.0, 5.0) is True
 
 
+def test_search_results_fluent_and_direct_downloads(monkeypatch):
+    from unittest.mock import MagicMock
+    from omniearth.models import SearchResults
+
+    mock_client = MagicMock()
+    mock_client.download.return_value = "/tmp/downloaded.tif"
+    mock_client.download_all.return_value = {"visual": "/tmp/visual.tif"}
+    mock_client.download_many.return_value = ["/tmp/item1.tif", "/tmp/item2.tif"]
+
+    item1 = SearchResult(
+        id="item1",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={"cloud_cover": 5.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item1.tif")}
+    )
+    item2 = SearchResult(
+        id="item2",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={"cloud_cover": 25.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item2.tif")}
+    )
+    item3 = SearchResult(
+        id="item3",
+        collection="landsat-8",
+        category=Category.OPTICAL,
+        provider="usgs",
+        properties={"cloud_cover": 15.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item3.tif")}
+    )
+
+    results = SearchResults([item1, item2, item3], client=mock_client)
+    assert len(results) == 3
+    assert results.first() == item1
+    assert item1._client == mock_client
+
+    empty_results = SearchResults([], client=mock_client)
+    assert empty_results.first() is None
+
+    # Filter
+    filtered_provider = results.filter(provider="aws")
+    assert len(filtered_provider) == 2
+
+    filtered_collection = results.filter(collection="landsat-8")
+    assert len(filtered_collection) == 1
+
+    filtered_clouds = results.filter(max_cloud_cover=10.0)
+    assert len(filtered_clouds) == 1
+    assert filtered_clouds[0].id == "item1"
+
+    # SearchResults.download_all
+    paths = results.download_all(outdir="/tmp")
+    assert paths == ["/tmp/item1.tif", "/tmp/item2.tif"]
+    mock_client.download_many.assert_called_with(
+        results=[item1, item2, item3],
+        asset_key=None,
+        outdir="/tmp",
+        max_workers=4,
+        resume=True,
+        multipart=True
+    )
+
+    # SearchResults.download_indices
+    indices_paths = results.download_indices([0, 2], outdir="/tmp")
+    assert indices_paths == ["/tmp/item1.tif", "/tmp/item2.tif"]
+
+    # SearchResult.download and download_all with bound _client
+    d_path = item1.download()
+    assert d_path == "/tmp/downloaded.tif"
+    d_all = item1.download_all()
+    assert d_all == {"visual": "/tmp/visual.tif"}
+
+    # SearchResult and SearchResults fallback to default OmniEarth() when client is None
+    item_standalone = SearchResult(
+        id="standalone",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="aws"
+    )
+    with monkeypatch.context() as m:
+        mock_omni_cls = MagicMock()
+        mock_inst = MagicMock()
+        mock_inst.download.return_value = "/tmp/fallback_download.tif"
+        mock_inst.download_all.return_value = {"visual": "/tmp/fallback_visual.tif"}
+        mock_inst.download_many.return_value = ["/tmp/fallback_many.tif"]
+        mock_omni_cls.return_value = mock_inst
+        m.setattr("omniearth.client.OmniEarth", mock_omni_cls)
+
+        assert item_standalone.download() == "/tmp/fallback_download.tif"
+        assert item_standalone.download_all() == {"visual": "/tmp/fallback_visual.tif"}
+
+        results_standalone = SearchResults([item_standalone])
+        assert results_standalone.download_all() == ["/tmp/fallback_many.tif"]
+        assert results_standalone.download_indices([0]) == ["/tmp/fallback_many.tif"]
+
+
+

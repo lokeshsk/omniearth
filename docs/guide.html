@@ -344,7 +344,7 @@
   <!-- TOP NAV -->
   <header class="top-nav">
     <a href="index.html" class="brand">
-      OmniEarth <span class="badge-ver">v1.3.2</span>
+      OmniEarth <span class="badge-ver">v1.4.0</span>
     </a>
     <nav class="nav-links">
       <a href="index.html">Overview</a>
@@ -673,6 +673,36 @@
                 <td>Flag</td>
                 <td>False</td>
                 <td>Outputs raw structured JSON to stdout. Ideal for piping into <code>jq</code>, shell scripts, or downstream analysis pipelines.</td>
+              </tr>
+              <tr>
+                <td><code>--download-all</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Immediately triggers concurrent parallel download of all matching search results to <code>--outdir</code>.</td>
+              </tr>
+              <tr>
+                <td><code>--download-top</code></td>
+                <td>Integer</td>
+                <td>None</td>
+                <td>Immediately downloads the top N matching search results in parallel.</td>
+              </tr>
+              <tr>
+                <td><code>--select</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Comma-separated 1-based indices or ranges to download from search results (e.g. <code>--select 1,3</code> or <code>1-3</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--interactive, -i</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Prompts interactively after displaying search results table to select and download scenes on the fly.</td>
+              </tr>
+              <tr>
+                <td><code>--outdir, -o</code></td>
+                <td>String</td>
+                <td><code>./omniearth_downloads</code></td>
+                <td>Destination directory for downloaded assets.</td>
               </tr>
             </tbody>
           </table>

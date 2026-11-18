@@ -738,3 +738,69 @@ test("OmniEarth searches and downloads new modalities (Atmosphere, Fire, Ocean, 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("OmniEarth SearchResults fluent methods and searchAndDownload", async () => {
+  const { SearchResults } = await import("../src/types.js");
+  const client = new OmniEarth();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniearth_chain_"));
+
+  const mockItem1 = {
+    id: "SCENE_1",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    datetime: "2026-05-01T00:00:00Z",
+    properties: { cloud_cover: 5.0 },
+    assets: { visual: { key: "visual", href: "https://example.com/s1.tif" } }
+  };
+  const mockItem2 = {
+    id: "SCENE_2",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    datetime: "2026-04-01T00:00:00Z",
+    properties: { cloud_cover: 25.0 },
+    assets: { visual: { key: "visual", href: "https://example.com/s2.tif" } }
+  };
+
+  const results = new SearchResults([mockItem1, mockItem2], client);
+  assert.equal(results.first()?.id, "SCENE_1");
+
+  const emptyRes = new SearchResults([], client);
+  assert.equal(emptyRes.first(), undefined);
+
+  // Filter
+  const filtered = results.filterResults({ maxCloudCover: 10.0 });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, "SCENE_1");
+
+  const filterByProvider = results.filterResults({ provider: "aws", collection: "sentinel-2-l2a" });
+  assert.equal(filterByProvider.length, 2);
+
+  // Mock download
+  const origDownload = client.download.bind(client);
+  client.download = async (res: any) => path.join(tmpDir, `${res.id}.tif`);
+
+  try {
+    const downloadedAll = await results.downloadAll(undefined, tmpDir);
+    assert.equal(downloadedAll.length, 2);
+
+    const downloadedIndices = await results.downloadIndices([1], undefined, tmpDir);
+    assert.equal(downloadedIndices.length, 1);
+    assert.ok(downloadedIndices[0].includes("SCENE_2"));
+
+    // Detached client check
+    const detached = new SearchResults([mockItem1]);
+    await assert.rejects(async () => detached.downloadAll(), /No OmniEarth client attached/);
+    await assert.rejects(async () => detached.downloadIndices([0]), /No OmniEarth client attached/);
+
+    // searchAndDownload
+    client.search = async () => new SearchResults([mockItem1], client);
+    const searchDl = await client.searchAndDownload({ category: Category.OPTICAL, bbox: [0, 0, 1, 1] }, undefined, tmpDir);
+    assert.equal(searchDl.length, 1);
+    assert.ok(searchDl[0].includes("SCENE_1"));
+  } finally {
+    client.download = origDownload;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
