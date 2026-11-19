@@ -40,3 +40,11 @@ def test_config_custom_env_path(tmp_path):
     env_file.write_text("CUSTOM_VAR=custom_value\n")
     cfg = Config(env_path=str(env_file))
     assert cfg.get("CUSTOM_VAR") == "custom_value"
+
+
+def test_config_candidate_oserror_handling():
+    from unittest.mock import patch
+    cfg = Config()
+    with patch("pathlib.Path.is_file", side_effect=PermissionError("Restricted")):
+        cfg._load_environment()
+

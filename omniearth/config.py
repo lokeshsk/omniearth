@@ -24,15 +24,16 @@ class Config:
         candidates.append(Path.cwd() / ".env")
         # Parent directory
         candidates.append(Path.cwd().parent / ".env")
-        # System specific agri dir if running in workspace
-        candidates.append(Path("/home/ubuntu/Documents/agri/.env"))
         # User home config
         candidates.append(Path.home() / ".omniearth" / ".env")
 
         for p in candidates:
-            if p.exists() and p.is_file():
-                load_dotenv(p)
-                break
+            try:
+                if p.is_file():
+                    load_dotenv(p)
+                    break
+            except (OSError, PermissionError):
+                continue
 
     @property
     def dlr_credentials(self) -> Tuple[Optional[str], Optional[str]]:
