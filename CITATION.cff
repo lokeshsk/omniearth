@@ -8,7 +8,7 @@ authors:
 title: "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine"
 version: 1.4.0
 doi: "10.5281/zenodo.23689449"
-date-released: 2026-11-18
+date-released: 2026-11-19
 url: "https://github.com/lokeshsk/omniearth"
 repository-code: "https://github.com/lokeshsk/omniearth"
 license: "Custom (Attribution & Citation)"
