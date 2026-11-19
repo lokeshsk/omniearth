@@ -41,10 +41,9 @@ jobs:
           uv run --all-extras pytest -v --cov=omniearth --cov-report=term-missing tests/ > pytest.log 2>&1 || {
             EXIT_CODE=$?
             cat pytest.log
-            echo "### Pytest Failure Details" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 80 pytest.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 25 pytest.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit $EXIT_CODE
           }
           cat pytest.log
