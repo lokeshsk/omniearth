@@ -731,7 +731,8 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
     prs_empty = SearchResult(
         id="PRS_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="asi_prisma", assets={}
     )
-    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+    with patch.dict(os.environ, {"DLR_USERNAME": "test_dlr_user", "DLR_PASSWORD": "test_dlr_pass"}), \
+         patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out_enm = provider.download(enmap_empty, outdir=str(tmp_path))
         assert os.path.exists(out_enm)
         out_emi = provider.download(emit_empty, outdir=str(tmp_path))
