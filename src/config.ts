@@ -15,13 +15,16 @@ export class Config {
     }
     candidates.push(path.join(process.cwd(), ".env"));
     candidates.push(path.join(process.cwd(), "..", ".env"));
-    candidates.push("/home/ubuntu/Documents/agri/.env");
     candidates.push(path.join(os.homedir(), ".omniearth", ".env"));
 
     for (const p of candidates) {
-      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-        dotenv.config({ path: p });
-        break;
+      try {
+        if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+          dotenv.config({ path: p });
+          break;
+        }
+      } catch {
+        continue;
       }
     }
   }

@@ -10,7 +10,7 @@
 [![Snyk Security](https://img.shields.io/badge/Snyk-Protected-brightgreen.svg?logo=snyk&logoColor=white)](https://snyk.io/test/github/lokeshsk/omniearth)
 [![Security Policy](https://img.shields.io/badge/Security-Policy%20Active-brightgreen.svg)](SECURITY.md)
 [![Supply Chain](https://img.shields.io/badge/Supply%20Chain-SLSA%20Attested-brightgreen.svg)](https://slsa.dev)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23689449.svg)](https://doi.org/10.5281/zenodo.23689449)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23689448.svg)](https://doi.org/10.5281/zenodo.23689448)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)](https://github.com/lokeshsk/omniearth)
 [![Python uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
@@ -833,7 +833,7 @@ If you use OmniEarth in your research or project, please cite:
   month        = oct,
   year         = 2026,
   publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.23689449},
+  doi          = {10.5281/zenodo.23689448},
   url          = {https://github.com/lokeshsk/omniearth}
 }
 ```
