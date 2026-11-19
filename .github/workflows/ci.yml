@@ -38,7 +38,14 @@ jobs:
 
       - name: Run Python Test Suite (pytest)
         run: |
-          uv run --all-extras pytest -v --cov=omniearth --cov-report=term-missing tests/
+          uv run --all-extras pytest -v --cov=omniearth --cov-report=term-missing tests/ > pytest.log 2>&1 || {
+            EXIT_CODE=$?
+            cat pytest.log
+            grep -E "FAILED|ERROR|AssertionError|Exception|Missing|fail-under" pytest.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit $EXIT_CODE
+          }
           cat pytest.log
 
       - name: Build Python Package (Wheel & sdist)
