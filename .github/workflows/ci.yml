@@ -41,7 +41,7 @@ jobs:
           uv run --all-extras pytest -v --cov=omniearth --cov-report=term-missing tests/ > pytest.log 2>&1 || {
             EXIT_CODE=$?
             cat pytest.log
-            tail -n 25 pytest.log | while IFS= read -r line; do
+            tail -n 60 pytest.log | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit $EXIT_CODE
