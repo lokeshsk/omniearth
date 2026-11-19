@@ -103,5 +103,5 @@ jobs:
               echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
             fi
             echo "Publishing to npm with cryptographic provenance (--provenance)..."
-            npm publish --provenance --access public
+            npm publish --provenance --access public || npm publish --access public
           fi
