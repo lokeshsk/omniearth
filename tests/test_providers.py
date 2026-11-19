@@ -700,7 +700,8 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         with pytest.raises(ValueError, match="DLR credentials"):
             provider.download(enmap_auto, outdir=str(tmp_path))
 
-    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+    with patch.dict(os.environ, {"DLR_USERNAME": "test_dlr_user", "DLR_PASSWORD": "test_dlr_pass"}), \
+         patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out_enmap_auto = provider.download(enmap_auto, outdir=str(tmp_path))
         assert os.path.exists(out_enmap_auto)
 
