@@ -13,6 +13,7 @@ export {
   AOI,
   Asset,
   SearchResult,
+  SearchResults,
   FilterOptions,
   SearchParams
 } from "./types.js";
@@ -32,4 +33,6 @@ export { AltimetryProvider } from "./providers/altimetry.js";
 export { PrecipitationProvider } from "./providers/precipitation.js";
 export { HydrologyProvider } from "./providers/hydrology.js";
 export { NightlightsProvider } from "./providers/nightlights.js";
+export { CDSEProvider, CDSEAuthManager } from "./providers/cdse.js";
+export { resolveCompositeBands, createCompositeFromDownloaded } from "./processors.js";
 export { computeSpectralIndex, SUPPORTED_INDICES, IndexInputs, IndexStats } from "./indices.js";

@@ -9,6 +9,7 @@ import {
 } from "./types.js";
 import { config } from "./config.js";
 import { BaseProvider, DownloadOptions } from "./providers/base.js";
+import { CDSEProvider, UUID_REGEX } from "./providers/cdse.js";
 import { OpticalProvider } from "./providers/optical.js";
 import { HyperspectralProvider } from "./providers/hyperspectral.js";
 import { SARProvider } from "./providers/sar.js";
@@ -27,6 +28,7 @@ import { computeSpectralIndex, IndexInputs } from "./indices.js";
 
 export class OmniEarth {
   private providers: Map<Category, BaseProvider> = new Map();
+  public cdseProvider: CDSEProvider;
 
   constructor(envPath?: string) {
     if (envPath) {
@@ -47,6 +49,7 @@ export class OmniEarth {
     this.providers.set(Category.PRECIPITATION, new PrecipitationProvider());
     this.providers.set(Category.HYDROLOGY, new HydrologyProvider());
     this.providers.set(Category.NIGHTLIGHTS, new NightlightsProvider());
+    this.cdseProvider = new CDSEProvider();
   }
 
   public listCategories(): string[] {
@@ -128,11 +131,6 @@ export class OmniEarth {
 
   public async search(params: SearchParams): Promise<SearchResults> {
     const cat = typeof params.category === "string" ? (params.category as Category) : params.category;
-    const provider = this.providers.get(cat);
-    if (!provider) {
-      throw new Error(`Unsupported category '${cat}'. Supported: ${this.listCategories().join(", ")}`);
-    }
-
     const aoi = this.resolveAOI(params);
     let startDate = params.startDate;
     let endDate = params.endDate;
@@ -149,10 +147,27 @@ export class OmniEarth {
       dataset: params.dataset,
       year: params.year,
       level: params.level,
-      limit: params.limit
+      limit: params.limit,
+      provider: params.provider,
+      format: params.format
     };
 
-    const results = await provider.search(aoi, startDate, endDate, filters);
+    let results: SearchResult[];
+    if (
+      params.provider === "cdse" ||
+      params.dataset === "cdse" ||
+      (params.format === "safe" && [Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE].includes(cat))
+    ) {
+      this.cdseProvider.category = cat;
+      results = await this.cdseProvider.search(aoi, startDate, endDate, filters);
+    } else {
+      const provider = this.providers.get(cat);
+      if (!provider) {
+        throw new Error(`Unsupported category '${cat}'. Supported: ${this.listCategories().join(", ")}`);
+      }
+      results = await provider.search(aoi, startDate, endDate, filters);
+    }
+
     results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
     return new SearchResults(results, this);
   }
@@ -167,13 +182,30 @@ export class OmniEarth {
     return results.downloadAll(assetKey, outdir, options);
   }
 
-  public async getItem(category: Category | string, itemId: string): Promise<SearchResult | null> {
+  public async getItem(category: Category | string, itemId: string, providerName?: string): Promise<SearchResult | null> {
     const cat = typeof category === "string" ? (category as Category) : category;
+    const cleanId = itemId.trim();
+    const isCdseHint =
+      UUID_REGEX.test(cleanId) ||
+      (cleanId.startsWith("S1") || cleanId.startsWith("S2") || cleanId.startsWith("S3") || cleanId.startsWith("S5P"));
+
+    if (
+      providerName === "cdse" ||
+      (isCdseHint && [Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE].includes(cat))
+    ) {
+      const res = await this.cdseProvider.getItem(cleanId);
+      if (res) return res;
+    }
+
     const provider = this.providers.get(cat);
     if (!provider) {
       throw new Error(`Unsupported category '${cat}'. Supported: ${this.listCategories().join(", ")}`);
     }
-    return provider.getItem(itemId);
+    const item = await provider.getItem(cleanId);
+    if (!item && [Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE].includes(cat)) {
+      return this.cdseProvider.getItem(cleanId);
+    }
+    return item;
   }
 
   public async download(
@@ -182,11 +214,34 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<string> {
-    const provider = this.providers.get(result.category);
-    if (!provider) {
-      throw new Error(`No provider adapter found for category '${result.category}'`);
+    let downloadedPath: string;
+
+    if (
+      result.provider === "cdse" ||
+      options?.format === "safe" ||
+      options?.format === "raw" ||
+      options?.format === "node" ||
+      options?.format === "band" ||
+      (options?.bands !== undefined && result.provider === "cdse")
+    ) {
+      downloadedPath = await this.cdseProvider.download(result, assetKey, outdir, options);
+    } else {
+      const provider = this.providers.get(result.category);
+      if (!provider) {
+        throw new Error(`No provider adapter found for category '${result.category}'`);
+      }
+      downloadedPath = await provider.download(result, assetKey, outdir, options);
     }
-    return provider.download(result, assetKey, outdir, options);
+
+    if (options?.composite) {
+      const { createCompositeFromDownloaded } = await import("./processors.js");
+      try {
+        const comp = createCompositeFromDownloaded(downloadedPath, options.composite);
+        if (comp) return comp;
+      } catch {}
+    }
+
+    return downloadedPath;
   }
 
   public async downloadAll(
@@ -195,6 +250,11 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<Record<string, string>> {
+    if (result.provider === "cdse" || options?.format === "safe" || options?.format === "raw" || options?.bands) {
+      const dl = await this.download(result, undefined, outdir, options);
+      return { data: dl };
+    }
+
     const keys = assetKeys || Object.keys(result.assets);
     if (keys.length === 0) {
       throw new Error(`No assets found to download for item '${result.id}'`);
@@ -212,6 +272,15 @@ export class OmniEarth {
         })
       );
     }
+
+    if (options?.composite) {
+      const { createCompositeFromDownloaded } = await import("./processors.js");
+      try {
+        const comp = createCompositeFromDownloaded(Object.values(downloaded), options.composite);
+        if (comp) downloaded["composite"] = comp;
+      } catch {}
+    }
+
     return downloaded;
   }
 

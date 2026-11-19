@@ -54,8 +54,18 @@ class Config:
 
     @property
     def cdse_credentials(self) -> Tuple[Optional[str], Optional[str]]:
-        u = os.getenv("CDSE_USERNAME") or os.getenv("COPERNICUS_USERNAME")
-        p = os.getenv("CDSE_PASSWORD") or os.getenv("COPERNICUS_PASSWORD")
+        u = (
+            os.getenv("CDSE_USERNAME")
+            or os.getenv("COPERNICUS_USERNAME")
+            or os.getenv("SENTINEL_USER")
+            or os.getenv("CDSE_USER")
+        )
+        p = (
+            os.getenv("CDSE_PASSWORD")
+            or os.getenv("COPERNICUS_PASSWORD")
+            or os.getenv("SENTINEL_PASS")
+            or os.getenv("CDSE_PASS")
+        )
         return u, p
 
     @property

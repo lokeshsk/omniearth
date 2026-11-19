@@ -198,6 +198,27 @@ def cmd_search(args, client: OmniEarth):
     year = year_raw if isinstance(year_raw, int) else None
     level = getattr(args, "level", "sr")
 
+    provider_raw = getattr(args, "provider", None)
+    provider = provider_raw if isinstance(provider_raw, str) else None
+    format_raw = getattr(args, "format", None)
+    format_val = format_raw if isinstance(format_raw, str) else None
+    bands_raw = getattr(args, "bands", None)
+    bands_str = bands_raw if isinstance(bands_raw, str) else None
+    bands_val = [b.strip() for b in bands_str.split(",") if b.strip()] if (bands_str and "," in bands_str) else ([bands_str] if bands_str else None)
+    export_raw = getattr(args, "export", None)
+    export_path = export_raw if isinstance(export_raw, str) else None
+    verify_checksum = getattr(args, "verify_checksum", False) is True
+    composite_raw = getattr(args, "composite", None)
+    composite = composite_raw if isinstance(composite_raw, str) else None
+
+    extra_search_kwargs = {}
+    if provider is not None:
+        extra_search_kwargs["provider"] = provider
+    if format_val is not None:
+        extra_search_kwargs["format"] = format_val
+    if bands_val is not None:
+        extra_search_kwargs["bands"] = bands_val
+
     try:
         results = client.search(
             category=args.category,
@@ -212,11 +233,17 @@ def cmd_search(args, client: OmniEarth):
             dataset=dataset,
             year=year,
             level=level,
-            limit=args.limit
+            limit=args.limit,
+            **extra_search_kwargs
         )
     except Exception as e:
         print(f"Error during search: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if export_path:
+        if hasattr(results, "export"):
+            out_exp = results.export(export_path)
+            print(f"Exported {len(results)} search result(s) to: {out_exp}")
 
     if args.json:
         data = [r.to_dict() for r in results]
@@ -295,13 +322,25 @@ def cmd_search(args, client: OmniEarth):
         threads_val = getattr(args, "threads", 4)
         threads = threads_val if isinstance(threads_val, int) and threads_val > 0 else 4
         print(f"\nDispatching concurrent download for {len(target_to_download)} scene(s) to: {outdir}")
+
+        extra_dl_kwargs = {}
+        if format_val is not None:
+            extra_dl_kwargs["format"] = format_val
+        if bands_str is not None:
+            extra_dl_kwargs["bands"] = bands_str
+        if verify_checksum:
+            extra_dl_kwargs["verify_checksum"] = verify_checksum
+        if composite is not None:
+            extra_dl_kwargs["composite"] = composite
+
         paths = client.download_many(
             results=target_to_download,
-            asset_key=getattr(args, "asset", None),
+            asset_key=getattr(args, "asset", None) if isinstance(getattr(args, "asset", None), str) else None,
             outdir=outdir,
             max_workers=threads,
             resume=resume,
-            multipart=multipart
+            multipart=multipart,
+            **extra_dl_kwargs
         )
         print(f"\nSuccessfully downloaded {len(paths)} scene(s):")
         for p in paths:
@@ -325,17 +364,42 @@ def cmd_download(args, client: OmniEarth):
     year_raw = getattr(args, "year", None)
     year = year_raw if isinstance(year_raw, int) else None
 
+    provider_raw = getattr(args, "provider", None)
+    provider = provider_raw if isinstance(provider_raw, str) else None
+    format_raw = getattr(args, "format", None)
+    format_val = format_raw if isinstance(format_raw, str) else None
+    bands_raw = getattr(args, "bands", None)
+    bands_str = bands_raw if isinstance(bands_raw, str) else None
+    verify_checksum = getattr(args, "verify_checksum", False) is True
+    composite_raw = getattr(args, "composite", None)
+    composite = composite_raw if isinstance(composite_raw, str) else None
+
+    extra_dl_kwargs = {}
+    if format_val is not None:
+        extra_dl_kwargs["format"] = format_val
+    if bands_str is not None:
+        extra_dl_kwargs["bands"] = bands_str
+    if verify_checksum:
+        extra_dl_kwargs["verify_checksum"] = verify_checksum
+    if composite is not None:
+        extra_dl_kwargs["composite"] = composite
+
     target_results: List[omniearth.models.SearchResult] = []
 
     if target_ids_str:
         id_list = [i.strip() for i in target_ids_str.split(",") if i.strip()]
         for target_id in id_list:
             print(f"Searching for item '{target_id}' in category '{args.category}'...")
-            target_result = client.get_item(args.category, target_id)
+            target_result = client.get_item(args.category, target_id, provider=provider)
             search_bbox = bbox or [-180, -90, 180, 90]
 
             if not target_result:
-                results = client.search(category=args.category, bbox=search_bbox, limit=50)
+                results = client.search(
+                    category=args.category,
+                    bbox=search_bbox if not geojson else None,
+                    geojson=geojson,
+                    limit=50
+                )
                 for r in results:
                     if r.id == target_id:
                         target_result = r
@@ -343,18 +407,48 @@ def cmd_download(args, client: OmniEarth):
 
             if not target_result:
                 print(f"Notice: Item not found in recent catalog page; attempting direct provider resolution...")
-                prov = args.category
+                prov = provider or args.category
                 coll = args.category
+                assets_dict = {}
                 if args.category == "hyperspectral":
-                    if target_id.startswith("ENMAP"):
+                    if target_id.startswith("ENMAP") or "enmap" in target_id.lower():
                         prov = "dlr_enmap"
                         coll = "enmap-hsi-l2a"
-                    elif target_id.startswith("EMIT"):
+                        dl_url = f"https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={target_id}"
+                        assets_dict["image"] = omniearth.models.Asset(key="image", href=dl_url, title="Hyperspectral Data Cube", media_type="image/tiff")
+                        assets_dict["data"] = assets_dict["image"]
+                    elif target_id.startswith("EMIT") or "emit" in target_id.lower():
                         prov = "nasa_lpdaac"
                         coll = "emit-l2a-rfl"
-                    elif target_id.startswith("PRS"):
+                        dl_url = f"https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/{target_id}/{target_id}.nc"
+                        assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="EMIT NetCDF Cube", media_type="application/x-netcdf")
+                    elif target_id.startswith("PRS") or "prisma" in target_id.lower():
                         prov = "asi_prisma"
                         coll = "asi-prisma-l2d"
+                        dl_url = f"https://prisma.asi.it/download/{target_id}.he5"
+                        assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="PRISMA HDF5 Cube", media_type="application/x-hdf5")
+                    else:
+                        prov = "dlr_enmap"
+                        coll = "enmap-hsi-l2a"
+                        dl_url = f"https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={target_id}"
+                        assets_dict["image"] = omniearth.models.Asset(key="image", href=dl_url, title="Hyperspectral Data Cube", media_type="image/tiff")
+                        assets_dict["data"] = assets_dict["image"]
+                elif args.category in ("optical", "sar", "ocean", "atmosphere"):
+                    if prov == "cdse" or target_id.startswith(("S1", "S2", "S3", "S5P")) or any(x in target_id for x in ("_MSIL", "_GRD", "_RAW", ".SAFE")):
+                        prov = "cdse"
+                        coll = "SENTINEL-2" if args.category == "optical" else ("SENTINEL-1" if args.category == "sar" else "SENTINEL-3")
+                        dl_url = f"https://dataspace.copernicus.eu/odata/v1/Products({target_id})/$value"
+                        assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="CDSE Product Archive", media_type="application/zip")
+                elif args.category == "elevation":
+                    prov = "aws_copernicus_dem"
+                    coll = "copernicus-dem-glo-30"
+                    dl_url = f"https://copernicus-dem-30m.s3.amazonaws.com/{target_id}/{target_id}.tif"
+                    assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="DEM GeoTIFF", media_type="image/tiff")
+                elif args.category == "landcover":
+                    prov = "aws_worldcover"
+                    coll = "esa-worldcover-10m"
+                    dl_url = f"https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/{target_id}.tif"
+                    assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="WorldCover GeoTIFF", media_type="image/tiff")
 
                 target_result = omniearth.models.SearchResult(
                     id=target_id,
@@ -363,7 +457,7 @@ def cmd_download(args, client: OmniEarth):
                     provider=prov,
                     datetime="2026-01-01T00:00:00Z",
                     bbox=search_bbox,
-                    assets={}
+                    assets=assets_dict
                 )
             target_results.append(target_result)
     elif bbox or geojson:
@@ -371,6 +465,12 @@ def cmd_download(args, client: OmniEarth):
         print(f"Searching for matching scenes in {loc_desc}...")
         level = getattr(args, "level", "sr")
         limit_val = getattr(args, "limit", 1) or 1
+        extra_search_kwargs = {}
+        if provider is not None:
+            extra_search_kwargs["provider"] = provider
+        if format_val is not None:
+            extra_search_kwargs["format"] = format_val
+
         results = client.search(
             category=args.category,
             bbox=bbox,
@@ -381,7 +481,8 @@ def cmd_download(args, client: OmniEarth):
             dataset=dataset,
             year=year,
             level=level,
-            limit=limit_val
+            limit=limit_val,
+            **extra_search_kwargs
         )
         if not results:
             print("No matching scenes found to download.", file=sys.stderr)
@@ -416,29 +517,38 @@ def cmd_download(args, client: OmniEarth):
             target_result = target_results[0]
             if getattr(args, "all", False) is True:
                 print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
-                paths = client.download_all(target_result, outdir=outdir, max_workers=threads, resume=resume, multipart=multipart)
+                paths = client.download_all(
+                    target_result,
+                    outdir=outdir,
+                    max_workers=threads,
+                    resume=resume,
+                    multipart=multipart,
+                    **extra_dl_kwargs
+                )
                 print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
                 for k, p in paths.items():
                     print(f"  * {k}: {p}")
             else:
                 path = client.download(
                     target_result,
-                    asset_key=getattr(args, "asset", None),
+                    asset_key=getattr(args, "asset", None) if isinstance(getattr(args, "asset", None), str) else None,
                     outdir=outdir,
                     resume=resume,
                     multipart=multipart,
-                    max_workers=threads
+                    max_workers=threads,
+                    **extra_dl_kwargs
                 )
                 print(f"\nSuccessfully downloaded: {path}")
         else:
             print(f"Downloading {len(target_results)} scenes concurrently with {threads} worker thread(s)...")
             paths = client.download_many(
                 target_results,
-                asset_key=getattr(args, "asset", None),
+                asset_key=getattr(args, "asset", None) if isinstance(getattr(args, "asset", None), str) else None,
                 outdir=outdir,
                 max_workers=threads,
                 resume=resume,
-                multipart=multipart
+                multipart=multipart,
+                **extra_dl_kwargs
             )
             print(f"\nSuccessfully downloaded {len(paths)} scene(s) to: {outdir}")
             for p in paths:
@@ -577,6 +687,12 @@ def main():
     search_p.add_argument("--outdir", "-o", type=str, default="./omniearth_downloads", help="Output directory for downloads (default: ./omniearth_downloads)")
     search_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
     search_p.add_argument("--asset", type=str, help="Specific asset key to download (e.g. visual, dem, map, etc.)")
+    search_p.add_argument("--export", type=str, help="Export search results to .geojson or .csv file")
+    search_p.add_argument("--provider", type=str, help="Data provider (e.g. cdse, aws, dlr_enmap)")
+    search_p.add_argument("--format", type=str, help="Product format (safe, raw, cog)")
+    search_p.add_argument("--bands", type=str, help="Band preset or comma-separated bands (e.g. rgb, ndvi, B04,B03,B02)")
+    search_p.add_argument("--verify-checksum", action="store_true", help="Validate cryptographic hash (MD5/SHA-256) of downloaded data")
+    search_p.add_argument("--composite", type=str, choices=["rgb", "false-color", "swir"], help="Automatically generate 3-band composite GeoTIFF")
     search_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")
     search_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
     search_p.add_argument("--json", action="store_true", help="Output raw JSON format")
@@ -588,6 +704,11 @@ def main():
     dl_p.add_argument("--bbox", nargs="+", type=float, help="Bounding box to find scene for: min_lon min_lat max_lon max_lat")
     dl_p.add_argument("--geojson", type=str, help="Path to GeoJSON file or inline GeoJSON string")
     dl_p.add_argument("--asset", type=str, help="Specific asset key to download (e.g. visual, dem, map, etc.)")
+    dl_p.add_argument("--provider", type=str, help="Data provider (e.g. cdse, aws, dlr_enmap)")
+    dl_p.add_argument("--format", type=str, help="Product format (safe, raw, node, band, cog)")
+    dl_p.add_argument("--bands", type=str, help="Band preset or comma-separated bands (e.g. rgb, ndvi, 10m, 20m, vh, vv, dual)")
+    dl_p.add_argument("--verify-checksum", action="store_true", help="Validate cryptographic hash (MD5/SHA-256) of downloaded data")
+    dl_p.add_argument("--composite", type=str, choices=["rgb", "false-color", "swir"], help="Automatically generate 3-band composite GeoTIFF")
     dl_p.add_argument("--level", type=str, choices=["sr", "toa"], default="sr", help="Processing level for optical: 'sr' (Surface Reflectance / BOA L2A) or 'toa' (Top of Atmosphere L1C)")
     dl_p.add_argument("--outdir", "-o", type=str, default="./omniearth_downloads", help="Output directory")
     dl_p.add_argument("--start", type=str, help="Start date filter if using bbox")

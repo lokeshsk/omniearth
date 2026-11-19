@@ -1,19 +1,63 @@
 # OmniEarth v1.4.0 Release Notes
 
-**Release Date:** November 18, 2026  
+**Release Date:** November 19, 2026  
 **DOI:** [10.5281/zenodo.23689449](https://doi.org/10.5281/zenodo.23689449)  
 **PyPI:** [omniearth 1.4.0](https://pypi.org/project/omniearth/)  
 **npm:** [omniearth 1.4.0](https://www.npmjs.com/package/omniearth)  
 
-OmniEarth v1.4.0 delivers a major architectural unification of **Search** and **Download** pipelines across the Python SDK, TypeScript SDK, and CLI, while introducing direct STAC item resolution and resilience hardening across all 14 data categories.
+OmniEarth v1.4.0 delivers a major architectural unification of **Search** and **Download** pipelines across the Python SDK, TypeScript SDK, and CLI, while integrating full Smart Sentinel Data Downloader capabilities: the official **Copernicus Data Space Ecosystem (CDSE)** adapter, full raw `.SAFE.zip` downloads, selective band extraction via OData `/Nodes` tree traversal, space-agency cryptographic checksum verification, GIS footprint exports (`.geojson` / `.csv`), and on-the-fly GeoTIFF compositing (RGB, CIR, NDVI).
 
 ---
 
 ## Key Highlights in v1.4.0
 
-### 1. Unified Search-to-Download Pipeline & Fluent Chaining
-Previously, searching and downloading required disconnected two-step commands. OmniEarth v1.4.0 unifies them into a single, cohesive workflow:
+### 1. Official Copernicus Data Space Ecosystem (CDSE) Adapter & Raw SAFE Support
+OmniEarth now natively supports direct querying and streaming from the official Copernicus Data Space Ecosystem (CDSE) for Sentinel-1, Sentinel-2, Sentinel-3, and Sentinel-5P:
+- **Full Raw Product Downloads**: Download raw `.SAFE.zip`, `.SEN3`, and `.nc` archives directly from CDSE OData endpoints with byte-range HTTP resume and concurrent multi-threading.
+- **Automated OIDC Authentication**: Integrated `CDSEAuthManager` handling Keycloak token negotiation, 9-minute thread-safe token caching, and automated token refresh using `CDSE_USERNAME` / `CDSE_PASSWORD` (or `SENTINEL_USER` / `SENTINEL_PASS`).
+- **Zero-Config Priority Retained**: Free public Cloud-Optimized GeoTIFFs (COGs) via AWS Open Data STAC remain the default zero-config experience. CDSE is seamlessly engaged when specifying `--provider cdse`, `--format safe`, passing CDSE UUIDs, or requesting raw `.SAFE` product titles.
 
+### 2. Selective Band Extraction via OData `/Nodes` Traversal
+Say goodbye to downloading 1.1 GB `.SAFE.zip` archives just to access a single 10m band:
+- **Virtual Product Tree Traversal**: Recursively navigates CDSE `/Nodes` OData hierarchy (`GRANULE/.../IMG_DATA/R10m/...`) to locate and stream individual band files (`.jp2`, `.tif`, `.nc`) directly without downloading the parent archive.
+- **Band & Polarization Presets**:
+  - **Sentinel-2**: `rgb` (B02, B03, B04), `ndvi` (B04, B08), `tci` (True Color Image), `vnir` (B02-B08A), `10m` (B02, B03, B04, B08), `20m` (B05, B06, B07, B8A, B11, B12), `swir` (B11, B12), and `all`.
+  - **Sentinel-1**: `vh`, `vv`, `dual` (VV + VH), and `all`.
+- **CLI & SDK Syntax**:
+  ```bash
+  # Download only RGB bands for a Sentinel-2 scene from CDSE
+  omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb
+  ```
+
+### 3. Cryptographic Checksum Verification (`--verify-checksum`)
+- **Space Agency Integrity Verification**: Automatically fetches official MD5 and SHA-256 hashes published in STAC/OData provider manifests.
+- **Atomic Staging Verification**: Streams data into `.part` files, computes block-wise cryptographic digests, validates against expected hashes, and atomically renames to the target destination only upon verified match. Mismatched downloads raise `ValueError` and purge corrupted partial files.
+
+### 4. GIS Footprint Export (`.geojson` / `.csv`)
+- **Direct GeoJSON Export**: Export search results directly to RFC 7946 GeoJSON `FeatureCollection` files containing bounding polygons, cloud cover, acquisition dates, scene IDs, and direct download links.
+- **Tabular CSV Export**: Export search results to tabular CSV formats compatible with pandas, QGIS, ArcGIS, and Excel.
+- **CLI & SDK Integration**:
+  ```bash
+  # CLI export flag
+  omniearth search --category optical --point 78.96 20.59 --export footprints.geojson
+  ```
+  ```python
+  # Python SDK export methods
+  results = client.search(category="optical", bbox=[78.0, 20.0, 78.5, 20.5])
+  results.export_geojson("results.geojson")
+  results.export_csv("results.csv")
+  ```
+
+### 5. Automated On-the-Fly GeoTIFF Compositing
+- **Instant Optical Compositing**: Automatically blends downloaded single bands into calibrated multiband GeoTIFFs:
+  - `rgb`: 3-band True Color composite (Red B04, Green B03, Blue B02).
+  - `cir`: Color Infrared vegetation false color (NIR B08, Red B04, Green B03).
+  - `ndvi`: Calibrated float32 Normalized Difference Vegetation Index raster (`(NIR - Red) / (NIR + Red)`).
+- **Engine Architecture**: Fast native raster generation accelerated by `rasterio` when installed, with seamless fallback to pure `numpy` and standard spatial formats.
+- **CLI & SDK Flag**: `--composite rgb` / `composite="rgb"`.
+
+### 6. Unified Search-to-Download Pipeline & Fluent Chaining
+Previously, searching and downloading required disconnected two-step commands. OmniEarth v1.4.0 unifies them into a single, cohesive workflow:
 - **Fluent SDK Chaining (`SearchResults`)**:
   - `client.search(...)` now returns a specialized `SearchResults` collection (subclassing `list` in Python and `Array` in TypeScript).
   - Chain downloads immediately:
@@ -41,20 +85,20 @@ Previously, searching and downloading required disconnected two-step commands. O
   - Comma-separated scene IDs: `omniearth download --category hyperspectral --id "ID1,ID2"`.
   - AOI multi-scene batching: `omniearth download --category optical --bbox ... --all-scenes --limit 5`.
 
-### 2. Direct STAC Item Resolution (`get_item`) & Hyperspectral Fix
-- **Direct Scene Resolution**: Added `get_item(category, item_id)` to `OmniEarth` and concrete provider classes (`OpticalProvider`, `SARProvider`, `HyperspectralProvider`, `ElevationProvider`, `LandcoverProvider`).
+### 7. Direct STAC Item Resolution (`get_item`) & Hyperspectral Fix
+- **Direct Scene Resolution**: Added `get_item(category, item_id)` to `OmniEarth` and concrete provider classes (`OpticalProvider`, `SARProvider`, `HyperspectralProvider`, `ElevationProvider`, `LandcoverProvider`, `CDSEProvider`).
 - **EnMAP & EMIT Direct Resolution**: Resolves exact STAC metadata and 13+ asset URLs directly from DLR EOC STAC (`ENMAP_HSI_L2A`) and NASA LP DAAC CMR STAC (`EMITL2ARFL_001`) in $< 200\text{ms}$ without requiring an AOI query.
-- **Provider Auto-Detection**: Auto-detects provider backend (`dlr_enmap`, `nasa_lpdaac`, `asi_prisma`) from scene ID prefixes, completely eliminating fallback `Unknown hyperspectral provider` exceptions.
+- **Provider Auto-Detection**: Auto-detects provider backend (`dlr_enmap`, `nasa_lpdaac`, `asi_prisma`, `cdse`) from scene ID prefixes, completely eliminating fallback `Unknown hyperspectral provider` exceptions.
 
-### 3. Category-Wide Hardening Across All 14 Modalities
+### 8. Category-Wide Hardening Across All 14 Modalities
 - **Optical & SAR**: Direct STAC item querying via AWS Earth Search `{"ids": [item_id]}` in O(1) time. Added empty asset guards preventing unhandled `StopIteration`.
 - **Elevation & Land Cover**: Deterministic tile coordinate parsing in `get_item` for Copernicus DEM GLO-30, SRTM GL1, ALOS AW3D30, and ESA WorldCover (2020 v100 and 2021 v200).
 - **SoilGrids**: Added asset existence guards preventing `AttributeError: 'NoneType' object has no attribute 'href'`.
 
-### 4. Dual SDK Parity & 100.00% Python Test Coverage
-- **Dual SDK Parity**: All new fluent methods and CLI flags exist identically in Python and TypeScript.
-- **Strict Coverage Policy**: 100.00% test coverage maintained across Python codebase (`1,894/1,894` statements, `fail_under = 100`).
-- **Test Suites**: 68 Python unit & integration tests and 19 TypeScript tests passing with zero failures.
+### 9. Dual SDK Parity & Strict 100.00% Coverage Gate
+- **Dual SDK Parity**: All new fluent methods, CDSE provider capabilities, export formats, and CLI flags exist identically across Python and TypeScript SDKs.
+- **Strict Coverage Policy**: 100.00% test coverage maintained across Python codebase (`2,487/2,487` statements, `fail_under = 100`).
+- **Test Suites**: 81 Python unit & integration tests and 22 TypeScript tests passing with zero failures.
 
 ---
 

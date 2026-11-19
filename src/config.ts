@@ -48,6 +48,12 @@ export class Config {
     return [u, p];
   }
 
+  public get cdseCredentials(): [string | undefined, string | undefined] {
+    const u = process.env.CDSE_USERNAME || process.env.COPERNICUS_USERNAME || process.env.SENTINEL_USER || process.env.CDSE_USER;
+    const p = process.env.CDSE_PASSWORD || process.env.COPERNICUS_PASSWORD || process.env.SENTINEL_PASS || process.env.CDSE_PASS;
+    return [u, p];
+  }
+
   public get defaultOutdir(): string {
     return process.env.OMNIEARTH_DEFAULT_OUTDIR || "./omniearth_downloads";
   }

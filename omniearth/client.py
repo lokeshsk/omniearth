@@ -9,6 +9,7 @@ from typing import List, Optional, Union, Dict, Any
 from omniearth.models import AOI, SearchResult, SearchResults, Category, FilterOptions
 from omniearth.config import config
 from omniearth.providers.base import BaseProvider
+from omniearth.providers.cdse import CDSEProvider, UUID_REGEX
 from omniearth.providers.optical import OpticalProvider
 from omniearth.providers.hyperspectral import HyperspectralProvider
 from omniearth.providers.sar import SARProvider
@@ -63,6 +64,7 @@ class OmniEarth:
             Category.HYDROLOGY: HydrologyProvider(),
             Category.NIGHTLIGHTS: NightlightsProvider()
         }
+        self._cdse_provider = CDSEProvider()
 
     def list_categories(self) -> List[str]:
         """Returns all supported data categories."""
@@ -103,8 +105,10 @@ class OmniEarth:
         dataset: Optional[str] = None,
         year: Optional[int] = None,
         level: Optional[str] = "sr",
-        limit: int = 10
-    ) -> List[SearchResult]:
+        limit: int = 10,
+        provider: Optional[str] = None,
+        format: Optional[str] = None
+    ) -> SearchResults:
         """
         Universal search across any satellite, meteorological, soil, elevation, or land cover provider.
         """
@@ -125,19 +129,30 @@ class OmniEarth:
             dataset=dataset,
             year=year,
             level=level,
-            limit=limit
+            limit=limit,
+            provider=provider,
+            format=format
         )
 
-        provider = self._providers.get(cat_enum)
-        if not provider:
-            raise ValueError(f"Unsupported category '{cat_enum}'. Supported: {self.list_categories()}")
+        if provider == "cdse" or dataset == "cdse" or (format in ("safe", "raw") and cat_enum in (Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE)):
+            self._cdse_provider.category = cat_enum
+            results = self._cdse_provider.search(
+                aoi=resolved_aoi,
+                start_date=effective_start,
+                end_date=effective_end,
+                filters=filters
+            )
+        else:
+            base_prov = self._providers.get(cat_enum)
+            if not base_prov:
+                raise ValueError(f"Unsupported category '{cat_enum}'. Supported: {self.list_categories()}")
+            results = base_prov.search(
+                aoi=resolved_aoi,
+                start_date=effective_start,
+                end_date=effective_end,
+                filters=filters
+            )
 
-        results = provider.search(
-            aoi=resolved_aoi,
-            start_date=effective_start,
-            end_date=effective_end,
-            filters=filters
-        )
         results.sort(key=lambda x: getattr(x, "datetime", None) or "", reverse=True)
         return SearchResults(results, client=self)
 
@@ -151,7 +166,7 @@ class OmniEarth:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         max_cloud_cover: Optional[float] = None,
-        bands: Optional[List[str]] = None,
+        bands: Optional[Union[str, List[str]]] = None,
         variables: Optional[List[str]] = None,
         depth: Optional[str] = None,
         dataset: Optional[str] = None,
@@ -162,12 +177,18 @@ class OmniEarth:
         outdir: Optional[str] = None,
         resume: bool = True,
         multipart: bool = True,
-        max_workers: int = 4
+        max_workers: int = 4,
+        provider: Optional[str] = None,
+        format: Optional[str] = None,
+        verify_checksum: bool = False,
+        composite: Optional[str] = None,
+        **kwargs
     ) -> List[str]:
         """
         Searches for scenes and immediately downloads all matching results in parallel.
         Returns list of downloaded absolute file paths.
         """
+        bands_list = [b.strip() for b in bands.split(",")] if isinstance(bands, str) else bands
         results = self.search(
             category=category,
             aoi=aoi,
@@ -177,31 +198,63 @@ class OmniEarth:
             start_date=start_date,
             end_date=end_date,
             max_cloud_cover=max_cloud_cover,
-            bands=bands,
+            bands=bands_list,
             variables=variables,
             depth=depth,
             dataset=dataset,
             year=year,
             level=level,
-            limit=limit
+            limit=limit,
+            provider=provider,
+            format=format
         )
-        return results.download_all(
-            asset_key=asset_key,
-            outdir=outdir,
-            max_workers=max_workers,
-            resume=resume,
-            multipart=multipart
-        )
+        download_kwargs = {
+            "asset_key": asset_key,
+            "outdir": outdir,
+            "max_workers": max_workers,
+            "resume": resume,
+            "multipart": multipart
+        }
+        if format is not None:
+            download_kwargs["format"] = format
+        if bands is not None:
+            download_kwargs["bands"] = bands
+        if verify_checksum:
+            download_kwargs["verify_checksum"] = verify_checksum
+        if composite is not None:
+            download_kwargs["composite"] = composite
+        download_kwargs.update(kwargs)
+        return results.download_all(**download_kwargs)
 
-    def get_item(self, category: Union[Category, str], item_id: str) -> Optional[SearchResult]:
+    def get_item(
+        self,
+        category: Union[Category, str],
+        item_id: str,
+        provider: Optional[str] = None
+    ) -> Optional[SearchResult]:
         """
-        Directly retrieves a specific STAC item by ID without running a spatial search query.
+        Directly retrieves a specific STAC item or CDSE product by ID without running a spatial search query.
         """
         cat_enum = Category(category) if isinstance(category, str) else category
-        provider = self._providers.get(cat_enum)
-        if not provider:  # pragma: no cover
+        clean_id = item_id.strip()
+
+        is_cdse_hint = bool(UUID_REGEX.match(clean_id)) or (
+            clean_id.startswith(("S1", "S2", "S3", "S5P")) and any(x in clean_id for x in ("_MSIL", "_GRD", "_RAW", ".SAFE", "_OL_", "_SL_"))
+        )
+
+        if provider == "cdse" or (is_cdse_hint and cat_enum in (Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE)):
+            res = self._cdse_provider.get_item(clean_id)
+            if res:
+                return res
+
+        base_prov = self._providers.get(cat_enum)
+        if not base_prov:  # pragma: no cover
             raise ValueError(f"Unsupported category '{cat_enum}'. Supported: {self.list_categories()}")
-        return provider.get_item(item_id)
+
+        item = base_prov.get_item(clean_id)
+        if not item and cat_enum in (Category.OPTICAL, Category.SAR, Category.OCEAN, Category.ATMOSPHERE):
+            item = self._cdse_provider.get_item(clean_id)
+        return item
 
     def download(
         self,
@@ -210,23 +263,56 @@ class OmniEarth:
         outdir: Optional[str] = None,
         resume: bool = True,
         multipart: bool = True,
-        max_workers: int = 4
+        max_workers: int = 4,
+        format: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        verify_checksum: bool = False,
+        composite: Optional[str] = None,
+        **kwargs
     ) -> str:
         """
         Downloads a search result asset to local storage with multipart and resumable support.
         """
-        provider = self._providers.get(result.category)
-        if not provider:
-            raise ValueError(f"No provider found for category '{result.category}'")
+        if (
+            result.provider == "cdse"
+            or format in ("safe", "raw", "node", "band")
+            or (bands is not None and result.provider == "cdse")
+        ):
+            downloaded = self._cdse_provider.download(
+                result=result,
+                asset_key=asset_key,
+                outdir=outdir,
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers,
+                format=format,
+                bands=bands,
+                verify_checksum=verify_checksum
+            )
+        else:
+            provider = self._providers.get(result.category)
+            if not provider:
+                raise ValueError(f"No provider found for category '{result.category}'")
 
-        return provider.download(
-            result=result,
-            asset_key=asset_key,
-            outdir=outdir,
-            resume=resume,
-            multipart=multipart,
-            max_workers=max_workers
-        )
+            downloaded = provider.download(
+                result=result,
+                asset_key=asset_key,
+                outdir=outdir,
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers
+            )
+
+        if composite:
+            from omniearth.processors import create_composite_from_downloaded
+            comp_path = create_composite_from_downloaded(
+                directory_or_files=downloaded,
+                composite_type=composite
+            )
+            if comp_path:
+                return comp_path
+
+        return downloaded
 
     def download_all(
         self,
@@ -235,25 +321,84 @@ class OmniEarth:
         outdir: Optional[str] = None,
         max_workers: int = 4,
         resume: bool = True,
-        multipart: bool = True
+        multipart: bool = True,
+        format: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        verify_checksum: bool = False,
+        composite: Optional[str] = None,
+        **kwargs
     ) -> Dict[str, str]:
         """
         Downloads multiple or all assets of a search result concurrently.
         Returns a dictionary mapping asset_key -> downloaded absolute file path.
         """
         keys_to_download = asset_keys or list(result.assets.keys())
-        if not keys_to_download:
+        if not keys_to_download and result.provider != "cdse" and not bands:
             raise ValueError(f"No assets found to download for result '{result.id}'")
 
+        if result.provider == "cdse" or format in ("safe", "raw", "node", "band") or bands:
+            dl_path = self.download(
+                result=result,
+                outdir=outdir,
+                resume=resume,
+                multipart=multipart,
+                max_workers=max_workers,
+                format=format,
+                bands=bands,
+                verify_checksum=verify_checksum,
+                composite=composite,
+                **kwargs
+            )
+            return {"data": dl_path}
+
         results_dict: Dict[str, str] = {}
+        has_extra = bool(verify_checksum or kwargs)
+        extra = {}
+        if verify_checksum:
+            extra["verify_checksum"] = verify_checksum
+        extra.update(kwargs)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(keys_to_download))) as executor:
-            future_to_key = {
-                executor.submit(self.download, result, k, outdir, resume, multipart, 1): k
-                for k in keys_to_download
-            }
+            if has_extra:
+                future_to_key = {
+                    executor.submit(
+                        self.download,
+                        result,
+                        k,
+                        outdir,
+                        resume,
+                        multipart,
+                        1,
+                        **extra
+                    ): k
+                    for k in keys_to_download
+                }
+            else:
+                future_to_key = {
+                    executor.submit(
+                        self.download,
+                        result,
+                        k,
+                        outdir,
+                        resume,
+                        multipart,
+                        1
+                    ): k
+                    for k in keys_to_download
+                }
             for future in concurrent.futures.as_completed(future_to_key):
                 k = future_to_key[future]
                 results_dict[k] = future.result()
+
+        if composite:
+            from omniearth.processors import create_composite_from_downloaded
+            comp_path = create_composite_from_downloaded(
+                directory_or_files=list(results_dict.values()),
+                composite_type=composite
+            )
+            if comp_path:
+                results_dict["composite"] = comp_path
+
         return results_dict
 
     def download_many(
@@ -263,7 +408,12 @@ class OmniEarth:
         outdir: Optional[str] = None,
         max_workers: int = 4,
         resume: bool = True,
-        multipart: bool = True
+        multipart: bool = True,
+        format: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        verify_checksum: bool = False,
+        composite: Optional[str] = None,
+        **kwargs
     ) -> List[str]:
         """
         Downloads assets for multiple search results concurrently across worker threads.
@@ -273,11 +423,46 @@ class OmniEarth:
             return []
 
         paths: List[Optional[str]] = [None] * len(results)
+        has_extra = bool(format is not None or bands is not None or verify_checksum or composite is not None or kwargs)
+        extra = {}
+        if format is not None:
+            extra["format"] = format
+        if bands is not None:
+            extra["bands"] = bands
+        if verify_checksum:
+            extra["verify_checksum"] = verify_checksum
+        if composite is not None:
+            extra["composite"] = composite
+        extra.update(kwargs)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(results))) as executor:
-            future_to_idx = {
-                executor.submit(self.download, r, asset_key, outdir, resume, multipart, 1): idx
-                for idx, r in enumerate(results)
-            }
+            if has_extra:
+                future_to_idx = {
+                    executor.submit(
+                        self.download,
+                        r,
+                        asset_key,
+                        outdir,
+                        resume,
+                        multipart,
+                        1,
+                        **extra
+                    ): idx
+                    for idx, r in enumerate(results)
+                }
+            else:
+                future_to_idx = {
+                    executor.submit(
+                        self.download,
+                        r,
+                        asset_key,
+                        outdir,
+                        resume,
+                        multipart,
+                        1
+                    ): idx
+                    for idx, r in enumerate(results)
+                }
             for future in concurrent.futures.as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 paths[idx] = future.result()

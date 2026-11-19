@@ -283,19 +283,24 @@ class HyperspectralProvider(BaseProvider):
         target_dir = outdir or config.default_outdir
         provider_name = result.provider
         if provider_name == "hyperspectral":
-            if result.id.startswith("ENMAP") or "ENMAP" in result.id:
-                provider_name = "dlr_enmap"
-            elif result.id.startswith("EMIT") or "EMIT" in result.id:
+            if "EMIT" in result.id.upper():
                 provider_name = "nasa_lpdaac"
-            elif result.id.startswith("PRS") or "PRISMA" in result.id:
+            elif "PRS" in result.id.upper() or "PRISMA" in result.id.upper():
                 provider_name = "asi_prisma"
+            else:
+                provider_name = "dlr_enmap"
 
         if provider_name == "dlr_enmap":
             u, p = config.dlr_credentials
             if not u or not p:
                 raise ValueError("DLR credentials (DLR_USERNAME, DLR_PASSWORD) required in .env for EnMAP downloads.")
 
-            chosen_key = asset_key or ("image" if "image" in result.assets else "thumbnail")
+            chosen_key = asset_key or ("image" if "image" in result.assets else ("thumbnail" if "thumbnail" in result.assets else (next(iter(result.assets.keys())) if result.assets else None)))
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={result.id}"
+                result.assets["image"] = Asset(key="image", href=dl_url, media_type="image/tiff")
+                chosen_key = "image"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".tif"
@@ -315,7 +320,13 @@ class HyperspectralProvider(BaseProvider):
         elif provider_name == "asi_prisma":
             u, p = config.prisma_credentials
             auth = (u, p) if (u and p) else None
-            chosen_key = asset_key or next(iter(result.assets.keys()))
+
+            chosen_key = asset_key or (next(iter(result.assets.keys())) if result.assets else None)
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://prisma.asi.it/download/{result.id}.he5"
+                result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-hdf5")
+                chosen_key = "data"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".he5"
@@ -333,7 +344,12 @@ class HyperspectralProvider(BaseProvider):
             )
 
         elif provider_name == "nasa_lpdaac":
-            chosen_key = asset_key or ("browse" if "browse" in result.assets else next(iter(result.assets.keys())))
+            chosen_key = asset_key or ("browse" if "browse" in result.assets else (next(iter(result.assets.keys())) if result.assets else None))
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/{result.id}/{result.id}.nc"
+                result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-netcdf")
+                chosen_key = "data"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".nc"

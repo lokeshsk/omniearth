@@ -720,6 +720,24 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         out_prs_auto = provider.download(prs_auto, outdir=str(tmp_path))
         assert os.path.exists(out_prs_auto)
 
+    # Empty assets fallback download tests
+    enmap_empty = SearchResult(
+        id="ENMAP_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="dlr_enmap", assets={}
+    )
+    emit_empty = SearchResult(
+        id="EMIT_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="nasa_lpdaac", assets={}
+    )
+    prs_empty = SearchResult(
+        id="PRS_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="asi_prisma", assets={}
+    )
+    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
+        out_enm = provider.download(enmap_empty, outdir=str(tmp_path))
+        assert os.path.exists(out_enm)
+        out_emi = provider.download(emit_empty, outdir=str(tmp_path))
+        assert os.path.exists(out_emi)
+        out_prs = provider.download(prs_empty, outdir=str(tmp_path))
+        assert os.path.exists(out_prs)
+
     # 6. get_item test cases
     # EnMAP get_item success
     mock_enmap_json = {
@@ -1255,5 +1273,387 @@ def test_nightlights_provider_search_and_download(tmp_path):
     res_empty = SearchResult(id="NTL_E", collection="c", category=Category.NIGHTLIGHTS, provider="p", assets={})
     with pytest.raises(ValueError, match="No download asset found for nightlights result"):
         provider.download(res_empty)
+
+
+def test_base_provider_checksum_verification(tmp_path):
+    import hashlib
+    provider = OpticalProvider()
+
+    test_file = tmp_path / "sample.bin"
+    content = b"OmniEarth Checksum Test Payload"
+    test_file.write_bytes(content)
+
+    md5_hash = hashlib.md5(content).hexdigest()
+    sha256_hash = hashlib.sha256(content).hexdigest()
+
+    # Success MD5 & SHA256
+    assert provider._verify_file_hash(str(test_file), md5_hash, algorithm="MD5") is True
+    assert provider._verify_file_hash(str(test_file), sha256_hash, algorithm="SHA256") is True
+    assert provider._verify_file_hash(str(test_file), sha256_hash, algorithm="SHA-256") is True
+
+    # Mismatch
+    assert provider._verify_file_hash(str(test_file), "wrong_hash", algorithm="MD5") is False
+
+    # Existing complete file with checksum check
+    mock_head = MagicMock(status_code=200, headers={"content-length": str(len(content)), "accept-ranges": "bytes"})
+    with patch("requests.head", return_value=mock_head):
+        res_existing = provider._stream_download(
+            "https://example.com/test.bin",
+            str(test_file),
+            expected_checksum=md5_hash,
+            checksum_algorithm="MD5",
+            verify_checksum=True
+        )
+        assert res_existing == str(test_file.resolve())
+
+    # Stream response verification failure
+    bad_part = tmp_path / "bad.part"
+    bad_out = tmp_path / "bad.bin"
+    mock_stream_resp = MagicMock()
+    mock_stream_resp.iter_content.return_value = [b"bad_content"]
+
+    with pytest.raises(ValueError, match="checksum verification failed"):
+        provider._write_stream_response(
+            resp=mock_stream_resp,
+            part_path=str(bad_part),
+            outpath=str(bad_out),
+            desc="test",
+            total_size=11,
+            is_resume=False,
+            expected_checksum="expected_hash",
+            checksum_algorithm="MD5",
+            verify_checksum=True
+        )
+    assert not bad_part.exists()
+
+    # Multipart download checksum verification failure
+    mp_out = tmp_path / "mp_test.bin"
+    def mock_mp(**kw):
+        with open(kw["part_path"], "wb") as f:
+            f.write(b"bad_mp")
+
+    with patch("requests.head", return_value=MagicMock(status_code=200, headers={"content-length": "20000000", "accept-ranges": "bytes"})), \
+         patch.object(provider, "_multipart_download", side_effect=mock_mp), \
+         pytest.raises(ValueError, match="checksum verification failed"):
+        provider._stream_download(
+            "https://example.com/large.bin",
+            str(mp_out),
+            max_workers=4,
+            min_multipart_size=1000,
+            expected_checksum="correct_hash",
+            verify_checksum=True
+        )
+
+
+def test_base_provider_get_item_coordinate_resolution():
+    from omniearth.providers.weather import WeatherProvider
+    provider = WeatherProvider()
+
+    # 1. Coordinate-encoded ID resolution
+    mock_res = SearchResult(
+        id="openmeteo_20.68_78.55_latest",
+        collection="openmeteo",
+        category=Category.WEATHER,
+        provider="open_meteo",
+        properties={"latitude": 20.68, "longitude": 78.55}
+    )
+    with patch.object(provider, "search", return_value=[mock_res]) as mock_search:
+        item = provider.get_item("openmeteo_20.68_78.55_latest")
+        assert item is not None
+        assert item.id == "openmeteo_20.68_78.55_latest"
+        assert mock_search.call_count == 1
+
+    # 2. No numbers or invalid coordinates returns None
+    assert provider.get_item("invalid_no_coords") is None
+
+    # 3. Empty search result returns None
+    with patch.object(provider, "search", return_value=[]):
+        assert provider.get_item("coord_20.68_78.55") is None
+
+
+def test_cdse_auth_manager():
+    import requests
+    from omniearth.providers.cdse import CDSEAuthManager
+
+    # 1. Missing credentials raises ValueError
+    auth_empty = CDSEAuthManager(username=None, password=None)
+    with patch.dict(os.environ, {"CDSE_USERNAME": "", "CDSE_PASSWORD": "", "SENTINEL_USER": "", "SENTINEL_PASS": "", "COPERNICUS_USERNAME": "", "COPERNICUS_PASSWORD": "", "CDSE_USER": "", "CDSE_PASS": ""}), pytest.raises(ValueError, match="Missing CDSE credentials"):
+        auth_empty.getToken() if hasattr(auth_empty, "getToken") else auth_empty.get_token()
+
+    # 2. Token fetch success and cache within 9 minutes
+    auth = CDSEAuthManager(username="my_user", password="my_password")
+    mock_auth_resp = MagicMock(status_code=200)
+    mock_auth_resp.json.return_value = {"access_token": "valid_token_xyz"}
+
+    with patch("requests.post", return_value=mock_auth_resp) as mock_post:
+        tok1 = auth.get_token()
+        assert tok1 == "valid_token_xyz"
+        assert mock_post.call_count == 1
+
+        # Second call returns cached token without calling requests.post
+        tok2 = auth.get_token()
+        assert tok2 == "valid_token_xyz"
+        assert mock_post.call_count == 1
+
+        # Force refresh makes another request
+        tok3 = auth.get_token(force_refresh=True)
+        assert tok3 == "valid_token_xyz"
+        assert mock_post.call_count == 2
+
+    # 3. 401 Invalid credentials raises ValueError
+    mock_401 = MagicMock(status_code=401)
+    with patch("requests.post", return_value=mock_401), pytest.raises(ValueError, match="CDSE authentication failed"):
+        auth.get_token(force_refresh=True)
+
+    # 4. Network error raises RuntimeError
+    with patch("requests.post", side_effect=requests.exceptions.ConnectionError("Network down")), pytest.raises(RuntimeError, match="Network error"):
+        auth.get_token(force_refresh=True)
+
+    # 5. Missing access_token key in response raises ValueError
+    mock_no_tok = MagicMock(status_code=200)
+    mock_no_tok.json.return_value = {}
+    with patch("requests.post", return_value=mock_no_tok), pytest.raises(ValueError, match="did not contain an access_token"):
+        auth.get_token(force_refresh=True)
+
+
+def test_cdse_provider_search_and_metadata():
+    from omniearth.providers.cdse import CDSEProvider, CDSEAuthManager
+
+    auth = CDSEAuthManager("user", "pass")
+    provider = CDSEProvider(auth_manager=auth)
+    aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
+
+    # 1. Collection resolution
+    assert provider._resolve_collection(Category.OPTICAL, "S1") == "SENTINEL-1"
+    assert provider._resolve_collection(Category.OPTICAL, "S2") == "SENTINEL-2"
+    assert provider._resolve_collection(Category.OPTICAL, "S3") == "SENTINEL-3"
+    assert provider._resolve_collection(Category.OPTICAL, "S5P") == "SENTINEL-5P"
+    assert provider._resolve_collection(Category.OPTICAL, "CUSTOM_COLL") == "CUSTOM_COLL"
+    assert provider._resolve_collection(Category.SAR, None) == "SENTINEL-1"
+    assert provider._resolve_collection(Category.OCEAN, None) == "SENTINEL-3"
+    assert provider._resolve_collection(Category.ATMOSPHERE, None) == "SENTINEL-5P"
+    assert provider._resolve_collection(Category.OPTICAL, None) == "SENTINEL-2"
+
+    # 2. _extract_values
+    assert provider._extract_values({"value": [{"id": 1}]}) == [{"id": 1}]
+    assert provider._extract_values({"result": [{"id": 2}]}) == [{"id": 2}]
+    assert provider._extract_values([{"id": 3}]) == [{"id": 3}]
+    assert provider._extract_values({"single": "item"}) == [{"single": "item"}]
+    assert provider._extract_values("not_dict") == []
+
+    # 3. STAC search with all datetime branches and token query
+    stac_feature = {
+        "id": "S2B_MSIL2A_20261119T0530_TEST",
+        "properties": {
+            "id": "uuid-999",
+            "title": "S2B_MSIL2A_20261119T0530_TEST",
+            "eo:cloud_cover": 3.5,
+            "datetime": "2026-11-19T05:30:00Z"
+        },
+        "bbox": [78.5, 20.65, 78.6, 20.72],
+        "assets": {
+            "B04": {"href": "https://example.com/B04.jp2", "title": "Red", "type": "image/jp2", "roles": ["data"]}
+        }
+    }
+    mock_stac_resp = MagicMock(status_code=200)
+    mock_stac_resp.json.return_value = {"features": [stac_feature]}
+
+    with patch.object(auth, "get_token", return_value="token123"), \
+         patch("requests.post", return_value=mock_stac_resp):
+        # Range with start and end
+        res_both = provider.search(aoi=aoi, start_date="2026-11-01", end_date="2026-11-19", filters=FilterOptions(max_cloud_cover=20.0))
+        assert len(res_both) == 1
+        assert res_both[0].id == "S2B_MSIL2A_20261119T0530_TEST"
+        assert "full" in res_both[0].assets
+
+        # Start only
+        res_start = provider.search(aoi=aoi, start_date="2026-11-01", end_date=None)
+        assert len(res_start) == 1
+
+        # End only
+        res_end = provider.search(aoi=aoi, start_date=None, end_date="2026-11-19")
+        assert len(res_end) == 1
+
+    # 4. Fallback from STAC error to OData search
+    odata_product = {
+        "Id": "odata-uuid-111",
+        "Name": "S2A_MSIL2A_ODATA_TEST",
+        "ContentLength": 500000000,
+        "Checksum": [{"Value": "md5hash123", "Algorithm": "MD5"}],
+        "Attributes": [{"Name": "cloudCover", "Value": 5.5}],
+        "ContentDate": {"Start": "2026-11-18T10:00:00Z"},
+        "GeoFootprint": {"type": "Polygon", "coordinates": []}
+    }
+    mock_odata_resp = {"value": [odata_product]}
+
+    with patch.object(provider, "_search_stac", side_effect=Exception("STAC down")), \
+         patch.object(provider, "_api_get", return_value=mock_odata_resp):
+        res_odata = provider.search(aoi=aoi, start_date="2026-11-10", end_date="2026-11-18", filters=FilterOptions(max_cloud_cover=10.0))
+        assert len(res_odata) == 1
+        assert res_odata[0].id == "S2A_MSIL2A_ODATA_TEST"
+        assert res_odata[0].properties["cdse_id"] == "odata-uuid-111"
+        assert res_odata[0].properties["checksum"] == "md5hash123"
+
+    # 5. _api_get token refresh on 401
+    mock_401 = MagicMock(status_code=401)
+    mock_ok = MagicMock(status_code=200)
+    mock_ok.json.return_value = {"value": []}
+
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch("requests.get", side_effect=[mock_401, mock_ok]):
+        data = provider._api_get("https://example.com/odata")
+        assert data == {"value": []}
+
+
+def test_cdse_provider_items_nodes_and_downloads(tmp_path):
+    from omniearth.providers.cdse import CDSEProvider, CDSEAuthManager
+
+    auth = CDSEAuthManager("user", "pass")
+    provider = CDSEProvider(auth_manager=auth)
+
+    odata_item = {
+        "Id": "01234567-89ab-cdef-0123-456789abcdef",
+        "Name": "S2A_MSIL2A_20261119T0530_UUID_TEST",
+        "Collection": {"Name": "SENTINEL-2"},
+        "ContentLength": 12345,
+        "Checksum": [{"Value": "chk123", "Algorithm": "MD5"}],
+        "Attributes": [],
+        "PublicationDate": "2026-11-19T06:00:00Z"
+    }
+
+    # 1. get_item by UUID
+    with patch.object(provider, "_api_get", return_value=odata_item):
+        item_uuid = provider.get_item("01234567-89ab-cdef-0123-456789abcdef")
+        assert item_uuid is not None
+        assert item_uuid.id == "S2A_MSIL2A_20261119T0530_UUID_TEST"
+
+    # 2. get_item by Name
+    with patch.object(provider, "_api_get", return_value={"value": [odata_item]}):
+        item_name = provider.get_item("S2A_MSIL2A_20261119T0530_UUID_TEST")
+        assert item_name is not None
+        assert item_name.id == "S2A_MSIL2A_20261119T0530_UUID_TEST"
+
+    # 3. get_item not found or error returns None
+    with patch.object(provider, "_api_get", side_effect=Exception("Not found")):
+        assert provider.get_item("unknown_id") is None
+
+    # 4. list_product_files & _find_files_recursive
+    root_node_leaf = {"Id": "leaf_node_1", "Name": "manifest.safe"}
+    root_node_tree = {
+        "Id": "dir_node_1",
+        "Nodes": {"uri": "https://example.com/Nodes(dir_node_1)/Nodes"}
+    }
+    child_leaf = {
+        "Id": "child_leaf_1",
+        "Name": "T32TMT_B04_10m.jp2",
+        "ChildrenNumber": 0,
+        "Nodes": {"uri": "https://example.com/Nodes(child_leaf_1)/Nodes"}
+    }
+    child_branch = {
+        "Id": "child_branch_1",
+        "ChildrenNumber": 1,
+        "Nodes": {"uri": "https://example.com/Nodes(child_branch_1)/Nodes"}
+    }
+    sub_child = {
+        "Id": "sub_child_1",
+        "Name": "T32TMT_B03_10m.jp2",
+        "ChildrenNumber": 0
+    }
+
+    def mock_tree_api(url, **kw):
+        if "dir_node_1" in url:
+            return {"value": [child_leaf, child_branch]}
+        if "child_branch_1" in url:
+            return {"value": [sub_child]}
+        return {"value": [root_node_leaf, root_node_tree]}
+
+    with patch.object(provider, "get_item", return_value=item_uuid), \
+         patch.object(provider, "_api_get", side_effect=mock_tree_api):
+        files = provider.list_product_files("01234567-89ab-cdef-0123-456789abcdef")
+        assert len(files) == 3
+        filenames = [f["name"] for f in files]
+        assert "manifest.safe" in filenames
+        assert "T32TMT_B04_10m.jp2" in filenames
+        assert "T32TMT_B03_10m.jp2" in filenames
+
+    # list_product_files not found raises ValueError
+    with patch.object(provider, "get_item", return_value=None), pytest.raises(ValueError, match="not found on CDSE"):
+        provider.list_product_files("missing")
+
+    # 5. resolve_requested_bands
+    assert provider.resolve_requested_bands("rgb", "sentinel2") == ["TCI", "B04", "B03", "B02"]
+    assert provider.resolve_requested_bands("vh", "sentinel1") == ["vh"]
+    assert provider.resolve_requested_bands("B01,B02") == ["B01", "B02"]
+    assert provider.resolve_requested_bands(None, "sentinel1") == ["vh", "vv"]
+    assert provider.resolve_requested_bands(None, "sentinel2") == ["TCI", "B04", "B03", "B02"]
+
+    # 6. find_files_for_bands S2 and S1
+    all_mock_files_s2 = [
+        {"id": "1", "name": "T32TMT_B04_10m.jp2", "download_url": "https://example.com/b4"},
+        {"id": "2", "name": "T32TMT_B03_10m.jp2", "download_url": "https://example.com/b3"},
+        {"id": "3", "name": "metadata.xml", "download_url": "https://example.com/meta"}
+    ]
+    with patch.object(provider, "list_product_files", return_value=all_mock_files_s2):
+        matched_s2 = provider.find_files_for_bands("S2A_MSIL2A_TEST", "B04,B03")
+        assert len(matched_s2) == 2
+
+    all_mock_files_s1 = [
+        {"id": "s1_1", "name": "s1a-iw-grd-vv-2026.tiff", "download_url": "https://example.com/vv"},
+        {"id": "s1_2", "name": "s1a-iw-grd-vh-2026.tiff", "download_url": "https://example.com/vh"},
+    ]
+    with patch.object(provider, "list_product_files", return_value=all_mock_files_s1):
+        matched_s1 = provider.find_files_for_bands("S1A_IW_GRDH_TEST", "dual")
+        assert len(matched_s1) == 2
+
+    # 7. download band extraction mode
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch.object(provider, "find_files_for_bands", return_value=[{"name": "b4.jp2", "download_url": "https://ex.com/b4"}]), \
+         patch.object(provider, "_stream_download", return_value=str(tmp_path / "b4.jp2")):
+        res_dl = provider.download(item_uuid, format="band", bands="B04", outdir=str(tmp_path))
+        assert res_dl == str(tmp_path / "b4.jp2")
+
+    # download band extraction multiple bands returns product folder
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch.object(provider, "find_files_for_bands", return_value=[
+             {"name": "b4.jp2", "download_url": "https://ex.com/b4"},
+             {"name": "b3.jp2", "download_url": "https://ex.com/b3"}
+         ]), \
+         patch.object(provider, "_stream_download", side_effect=lambda **kw: kw["outpath"]):
+        res_dl_multi = provider.download(item_uuid, format="band", bands="B04,B03", outdir=str(tmp_path))
+        assert res_dl_multi == os.path.join(str(tmp_path), item_uuid.id)
+
+    # download band extraction error when no matched files
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch.object(provider, "find_files_for_bands", return_value=[]), \
+         pytest.raises(ValueError, match="No matching band files found"):
+        provider.download(item_uuid, format="band", bands="nonexistent", outdir=str(tmp_path))
+
+    # 8. download full SAFE ZIP
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch.object(provider, "_stream_download", return_value=str(tmp_path / f"{item_uuid.id}.zip")) as mock_stream_zip:
+        res_zip = provider.download(item_uuid, outdir=str(tmp_path), verify_checksum=True)
+        assert res_zip.endswith(".zip")
+        assert mock_stream_zip.call_args.kwargs["verify_checksum"] is True
+
+    # 9. download without assets['full'] or assets['safe']
+    item_no_assets = SearchResult(
+        id="S2A_NO_ASSET",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="cdse",
+        properties={"cdse_id": "custom-uuid-111"},
+        assets={}
+    )
+    with patch.object(auth, "get_token", return_value="tok"), \
+         patch.object(provider, "_stream_download", return_value=str(tmp_path / "S2A_NO_ASSET.zip")) as mock_dl_fallback:
+        provider.download(item_no_assets, outdir=str(tmp_path))
+        assert "Products(custom-uuid-111)/$value" in mock_dl_fallback.call_args.kwargs["url"]
+
+    # 10. _search_stac without token
+    with patch.object(auth, "get_token", side_effect=Exception("No token")), \
+         patch("requests.post", return_value=MagicMock(status_code=200, json=lambda: {"features": []})):
+        res_no_tok = provider._search_stac(AOI.from_bounds(0, 0, 1, 1), "SENTINEL-2", None, None, None, 5)
+        assert res_no_tok == []
+
 
 

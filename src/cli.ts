@@ -145,6 +145,12 @@ program
   .option("-o, --outdir <path>", "Output directory for downloads", "./omniearth_downloads")
   .option("-t, --threads <number>", "Number of parallel worker threads", "4")
   .option("--asset <key>", "Specific asset key to download")
+  .option("--export <path>", "Export search results to .geojson or .csv file")
+  .option("--provider <provider>", "Data provider (e.g. cdse, aws, dlr_enmap)")
+  .option("--format <format>", "Product format (safe, raw, cog)")
+  .option("--bands <bands>", "Band preset or comma-separated bands (e.g. rgb, ndvi, B04,B03,B02)")
+  .option("--verify-checksum", "Validate cryptographic hash of downloaded data")
+  .option("--composite <type>", "Automatically generate 3-band composite GeoTIFF (rgb, false-color, swir)")
   .option("--no-resume", "Disable byte-range download resumption")
   .option("--no-multipart", "Disable parallel chunked multipart downloading")
   .option("--json", "Output raw JSON format")
@@ -166,6 +172,10 @@ program
     }
 
     try {
+      const bandsList = opts.bands
+        ? (opts.bands as string).split(",").map((s) => s.trim()).filter(Boolean)
+        : undefined;
+
       const results = await client.search({
         category: opts.category as Category,
         bbox,
@@ -177,8 +187,16 @@ program
         dataset: opts.dataset,
         year: opts.year ? parseInt(opts.year, 10) : undefined,
         level: opts.level,
-        limit: Number(opts.limit)
+        limit: Number(opts.limit),
+        provider: opts.provider,
+        format: opts.format,
+        bands: bandsList
       });
+
+      if (opts.export) {
+        const outExp = results.export(opts.export);
+        console.log(`Exported ${results.length} search result(s) to: ${outExp}`);
+      }
 
       if (opts.json) {
         console.log(JSON.stringify(results, null, 2));
@@ -261,7 +279,11 @@ program
         const downloadOpts = {
           resume: opts.resume !== false,
           multipart: opts.multipart !== false,
-          concurrency: parseInt(opts.threads, 10) || 4
+          concurrency: parseInt(opts.threads, 10) || 4,
+          format: opts.format,
+          bands: opts.bands,
+          verifyChecksum: Boolean(opts.verifyChecksum),
+          composite: opts.composite
         };
         console.log(`\nDispatching concurrent download for ${targetToDownload.length} scene(s) to: ${outdir}`);
         const paths = await client.downloadMany(targetToDownload, opts.asset, outdir, downloadOpts);
@@ -287,6 +309,11 @@ program
   .option("--year <year>", "Specific year (e.g. 2020, 2021)")
   .option("--level <level>", "Processing level for optical: 'sr' (Surface Reflectance L2A) or 'toa' (Top of Atmosphere L1C)", "sr")
   .option("--asset <key>", "Specific asset key")
+  .option("--provider <provider>", "Data provider (e.g. cdse, aws, dlr_enmap)")
+  .option("--format <format>", "Product format (safe, raw, node, band, cog)")
+  .option("--bands <bands>", "Band preset or comma-separated bands (e.g. rgb, ndvi, 10m, 20m, vh, vv, dual)")
+  .option("--verify-checksum", "Validate cryptographic hash of downloaded data")
+  .option("--composite <type>", "Automatically generate 3-band composite GeoTIFF (rgb, false-color, swir)")
   .option("-o, --outdir <path>", "Output directory", "./omniearth_downloads")
   .option("--limit <number>", "Maximum number of scenes to download when searching by AOI", "1")
   .option("--all-scenes", "Download all matching scenes found in AOI up to --limit")
@@ -305,7 +332,11 @@ program
     const downloadOpts = {
       resume: opts.resume !== false,
       multipart: opts.multipart !== false,
-      concurrency: parseInt(opts.threads, 10) || 4
+      concurrency: parseInt(opts.threads, 10) || 4,
+      format: opts.format,
+      bands: opts.bands,
+      verifyChecksum: Boolean(opts.verifyChecksum),
+      composite: opts.composite
     };
 
     try {
@@ -313,28 +344,59 @@ program
       if (opts.id) {
         const idList = (opts.id as string).split(",").map((s) => s.trim()).filter(Boolean);
         for (const tid of idList) {
-          let item = await client.getItem(opts.category as Category, tid);
+          let item = await client.getItem(opts.category as Category, tid, opts.provider);
           if (!item) {
-            let prov = opts.category;
+            let prov = opts.provider || opts.category;
             let coll = opts.category;
+            const assetsDict: Record<string, any> = {};
             if (opts.category === "hyperspectral") {
-              if (tid.startsWith("ENMAP")) {
+              if (tid.startsWith("ENMAP") || tid.toLowerCase().includes("enmap")) {
                 prov = "dlr_enmap";
                 coll = "enmap-hsi-l2a";
-              } else if (tid.startsWith("EMIT")) {
-                prov = "nasa_emit";
+                const dlUrl = `https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${tid}`;
+                assetsDict["image"] = { key: "image", href: dlUrl, title: "Hyperspectral Data Cube", mediaType: "image/tiff" };
+                assetsDict["data"] = assetsDict["image"];
+              } else if (tid.startsWith("EMIT") || tid.toLowerCase().includes("emit")) {
+                prov = "nasa_lpdaac";
                 coll = "emit-l2a-rfl";
-              } else if (tid.startsWith("PRS")) {
+                const dlUrl = `https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/${tid}/${tid}.nc`;
+                assetsDict["data"] = { key: "data", href: dlUrl, title: "EMIT NetCDF Cube", mediaType: "application/x-netcdf" };
+              } else if (tid.startsWith("PRS") || tid.toLowerCase().includes("prisma")) {
                 prov = "asi_prisma";
                 coll = "asi-prisma-l2d";
+                const dlUrl = `https://prisma.asi.it/download/${tid}.he5`;
+                assetsDict["data"] = { key: "data", href: dlUrl, title: "PRISMA HDF5 Cube", mediaType: "application/x-hdf5" };
+              } else {
+                prov = "dlr_enmap";
+                coll = "enmap-hsi-l2a";
+                const dlUrl = `https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${tid}`;
+                assetsDict["image"] = { key: "image", href: dlUrl, title: "Hyperspectral Data Cube", mediaType: "image/tiff" };
+                assetsDict["data"] = assetsDict["image"];
               }
+            } else if (["optical", "sar", "ocean", "atmosphere"].includes(opts.category)) {
+              if (prov === "cdse" || tid.startsWith("S1") || tid.startsWith("S2") || tid.startsWith("S3") || tid.startsWith("S5P")) {
+                prov = "cdse";
+                coll = opts.category === "optical" ? "SENTINEL-2" : (opts.category === "sar" ? "SENTINEL-1" : "SENTINEL-3");
+                const dlUrl = `https://dataspace.copernicus.eu/odata/v1/Products(${tid})/$value`;
+                assetsDict["data"] = { key: "data", href: dlUrl, title: "CDSE Product Archive", mediaType: "application/zip" };
+              }
+            } else if (opts.category === "elevation") {
+              prov = "aws_copernicus_dem";
+              coll = "copernicus-dem-glo-30";
+              const dlUrl = `https://copernicus-dem-30m.s3.amazonaws.com/${tid}/${tid}.tif`;
+              assetsDict["data"] = { key: "data", href: dlUrl, title: "DEM GeoTIFF", mediaType: "image/tiff" };
+            } else if (opts.category === "landcover") {
+              prov = "aws_worldcover";
+              coll = "esa-worldcover-10m";
+              const dlUrl = `https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/${tid}.tif`;
+              assetsDict["data"] = { key: "data", href: dlUrl, title: "WorldCover GeoTIFF", mediaType: "image/tiff" };
             }
             item = {
               id: tid,
               collection: coll,
               category: opts.category,
               provider: prov,
-              assets: {},
+              assets: assetsDict,
               properties: {}
             };
           }
@@ -349,7 +411,9 @@ program
           dataset: opts.dataset,
           year: opts.year ? parseInt(opts.year, 10) : undefined,
           level: opts.level,
-          limit: limitVal
+          limit: limitVal,
+          provider: opts.provider,
+          format: opts.format
         });
         if (results.length === 0) {
           console.error("No matching scenes found to download.");

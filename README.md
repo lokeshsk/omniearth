@@ -59,6 +59,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Optical** | Sentinel-2 (L2A SR / L1C TOA), Landsat-8/9 | 10m-30m, 12-13 bands | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
 | **SAR** | Sentinel-1 GRD / RTC | 10m, VV / VH dual-pol | AWS Earth Search STAC | **Zero-Config** (Free public COGs) |
+| **Copernicus CDSE** | Sentinel-1, 2, 3, 5P (Raw SAFE & Selective Bands) | Native JP2/SAFE/SEN3/NC | Copernicus Data Space Ecosystem OData/STAC | CDSE Account (`CDSE_USERNAME`/`CDSE_PASSWORD`) |
 | **Elevation** | Copernicus DEM GLO-30, SRTM GL1, ALOS | 30m, DSM / DTM | AWS Open Data / OpenTopography S3 | **Zero-Config** (Free direct COGs) |
 | **Land Cover** | ESA WorldCover 10m (2020, 2021) | 10m global classification | AWS Open Data S3 | **Zero-Config** (Free direct COGs) |
 | **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420-2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
@@ -74,7 +75,7 @@
 | **Hydrology** | NASA SMAP (L-band), CGLS SWI | 9km/1km Root-zone soil moisture | NSIDC DAAC CMR STAC | **Zero-Config** (Public open data) |
 | **Nightlights** | VIIRS Day/Night Band, Black Marble | 750m nocturnal radiance | NASA LPCLOUD CMR STAC | **Zero-Config** (Public open data) |
 
-> **Note**: 12 of the 14 modalities require **zero credentials** and work out of the box with zero setup! Free accounts are optionally supported for direct raw hyperspectral mission downloads (DLR EnMAP and NASA EMIT).
+> **Note**: 12 of the 14 modalities require **zero credentials** and work out of the box with zero setup! Free accounts are optionally supported for direct raw hyperspectral mission downloads (DLR EnMAP and NASA EMIT) or official Copernicus Data Space Ecosystem (CDSE) raw `.SAFE.zip` archives and selective band extraction.
 
 ---
 
@@ -163,10 +164,17 @@ omniearth search --category hyperspectral \
   --limit 5
 ```
 
-### Step 5: Output Raw JSON for Automation and Scripting
-Pipe search results directly to `jq` or downstream pipelines:
+### Step 5: Output Raw JSON and Export GIS Footprints (.geojson / .csv)
+Pipe search results directly to `jq`, or export GIS footprints directly for QGIS, ArcGIS, and pandas:
 ```bash
+# Output raw JSON to stdout:
 omniearth search --category weather --point 78.55 20.68 --json | jq .
+
+# Export bounding polygons and metadata to GeoJSON FeatureCollection:
+omniearth search --category optical --point 78.55 20.68 10.0 --export footprints.geojson
+
+# Export metadata and download links to tabular CSV:
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --export results.csv
 ```
 
 ### Step 6: Unified Search-to-Download Pipeline & Interactive Selection
@@ -188,7 +196,26 @@ omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 -i
 # Enter indices to download (e.g. '1,3', '1-2', 'all', or 'q' to quit):
 ```
 
-### Step 7: Single-Asset and Multi-Scene Batch Download
+### Step 7: Official Copernicus CDSE Raw SAFE & Selective Band Downloads
+Directly access the Copernicus Data Space Ecosystem (CDSE) for Sentinel-1, 2, 3, and 5P:
+```bash
+# 1. Download full raw .SAFE.zip archive directly from CDSE:
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --format safe --outdir ./safe_products
+
+# 2. Selective Band Extraction: Download only RGB 10m bands (B02, B03, B04) without downloading full 1.1 GB ZIP:
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb --outdir ./bands
+
+# 3. Selective Band Extraction with other presets (ndvi, 10m, 20m, swir, all):
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands 10m --outdir ./bands
+
+# 4. Cryptographic Checksum Verification against space agency manifests:
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --verify-checksum
+
+# 5. On-the-Fly Multiband GeoTIFF Compositing (rgb, cir, or ndvi):
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb --composite rgb --outdir ./composites
+```
+
+### Step 8: Single-Asset and Multi-Scene Batch Download
 Download specific assets or multiple scene IDs in one dispatch:
 ```bash
 # Download a specific asset from a scene:
@@ -210,7 +237,7 @@ omniearth download --category optical \
   --outdir ./downloads
 ```
 
-### Step 8: High-Speed Multi-Threaded All-Asset Download
+### Step 9: High-Speed Multi-Threaded All-Asset Download
 Download all assets associated with a scene concurrently using worker threads:
 ```bash
 omniearth download --category optical \
@@ -220,10 +247,10 @@ omniearth download --category optical \
   --outdir ./downloads
 ```
 
-### Step 9: Network Interruption Resumption
+### Step 10: Network Interruption Resumption
 If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
 
-### Step 10: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
+### Step 11: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
 Compute standard remote sensing vegetation, water, soil, and burn ratio indices directly from CLI:
 - Supported: `ndvi`, `ndwi`, `ndre`, `evi`, `nbr`, `savi`, `msavi`, `bsi`, `mndwi`.
 ```bash
@@ -240,7 +267,7 @@ omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08
 omniearth compute --index ndvi --nir "[0.8, 0.7, 0.85]" --red "[0.2, 0.15, 0.22]" --outpath ./ndvi_stats.json
 ```
 
-### Step 10: Historical Time-Series Extraction
+### Step 12: Historical Time-Series Extraction
 Extract chronological time-series profiles across satellite passes or hourly weather observations:
 ```bash
 # Hourly meteorological time-series
@@ -376,8 +403,8 @@ all_paths = client.download_many(
 print(f"Successfully downloaded {len(all_paths)} scenes in parallel.")
 ```
 
-### Step 8: Fluent SearchResults Chaining & Search-and-Download
-OmniEarth v1.4.0 returns a list-compatible `SearchResults` collection supporting direct method chaining:
+### Step 8: Fluent SearchResults Chaining, GIS Export & Search-and-Download
+OmniEarth v1.4.0 returns a list-compatible `SearchResults` collection supporting direct method chaining and GIS footprint exports:
 ```python
 # 1. Search and immediately download all scenes in parallel:
 paths = client.search_and_download(
@@ -399,11 +426,45 @@ all_paths = results.download_all(outdir="./downloads")
 # Concurrently download selected scenes by index:
 selected_paths = results.download_indices([0, 2], outdir="./downloads")
 
+# Export footprints to GIS vector formats (.geojson / .csv):
+results.export_geojson("./footprints.geojson")
+results.export_csv("./footprints.csv")
+
 # In-memory filtering:
 cloud_free = results.filter(max_cloud_cover=5.0)
 ```
 
-### Step 9: Zero-Config Convenience Shortcuts
+### Step 9: Copernicus CDSE Adapter & Selective Band Extraction
+Connect directly to the Copernicus Data Space Ecosystem for official Sentinel products:
+```python
+# 1. Download full raw .SAFE archive from CDSE with space-agency checksum verification:
+safe_path = client.download(
+    id="<CDSE_UUID>",
+    provider="cdse",
+    format="safe",
+    verify_checksum=True,
+    outdir="./safe_downloads"
+)
+
+# 2. Selective Band Extraction: Download only RGB 10m bands (B02, B03, B04) via OData /Nodes tree:
+rgb_bands = client.download(
+    id="<CDSE_UUID>",
+    provider="cdse",
+    bands="rgb",          # Or list: ["B02", "B03", "B04"]
+    outdir="./selective_bands"
+)
+
+# 3. On-the-Fly GeoTIFF Compositing: Download bands and synthesize 3-band RGB GeoTIFF:
+rgb_composite = client.download(
+    id="<CDSE_UUID>",
+    provider="cdse",
+    bands="rgb",
+    composite="rgb",      # Automatically creates <scene_id>_composite_rgb.tif
+    outdir="./composites"
+)
+```
+
+### Step 10: Zero-Config Convenience Shortcuts
 ```python
 # 1. Optical Scenes (Instant SR or TOA)
 opt_sr = client.get_optical(bbox=bbox, level="sr")
@@ -428,7 +489,7 @@ soil = client.get_soil(bbox=bbox, depth="0-5cm")
 print("Topsoil Summary:", soil.properties["summary_topsoil"])
 ```
 
-### Step 9: On-the-Fly Biophysical & Spectral Indices (9 Indices)
+### Step 11: On-the-Fly Biophysical & Spectral Indices (9 Indices)
 ```python
 # Direct high-level function calls:
 savi_val = oe.calculate_savi(nir=0.82, red=0.18, l_factor=0.5)
@@ -441,7 +502,7 @@ savi = client.compute_index("savi", nir=0.82, red=0.18, l_factor=0.5)
 print("SAVI Mean:", savi["mean"])
 ```
 
-### Step 10: Time-Series Extraction
+### Step 12: Time-Series Extraction
 ```python
 # Historical hourly meteorological records
 series = client.get_time_series(
@@ -513,7 +574,63 @@ const allPaths = await client.downloadMany(results, "visual", "./downloads", {
 console.log(`Batch downloaded ${allPaths.length} visual rasters.`);
 ```
 
-### Step 6: Zero-Config Convenience Shortcuts & TOA/SR Levels
+### Step 6: Fluent SearchResults Chaining, GIS Export & SearchAndDownload
+```typescript
+// 1. Search and immediately download top visual scenes:
+const paths = await client.searchAndDownload({
+  category: Category.OPTICAL,
+  bbox: [78.50, 20.65, 78.60, 20.72],
+  outdir: "./downloads"
+});
+
+// 2. Or chain fluent methods on SearchResults:
+const results = await client.search({
+  category: Category.OPTICAL,
+  bbox: [78.50, 20.65, 78.60, 20.72],
+  limit: 5
+});
+
+// Export footprints directly to GeoJSON or CSV:
+await results.exportGeoJSON("./footprints.geojson");
+await results.exportCSV("./footprints.csv");
+
+// Download first scene or all scenes:
+const firstScene = results.first();
+if (firstScene) {
+  await firstScene.download("visual", "./downloads");
+}
+```
+
+### Step 7: Copernicus CDSE Adapter & Selective Band Extraction
+```typescript
+// 1. Download raw SAFE product with space agency checksum verification:
+const safeFile = await client.download({
+  id: "<CDSE_UUID>",
+  provider: "cdse",
+  format: "safe",
+  verifyChecksum: true,
+  outdir: "./safe_downloads"
+});
+
+// 2. Selective Band Extraction: Download only RGB JP2 bands without downloading full ZIP:
+const rgbBands = await client.download({
+  id: "<CDSE_UUID>",
+  provider: "cdse",
+  bands: "rgb",
+  outdir: "./bands"
+});
+
+// 3. Automated On-the-Fly Multiband GeoTIFF Composite:
+const compositeFile = await client.download({
+  id: "<CDSE_UUID>",
+  provider: "cdse",
+  bands: "rgb",
+  composite: "rgb",
+  outdir: "./composites"
+});
+```
+
+### Step 8: Zero-Config Convenience Shortcuts & TOA/SR Levels
 ```typescript
 // Optical Scenes (Instant SR or TOA)
 const optSR = await client.getOptical({ bbox: [78.50, 20.65, 78.60, 20.72], level: "sr" });
@@ -542,7 +659,7 @@ const inside = aoi.contains(78.55, 20.68);
 console.log("Point within boundary:", inside);
 ```
 
-### Step 7: Index Computation & Time-Series
+### Step 9: Index Computation & Time-Series
 ```typescript
 // Radiometric Index calculation (9 indices supported, including SAVI with lFactor)
 const savi = client.computeIndex("savi", { nir: 0.82, red: 0.18, lFactor: 0.5 });
@@ -646,6 +763,12 @@ cp .env.example .env
 ```
 
 ```env
+# Copernicus Data Space Ecosystem (CDSE)
+# (Optional: for raw .SAFE.zip downloads and selective band extraction on Sentinel-1, 2, 3, 5P)
+# Register free: https://dataspace.copernicus.eu/
+CDSE_USERNAME=your_cdse_username
+CDSE_PASSWORD=your_cdse_password
+
 # DLR Geoservice (Required for downloading raw EnMAP 224-band hyperspectral cubes)
 # Register free: https://eoweb.dlr.de/egp/
 DLR_USERNAME=your_dlr_username
@@ -662,7 +785,7 @@ PRISMA_USERNAME=your_prisma_username
 PRISMA_PASSWORD=your_prisma_password
 ```
 
-*(Optical Sentinel-2, Sentinel-1 SAR, Copernicus DEM, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
+*(Optical Sentinel-2 COGs, Sentinel-1 SAR COGs, Copernicus DEM, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
 
 ---
 

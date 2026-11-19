@@ -46,9 +46,24 @@ class BaseProvider(ABC):
 
     def get_item(self, item_id: str) -> Optional[SearchResult]:
         """
-        Directly retrieve a single STAC item by its ID without spatial search.
-        Can be overridden by providers that support direct item lookup endpoints.
+        Directly retrieve a single STAC item or provider record by its ID without spatial search.
+        Can be overridden by providers that support direct item lookup endpoints, or resolves
+        coordinate-encoded IDs (e.g. openmeteo_20.68_78.55_latest, soilgrids_20.68_78.55).
         """
+        import re
+        from omniearth.models import AOI
+        numbers = re.findall(r"[-+]?\d*\.?\d+", item_id)
+        if len(numbers) >= 2:
+            try:
+                lat = float(numbers[0])
+                lon = float(numbers[1])
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    aoi = AOI.from_point(lon, lat, radius_km=1.0)
+                    res = self.search(aoi=aoi, limit=1)
+                    if res:
+                        return res[0]
+            except Exception:  # pragma: no cover
+                pass
         return None
 
     def _multipart_download(
@@ -109,6 +124,16 @@ class BaseProvider(ABC):
                     for future in concurrent.futures.as_completed(futures):
                         future.result()
 
+    def _verify_file_hash(self, file_path: str, expected_hash: str, algorithm: str = "MD5") -> bool:
+        """Computes and compares the cryptographic hash of a local file."""
+        import hashlib
+        hasher = hashlib.md5() if algorithm.upper() == "MD5" else hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        calculated = hasher.hexdigest().lower()
+        return calculated == expected_hash.lower()
+
     def _write_stream_response(
         self,
         resp: requests.Response,
@@ -117,7 +142,10 @@ class BaseProvider(ABC):
         desc: str,
         total_size: int,
         is_resume: bool,
-        initial_bytes: int = 0
+        initial_bytes: int = 0,
+        expected_checksum: Optional[str] = None,
+        checksum_algorithm: str = "MD5",
+        verify_checksum: bool = False
     ) -> str:
         mode = "ab" if is_resume else "wb"
         with open(part_path, mode) as f, tqdm(
@@ -134,6 +162,16 @@ class BaseProvider(ABC):
                     f.write(chunk)
                     pbar.update(len(chunk))
 
+        if verify_checksum and expected_checksum:
+            if not self._verify_file_hash(part_path, expected_checksum, checksum_algorithm):
+                try:
+                    os.remove(part_path)
+                except OSError:  # pragma: no cover
+                    pass
+                raise ValueError(
+                    f"Cryptographic {checksum_algorithm} checksum verification failed for {os.path.basename(outpath)}"
+                )
+
         os.replace(part_path, outpath)
         return os.path.abspath(outpath)
 
@@ -147,14 +185,18 @@ class BaseProvider(ABC):
         resume: bool = True,
         multipart: bool = True,
         max_workers: int = 4,
-        min_multipart_size: int = 10 * 1024 * 1024
+        min_multipart_size: int = 10 * 1024 * 1024,
+        expected_checksum: Optional[str] = None,
+        checksum_algorithm: str = "MD5",
+        verify_checksum: bool = False
     ) -> str:
         """
         Streams a remote URL into a local file with:
         1. Instant skip if the complete file already exists.
         2. Parallel multipart range chunk downloading for large files.
         3. Automatic byte-range resumption for interrupted downloads (.part staging).
-        4. Atomic file replacement upon verification.
+        4. Cryptographic checksum validation (MD5 / SHA-256).
+        5. Atomic file replacement upon verification.
         """
         os.makedirs(os.path.dirname(os.path.abspath(outpath)), exist_ok=True)
         part_path = f"{outpath}.part"
@@ -176,8 +218,13 @@ class BaseProvider(ABC):
         if os.path.exists(outpath):
             existing_complete = os.path.getsize(outpath)
             if (total_size > 0 and existing_complete == total_size) or (total_size == 0 and existing_complete > 0):
-                print(f"File already fully downloaded: {os.path.basename(outpath)}")
-                return os.path.abspath(outpath)
+                if verify_checksum and expected_checksum:
+                    if self._verify_file_hash(outpath, expected_checksum, checksum_algorithm):
+                        print(f"File exists with matching checksum: {os.path.basename(outpath)}")
+                        return os.path.abspath(outpath)
+                else:
+                    print(f"File already fully downloaded: {os.path.basename(outpath)}")
+                    return os.path.abspath(outpath)
 
         # 3. Check partial download for resumption
         existing_part = os.path.getsize(part_path) if (os.path.exists(part_path) and resume) else 0
@@ -200,9 +247,20 @@ class BaseProvider(ABC):
                     max_workers=max_workers,
                     desc=desc
                 )
+                if verify_checksum and expected_checksum:
+                    if not self._verify_file_hash(part_path, expected_checksum, checksum_algorithm):
+                        try:
+                            os.remove(part_path)
+                        except OSError:  # pragma: no cover
+                            pass
+                        raise ValueError(
+                            f"Cryptographic {checksum_algorithm} checksum verification failed for {os.path.basename(outpath)}"
+                        )
                 os.replace(part_path, outpath)
                 return os.path.abspath(outpath)
-            except Exception:
+            except Exception as e:
+                if isinstance(e, ValueError) and "checksum verification failed" in str(e).lower():
+                    raise
                 if os.path.exists(part_path):
                     try:
                         os.remove(part_path)
@@ -222,7 +280,12 @@ class BaseProvider(ABC):
                 with requests.get(url, auth=auth, headers=req_headers, stream=True, timeout=config.timeout) as r_fresh:
                     r_fresh.raise_for_status()
                     fresh_total = int(r_fresh.headers.get("content-length", 0))
-                    return self._write_stream_response(r_fresh, part_path, outpath, desc, fresh_total, False, 0)
+                    return self._write_stream_response(
+                        r_fresh, part_path, outpath, desc, fresh_total, False, 0,
+                        expected_checksum=expected_checksum,
+                        checksum_algorithm=checksum_algorithm,
+                        verify_checksum=verify_checksum
+                    )
 
             r.raise_for_status()
             if r.status_code == 206:
@@ -232,4 +295,9 @@ class BaseProvider(ABC):
                 existing_part = 0
                 stream_total = int(r.headers.get("content-length", 0)) or total_size
 
-            return self._write_stream_response(r, part_path, outpath, desc, stream_total, is_resume, existing_part)
+            return self._write_stream_response(
+                r, part_path, outpath, desc, stream_total, is_resume, existing_part,
+                expected_checksum=expected_checksum,
+                checksum_algorithm=checksum_algorithm,
+                verify_checksum=verify_checksum
+            )

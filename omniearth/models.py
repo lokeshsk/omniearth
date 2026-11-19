@@ -5,6 +5,7 @@ Standardized representations for areas of interest, search results, and assets.
 """
 
 import os
+from pathlib import Path
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
@@ -207,6 +208,8 @@ class Asset(BaseModel):
     media_type: Optional[str] = None
     size_bytes: Optional[int] = None
     roles: List[str] = Field(default_factory=list)
+    checksum: Optional[str] = None
+    checksum_algorithm: Optional[str] = "MD5"
 
 
 class SearchResult(BaseModel):
@@ -224,6 +227,44 @@ class SearchResult(BaseModel):
     @property
     def cloud_cover(self) -> Optional[float]:
         return self.properties.get("eo:cloud_cover") or self.properties.get("cloud_cover")
+
+    @property
+    def checksum(self) -> Optional[str]:
+        return self.properties.get("checksum") or self.properties.get("digest")
+
+    @property
+    def checksum_algorithm(self) -> str:
+        return self.properties.get("checksum_algorithm") or "MD5"
+
+    @property
+    def footprint(self) -> Optional[Dict[str, Any]]:
+        if "geometry" in self.properties and self.properties["geometry"]:
+            return self.properties["geometry"]
+        if self.bbox and len(self.bbox) == 4:
+            min_lon, min_lat, max_lon, max_lat = self.bbox
+            if min_lon == max_lon and min_lat == max_lat:
+                return {
+                    "type": "Point",
+                    "coordinates": [min_lon, min_lat]
+                }
+            return {
+                "type": "Polygon",
+                "coordinates": [[
+                    [min_lon, min_lat],
+                    [max_lon, min_lat],
+                    [max_lon, max_lat],
+                    [min_lon, max_lat],
+                    [min_lon, min_lat]
+                ]]
+            }
+        lat = self.properties.get("latitude") or self.properties.get("center_lat") or self.properties.get("lat")
+        lon = self.properties.get("longitude") or self.properties.get("center_lon") or self.properties.get("lon")
+        if lat is not None and lon is not None:
+            return {
+                "type": "Point",
+                "coordinates": [float(lon), float(lat)]
+            }
+        return None
 
     def get_download_url(self, preferred_key: str = "data") -> Optional[str]:
         """Returns the primary asset download URL."""
@@ -244,7 +285,8 @@ class SearchResult(BaseModel):
         resume: bool = True,
         multipart: bool = True,
         max_workers: int = 4,
-        client: Optional[Any] = None
+        client: Optional[Any] = None,
+        **kwargs
     ) -> str:
         """Download this result directly to local storage."""
         active_client = client or self._client
@@ -257,7 +299,8 @@ class SearchResult(BaseModel):
             outdir=outdir,
             resume=resume,
             multipart=multipart,
-            max_workers=max_workers
+            max_workers=max_workers,
+            **kwargs
         )
 
     def download_all(
@@ -267,7 +310,8 @@ class SearchResult(BaseModel):
         max_workers: int = 4,
         resume: bool = True,
         multipart: bool = True,
-        client: Optional[Any] = None
+        client: Optional[Any] = None,
+        **kwargs
     ) -> Dict[str, str]:
         """Download all or selected assets of this result concurrently."""
         active_client = client or self._client
@@ -280,7 +324,8 @@ class SearchResult(BaseModel):
             outdir=outdir,
             max_workers=max_workers,
             resume=resume,
-            multipart=multipart
+            multipart=multipart,
+            **kwargs
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -330,7 +375,8 @@ class SearchResults(list):
         max_workers: int = 4,
         resume: bool = True,
         multipart: bool = True,
-        client: Optional[Any] = None
+        client: Optional[Any] = None,
+        **kwargs
     ) -> List[str]:
         """
         Downloads all search results in the collection concurrently.
@@ -346,7 +392,8 @@ class SearchResults(list):
             outdir=outdir,
             max_workers=max_workers,
             resume=resume,
-            multipart=multipart
+            multipart=multipart,
+            **kwargs
         )
 
     def download_indices(
@@ -357,7 +404,8 @@ class SearchResults(list):
         max_workers: int = 4,
         resume: bool = True,
         multipart: bool = True,
-        client: Optional[Any] = None
+        client: Optional[Any] = None,
+        **kwargs
     ) -> List[str]:
         """
         Downloads specific search results by their integer index in the collection.
@@ -373,8 +421,89 @@ class SearchResults(list):
             outdir=outdir,
             max_workers=max_workers,
             resume=resume,
-            multipart=multipart
+            multipart=multipart,
+            **kwargs
         )
+
+    def export_geojson(self, output_path: Union[str, Path]) -> str:
+        """Export all search result footprints into a standard GeoJSON FeatureCollection."""
+        import json
+        p = Path(output_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        features = []
+        for r in self:
+            feat = {
+                "type": "Feature",
+                "id": r.id,
+                "geometry": r.footprint,
+                "properties": {
+                    "id": r.id,
+                    "collection": r.collection,
+                    "category": r.category.value,
+                    "provider": r.provider,
+                    "datetime": r.datetime,
+                    "cloud_cover": r.cloud_cover,
+                    "download_url": r.get_download_url() or "",
+                    "assets": list(r.assets.keys()),
+                    **{k: v for k, v in r.properties.items() if not k.startswith("_")}
+                }
+            }
+            features.append(feat)
+        fc = {"type": "FeatureCollection", "features": features}
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(fc, f, indent=2, default=str)
+        return str(p.resolve())
+
+    def export_csv(self, output_path: Union[str, Path]) -> str:
+        """Export tabular summary of search results to CSV spreadsheet for QGIS/ArcGIS/Excel."""
+        import csv
+        p = Path(output_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        headers = [
+            "id",
+            "collection",
+            "category",
+            "provider",
+            "datetime",
+            "cloud_cover",
+            "latitude",
+            "longitude",
+            "bbox",
+            "download_url",
+            "assets"
+        ]
+        with open(p, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            for r in self:
+                lat_val = r.properties.get("latitude") or r.properties.get("center_lat") or r.properties.get("lat")
+                lon_val = r.properties.get("longitude") or r.properties.get("center_lon") or r.properties.get("lon")
+                if (lat_val is None or lon_val is None) and r.bbox and len(r.bbox) == 4:
+                    lon_val = round((r.bbox[0] + r.bbox[2]) / 2.0, 6)
+                    lat_val = round((r.bbox[1] + r.bbox[3]) / 2.0, 6)
+
+                bbox_str = ",".join(str(x) for x in r.bbox) if r.bbox else ""
+                writer.writerow({
+                    "id": r.id,
+                    "collection": r.collection,
+                    "category": r.category.value,
+                    "provider": r.provider,
+                    "datetime": r.datetime or "",
+                    "cloud_cover": r.cloud_cover if r.cloud_cover is not None else "",
+                    "latitude": lat_val if lat_val is not None else "",
+                    "longitude": lon_val if lon_val is not None else "",
+                    "bbox": bbox_str,
+                    "download_url": r.get_download_url() or "",
+                    "assets": ";".join(r.assets.keys())
+                })
+        return str(p.resolve())
+
+    def export(self, output_path: Union[str, Path]) -> str:
+        """Automatically export to .geojson or .csv based on filename extension."""
+        p = Path(output_path)
+        if p.suffix.lower() == ".csv":
+            return self.export_csv(p)
+        return self.export_geojson(p)
 
 
 class FilterOptions(BaseModel):
@@ -386,4 +515,6 @@ class FilterOptions(BaseModel):
     dataset: Optional[str] = None
     year: Optional[int] = None
     level: Optional[str] = "sr"
+    provider: Optional[str] = None
+    format: Optional[str] = None
     limit: int = 10

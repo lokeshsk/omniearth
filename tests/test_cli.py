@@ -216,17 +216,24 @@ def test_cmd_download_by_id_and_fallbacks(capsys, tmp_path):
         captured = capsys.readouterr()
         assert "attempting direct provider resolution" in captured.out
 
-    # 1b-ii. Hyperspectral fallbacks for ENMAP, EMIT, PRS
-    for prefix in ["ENMAP_TEST", "EMIT_TEST", "PRS_TEST"]:
+    # 1b-ii. Category fallbacks for Hyperspectral, Elevation, Landcover
+    for cat, prefix in [
+        ("hyperspectral", "ENMAP_TEST"),
+        ("hyperspectral", "EMIT_TEST"),
+        ("hyperspectral", "PRS_TEST"),
+        ("hyperspectral", "GENERIC_HSI"),
+        ("elevation", "Copernicus_DSM_COG_10_N20_00_E078_00_DEM"),
+        ("landcover", "ESA_WorldCover_10m_2021_v200_N18E075_Map"),
+    ]:
         args_hs = MagicMock()
-        args_hs.category = "hyperspectral"
+        args_hs.category = cat
         args_hs.id = prefix
         args_hs.bbox = None
         args_hs.asset = None
         args_hs.outdir = str(tmp_path)
         with patch.object(client, "get_item", return_value=None), \
              patch.object(client, "search", return_value=[]), \
-             patch.object(client, "download", return_value=str(tmp_path / "hs.tif")):
+             patch.object(client, "download", return_value=str(tmp_path / "item.tif")):
             cmd_download(args_hs, client)
 
     # 1b-iii. Direct get_item hit
@@ -734,5 +741,137 @@ def test_cmd_download_multi_id_and_all_scenes(capsys, tmp_path):
         captured = capsys.readouterr()
         assert "Searching for matching scenes in geojson" in captured.out
         assert "Selected latest scene: MULTI_1" in captured.out
+
+
+def test_cmd_search_export_and_cdse_flags(capsys, tmp_path):
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="S2_SEARCH_EXPORT_1",
+        collection="SENTINEL-2",
+        category=Category.OPTICAL,
+        provider="cdse",
+        assets={"B04": Asset(key="B04", href="https://example.com/b4.jp2")}
+    )
+    from omniearth.models import SearchResults
+    results = SearchResults([mock_res], client=client)
+
+    args = MagicMock()
+    args.category = "optical"
+    args.bbox = [78.0, 20.0, 78.5, 20.5]
+    args.point = None
+    args.geojson = None
+    args.start = "2026-11-01"
+    args.end = "2026-11-19"
+    args.max_cloud = 15.0
+    args.variables = None
+    args.depth = None
+    args.dataset = "cdse"
+    args.year = 2026
+    args.level = "sr"
+    args.limit = 5
+    args.provider = "cdse"
+    args.format = "safe"
+    args.bands = "B04,B03"
+    args.export = str(tmp_path / "results.geojson")
+    args.download_all = True
+    args.download_top = None
+    args.select = None
+    args.interactive = False
+    args.json = False
+    args.outdir = str(tmp_path)
+    args.no_resume = False
+    args.no_multipart = False
+    args.threads = 4
+    args.asset = None
+    args.verify_checksum = True
+    args.composite = "rgb"
+
+    with patch.object(client, "search", return_value=results) as mock_search, \
+         patch.object(client, "download_many", return_value=[str(tmp_path / "b4.jp2")]) as mock_dm:
+        cmd_search(args, client)
+        captured = capsys.readouterr()
+        assert "Exported 1 search result(s)" in captured.out
+        assert "Dispatching concurrent download for 1 scene(s)" in captured.out
+        mock_search.assert_called_once()
+        assert mock_search.call_args.kwargs["provider"] == "cdse"
+        assert mock_search.call_args.kwargs["format"] == "safe"
+        assert mock_search.call_args.kwargs["bands"] == ["B04", "B03"]
+        mock_dm.assert_called_once()
+        assert mock_dm.call_args.kwargs["format"] == "safe"
+        assert mock_dm.call_args.kwargs["bands"] == "B04,B03"
+        assert mock_dm.call_args.kwargs["verify_checksum"] is True
+        assert mock_dm.call_args.kwargs["composite"] == "rgb"
+
+
+def test_cmd_download_cdse_flags_and_fallbacks(capsys, tmp_path):
+    client = OmniEarth()
+
+    # 1. CDSE fallback resolution for S2 SAFE item not found in catalog
+    args_s2_fallback = MagicMock()
+    args_s2_fallback.category = "optical"
+    args_s2_fallback.id = "S2A_MSIL2A_20261119T0530_TEST"
+    args_s2_fallback.bbox = None
+    args_s2_fallback.geojson = None
+    args_s2_fallback.provider = "cdse"
+    args_s2_fallback.format = "safe"
+    args_s2_fallback.bands = "rgb"
+    args_s2_fallback.verify_checksum = True
+    args_s2_fallback.composite = "rgb"
+    args_s2_fallback.outdir = str(tmp_path)
+    args_s2_fallback.all = False
+    args_s2_fallback.no_resume = False
+    args_s2_fallback.no_multipart = False
+    args_s2_fallback.threads = 4
+    args_s2_fallback.asset = None
+
+    with patch.object(client, "get_item", return_value=None), \
+         patch.object(client, "search", return_value=[]), \
+         patch.object(client, "download", return_value=str(tmp_path / "s2.zip")) as mock_dl:
+        cmd_download(args_s2_fallback, client)
+        captured = capsys.readouterr()
+        assert "attempting direct provider resolution" in captured.out
+        assert "Successfully downloaded" in captured.out
+        mock_dl.assert_called_once()
+        assert mock_dl.call_args.kwargs["format"] == "safe"
+        assert mock_dl.call_args.kwargs["bands"] == "rgb"
+        assert mock_dl.call_args.kwargs["verify_checksum"] is True
+        assert mock_dl.call_args.kwargs["composite"] == "rgb"
+
+    # 2. AOI search download with provider and format
+    args_aoi_cdse = MagicMock()
+    args_aoi_cdse.category = "optical"
+    args_aoi_cdse.id = None
+    args_aoi_cdse.bbox = [78.0, 20.0, 78.5, 20.5]
+    args_aoi_cdse.geojson = None
+    args_aoi_cdse.start = None
+    args_aoi_cdse.end = None
+    args_aoi_cdse.max_cloud = None
+    args_aoi_cdse.dataset = None
+    args_aoi_cdse.year = None
+    args_aoi_cdse.level = "sr"
+    args_aoi_cdse.limit = 1
+    args_aoi_cdse.all_scenes = False
+    args_aoi_cdse.outdir = str(tmp_path)
+    args_aoi_cdse.provider = "cdse"
+    args_aoi_cdse.format = "safe"
+    args_aoi_cdse.bands = None
+    args_aoi_cdse.verify_checksum = False
+    args_aoi_cdse.composite = None
+    args_aoi_cdse.no_resume = False
+    args_aoi_cdse.no_multipart = False
+    args_aoi_cdse.threads = 4
+    args_aoi_cdse.asset = None
+    args_aoi_cdse.all = False
+
+    mock_matched = SearchResult(
+        id="S2A_MATCH", collection="SENTINEL-2", category=Category.OPTICAL, provider="cdse", assets={}
+    )
+    with patch.object(client, "search", return_value=[mock_matched]) as mock_search, \
+         patch.object(client, "download", return_value=str(tmp_path / "matched.zip")):
+        cmd_download(args_aoi_cdse, client)
+        mock_search.assert_called_once()
+        assert mock_search.call_args.kwargs["provider"] == "cdse"
+        assert mock_search.call_args.kwargs["format"] == "safe"
+
 
 
