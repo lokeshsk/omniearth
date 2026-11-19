@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv --python ${{ matrix.python-version }}
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[dev,gis]"
 
       - name: Run Python Test Suite (pytest)
         run: |
