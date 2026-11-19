@@ -40,8 +40,10 @@ jobs:
         run: |
           uv run --all-extras pytest -v --cov=omniearth --cov-report=term-missing tests/ > pytest.log 2>&1 || {
             EXIT_CODE=$?
+            echo "::group::Full Pytest Log"
             cat pytest.log
-            tail -n 60 pytest.log | while IFS= read -r line; do
+            echo "::endgroup::"
+            grep -E "FAILED|ERROR|AssertionError|Exception|Error:" pytest.log | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit $EXIT_CODE
