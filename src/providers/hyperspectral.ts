@@ -122,6 +122,74 @@ export class HyperspectralProvider extends BaseProvider {
     return results.slice(0, limit);
   }
 
+  override async getItem(itemId: string): Promise<SearchResult | null> {
+    // 1. DLR EnMAP STAC direct item endpoint
+    if (itemId.startsWith("ENMAP") || itemId.includes("ENMAP")) {
+      try {
+        const res = await fetch(`${this.enmapStacUrl}/${itemId}`);
+        if (res.ok) {
+          const feat = await res.json();
+          const assets: Record<string, Asset> = {};
+          for (const [k, a] of Object.entries<any>(feat.assets || {})) {
+            assets[k] = {
+              key: k,
+              href: a.href,
+              title: a.title,
+              media_type: a.type,
+              roles: a.roles
+            };
+          }
+          return {
+            id: feat.id,
+            collection: "enmap-hsi-l2a",
+            category: this.category,
+            provider: "dlr_enmap",
+            datetime: feat.properties?.datetime,
+            bbox: feat.bbox,
+            properties: { ...feat.properties, platform: "enmap" },
+            assets
+          };
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // 2. NASA EMIT STAC direct item endpoint
+    if (itemId.startsWith("EMIT") || itemId.includes("EMIT")) {
+      try {
+        const res = await fetch(`https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL_001/items/${itemId}`);
+        if (res.ok) {
+          const feat = await res.json();
+          const assets: Record<string, Asset> = {};
+          for (const [k, a] of Object.entries<any>(feat.assets || {})) {
+            assets[k] = {
+              key: k,
+              href: a.href,
+              title: a.title,
+              media_type: a.type,
+              roles: a.roles
+            };
+          }
+          return {
+            id: feat.id,
+            collection: "emit-l2a-rfl",
+            category: this.category,
+            provider: "nasa_emit",
+            datetime: feat.properties?.datetime,
+            bbox: feat.bbox,
+            properties: { ...feat.properties, platform: "emit" },
+            assets
+          };
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return null;
+  }
+
   override async download(
     result: SearchResult,
     assetKey?: string,
@@ -132,8 +200,19 @@ export class HyperspectralProvider extends BaseProvider {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
+    let providerName = result.provider;
+    if (providerName === "hyperspectral") {
+      if (result.id.startsWith("ENMAP") || result.id.includes("ENMAP")) {
+        providerName = "dlr_enmap";
+      } else if (result.id.startsWith("EMIT") || result.id.includes("EMIT")) {
+        providerName = "nasa_emit";
+      } else if (result.id.startsWith("PRS") || result.id.includes("PRISMA")) {
+        providerName = "asi_prisma";
+      }
+    }
+
     let authHeaders: Record<string, string> | undefined;
-    if (result.provider === "dlr_enmap") {
+    if (providerName === "dlr_enmap") {
       const [u, p] = config.dlrCredentials;
       if (u && p) {
         const token = Buffer.from(`${u}:${p}`).toString("base64");

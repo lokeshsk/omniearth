@@ -20,7 +20,7 @@ export class WeatherProvider extends BaseProvider {
     "surface_pressure",
     "wind_speed_10m",
     "wind_direction_10m",
-    "shortwave_radiation_sum",
+    "shortwave_radiation",
     "et0_fao_evapotranspiration",
     "vapour_pressure_deficit",
     "soil_temperature_0cm",

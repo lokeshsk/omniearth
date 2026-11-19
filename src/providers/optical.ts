@@ -75,5 +75,43 @@ export class OpticalProvider extends BaseProvider {
     results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
     return results.slice(0, filters?.limit || 10);
   }
+
+  override async getItem(itemId: string): Promise<SearchResult | null> {
+    try {
+      const res = await fetch(this.stacEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [itemId] })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const features = data.features || [];
+      if (features.length === 0) return null;
+      const feat = features[0];
+      const assets: Record<string, Asset> = {};
+      for (const [k, a] of Object.entries<any>(feat.assets || {})) {
+        assets[k] = {
+          key: k,
+          href: a.href,
+          title: a.title,
+          media_type: a.type,
+          roles: a.roles
+        };
+      }
+      return {
+        id: feat.id,
+        collection: feat.collection || "sentinel-2-l2a",
+        category: this.category,
+        provider: "aws_earth_search",
+        datetime: feat.properties?.datetime,
+        bbox: feat.bbox,
+        properties: feat.properties || {},
+        assets
+      };
+    } catch {
+      return null;
+    }
+  }
 }
+
 

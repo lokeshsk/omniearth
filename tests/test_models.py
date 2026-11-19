@@ -3,7 +3,7 @@ Tests for OmniEarth Core Data Models
 """
 
 import pytest
-from omniearth.models import AOI, Asset, SearchResult, Category, FilterOptions
+from omniearth.models import AOI, Asset, SearchResult, SearchResults, Category, FilterOptions
 
 
 def test_aoi_from_bounds():
@@ -227,5 +227,288 @@ def test_aoi_contains_and_polygon_masking():
     # Point geometry in AOI geometry (falls back to bbox containment)
     aoi_pt = AOI.from_bounds(0.0, 0.0, 10.0, 10.0, geometry={"type": "Point", "coordinates": [5.0, 5.0]})
     assert aoi_pt.contains(5.0, 5.0) is True
+
+
+def test_search_results_fluent_and_direct_downloads(monkeypatch):
+    from unittest.mock import MagicMock
+    from omniearth.models import SearchResults
+
+    mock_client = MagicMock()
+    mock_client.download.return_value = "/tmp/downloaded.tif"
+    mock_client.download_all.return_value = {"visual": "/tmp/visual.tif"}
+    mock_client.download_many.return_value = ["/tmp/item1.tif", "/tmp/item2.tif"]
+
+    item1 = SearchResult(
+        id="item1",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={"cloud_cover": 5.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item1.tif")}
+    )
+    item2 = SearchResult(
+        id="item2",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={"cloud_cover": 25.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item2.tif")}
+    )
+    item3 = SearchResult(
+        id="item3",
+        collection="landsat-8",
+        category=Category.OPTICAL,
+        provider="usgs",
+        properties={"cloud_cover": 15.0},
+        assets={"visual": Asset(key="visual", href="https://example.com/item3.tif")}
+    )
+
+    results = SearchResults([item1, item2, item3], client=mock_client)
+    assert len(results) == 3
+    assert results.first() == item1
+    assert item1._client == mock_client
+
+    empty_results = SearchResults([], client=mock_client)
+    assert empty_results.first() is None
+
+    # Filter
+    filtered_provider = results.filter(provider="aws")
+    assert len(filtered_provider) == 2
+
+    filtered_collection = results.filter(collection="landsat-8")
+    assert len(filtered_collection) == 1
+
+    filtered_clouds = results.filter(max_cloud_cover=10.0)
+    assert len(filtered_clouds) == 1
+    assert filtered_clouds[0].id == "item1"
+
+    # SearchResults.download_all
+    paths = results.download_all(outdir="/tmp")
+    assert paths == ["/tmp/item1.tif", "/tmp/item2.tif"]
+    mock_client.download_many.assert_called_with(
+        results=[item1, item2, item3],
+        asset_key=None,
+        outdir="/tmp",
+        max_workers=4,
+        resume=True,
+        multipart=True
+    )
+
+    # SearchResults.download_indices
+    indices_paths = results.download_indices([0, 2], outdir="/tmp")
+    assert indices_paths == ["/tmp/item1.tif", "/tmp/item2.tif"]
+
+    # SearchResult.download and download_all with bound _client
+    d_path = item1.download()
+    assert d_path == "/tmp/downloaded.tif"
+    d_all = item1.download_all()
+    assert d_all == {"visual": "/tmp/visual.tif"}
+
+    # SearchResult and SearchResults fallback to default OmniEarth() when client is None
+    item_standalone = SearchResult(
+        id="standalone",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="aws"
+    )
+    with monkeypatch.context() as m:
+        mock_omni_cls = MagicMock()
+        mock_inst = MagicMock()
+        mock_inst.download.return_value = "/tmp/fallback_download.tif"
+        mock_inst.download_all.return_value = {"visual": "/tmp/fallback_visual.tif"}
+        mock_inst.download_many.return_value = ["/tmp/fallback_many.tif"]
+        mock_omni_cls.return_value = mock_inst
+        m.setattr("omniearth.client.OmniEarth", mock_omni_cls)
+
+        assert item_standalone.download() == "/tmp/fallback_download.tif"
+        assert item_standalone.download_all() == {"visual": "/tmp/fallback_visual.tif"}
+
+        results_standalone = SearchResults([item_standalone])
+        assert results_standalone.download_all() == ["/tmp/fallback_many.tif"]
+        assert results_standalone.download_indices([0]) == ["/tmp/fallback_many.tif"]
+
+
+def test_search_result_checksum_and_footprint(tmp_path):
+    from omniearth.models import SearchResults
+
+    # 1. Properties with digest and explicit geometry
+    res1 = SearchResult(
+        id="res1",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="cdse",
+        properties={
+            "digest": "abc123md5",
+            "checksum_algorithm": "SHA256",
+            "geometry": {"type": "Point", "coordinates": [10.0, 20.0]},
+            "cloud_cover": 1.2
+        }
+    )
+    assert res1.checksum == "abc123md5"
+    assert res1.checksum_algorithm == "SHA256"
+    assert res1.footprint == {"type": "Point", "coordinates": [10.0, 20.0]}
+
+    # 2. Checksum fallback to "checksum", default algorithm "MD5", footprint from bbox
+    res2 = SearchResult(
+        id="res2",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="aws",
+        bbox=[10.0, 20.0, 30.0, 40.0],
+        properties={"checksum": "def456"}
+    )
+    assert res2.checksum == "def456"
+    assert res2.checksum_algorithm == "MD5"
+    fp = res2.footprint
+    assert fp["type"] == "Polygon"
+    assert fp["coordinates"] == [[[10.0, 20.0], [30.0, 20.0], [30.0, 40.0], [10.0, 40.0], [10.0, 20.0]]]
+
+    # 3. No bbox and no geometry
+    res3 = SearchResult(
+        id="res3",
+        collection="col",
+        category=Category.OPTICAL,
+        provider="aws",
+        properties={}
+    )
+    assert res3.checksum is None
+    assert res3.checksum_algorithm == "MD5"
+    assert res3.footprint is None
+
+    # Export tests
+    results = SearchResults([res1, res2, res3])
+
+    # Export GeoJSON
+    geo_out = results.export_geojson(tmp_path / "export.geojson")
+    assert geo_out.endswith("export.geojson")
+    import json
+    with open(geo_out, "r") as f:
+        geo_data = json.load(f)
+    assert geo_data["type"] == "FeatureCollection"
+    assert len(geo_data["features"]) == 3
+    assert geo_data["features"][0]["id"] == "res1"
+
+    # Export CSV
+    csv_out = results.export_csv(tmp_path / "export.csv")
+    assert csv_out.endswith("export.csv")
+    import csv
+    with open(csv_out, "r") as f:
+        reader = list(csv.DictReader(f))
+    assert len(reader) == 3
+    assert reader[0]["id"] == "res1"
+    assert reader[0]["cloud_cover"] == "1.2"
+
+    # Export auto dispatcher (.csv vs .geojson)
+    auto_csv = results.export(tmp_path / "auto.csv")
+    assert auto_csv.endswith(".csv")
+    auto_geo = results.export(tmp_path / "auto.geojson")
+    assert auto_geo.endswith(".geojson")
+
+    # Point footprint from identical min/max coords
+    res_pt = SearchResult(
+        id="pt1",
+        collection="col",
+        category=Category.WEATHER,
+        provider="open_meteo",
+        bbox=[78.5, 20.5, 78.5, 20.5],
+        properties={"latitude": 20.5, "longitude": 78.5}
+    )
+    assert res_pt.footprint["type"] == "Point"
+    assert res_pt.footprint["coordinates"] == [78.5, 20.5]
+
+    # Point footprint from properties when bbox is None
+    res_prop_pt = SearchResult(
+        id="pt2",
+        collection="col",
+        category=Category.SOIL,
+        provider="isric",
+        bbox=None,
+        properties={"center_lat": 20.6, "center_lon": 78.6}
+    )
+    assert res_prop_pt.footprint["type"] == "Point"
+    assert res_prop_pt.footprint["coordinates"] == [78.6, 20.6]
+
+
+def test_all_14_modalities_footprint_export_geojson_and_csv(tmp_path):
+    """
+    Verifies that all 14 modalities produce valid footprints and export cleanly
+    to GeoJSON FeatureCollections and CSV spreadsheets for QGIS / ArcGIS.
+    """
+    import os
+    import json
+    import csv
+
+    all_modalities = [
+        Category.OPTICAL,
+        Category.SAR,
+        Category.HYPERSPECTRAL,
+        Category.WEATHER,
+        Category.SOIL,
+        Category.ELEVATION,
+        Category.LANDCOVER,
+        Category.ATMOSPHERE,
+        Category.FIRE,
+        Category.OCEAN,
+        Category.ALTIMETRY,
+        Category.PRECIPITATION,
+        Category.HYDROLOGY,
+        Category.NIGHTLIGHTS,
+    ]
+
+    items = []
+    for i, cat in enumerate(all_modalities, 1):
+        items.append(SearchResult(
+            id=f"scene_{cat.value}_{i}",
+            collection=f"{cat.value}-collection",
+            category=cat,
+            provider=f"provider_{cat.value}",
+            datetime="2026-11-19T00:00:00Z",
+            bbox=[78.0 + (i * 0.01), 20.0 + (i * 0.01), 78.1 + (i * 0.01), 20.1 + (i * 0.01)],
+            properties={
+                "modality": cat.value,
+                "cloud_cover": 5.0,
+                "latitude": 20.05 + (i * 0.01),
+                "longitude": 78.05 + (i * 0.01),
+            },
+            assets={
+                "data": Asset(key="data", href=f"https://example.com/{cat.value}.tif")
+            }
+        ))
+
+    results = SearchResults(items)
+    assert len(results) == 14
+
+    # Export all 14 modalities to GeoJSON
+    geojson_path = tmp_path / "all_14_footprints.geojson"
+    out_geo = results.export_geojson(geojson_path)
+    assert os.path.exists(out_geo)
+
+    with open(out_geo, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["type"] == "FeatureCollection"
+    assert len(data["features"]) == 14
+    for feat, cat in zip(data["features"], all_modalities):
+        assert feat["properties"]["category"] == cat.value
+        assert feat["geometry"]["type"] in ("Polygon", "Point")
+        assert feat["properties"]["download_url"].startswith("https://example.com/")
+
+    # Export all 14 modalities to CSV
+    csv_path = tmp_path / "all_14_footprints.csv"
+    out_csv = results.export_csv(csv_path)
+    assert os.path.exists(out_csv)
+
+    with open(out_csv, "r", encoding="utf-8") as f:
+        reader = list(csv.DictReader(f))
+
+    assert len(reader) == 14
+    for row, cat in zip(reader, all_modalities):
+        assert row["category"] == cat.value
+        assert float(row["latitude"]) > 0
+        assert float(row["longitude"]) > 0
+        assert row["download_url"].startswith("https://example.com/")
+        assert row["assets"] == "data"
+
+
 
 

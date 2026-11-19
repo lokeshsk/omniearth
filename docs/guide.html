@@ -344,7 +344,7 @@
   <!-- TOP NAV -->
   <header class="top-nav">
     <a href="index.html" class="brand">
-      OmniEarth <span class="badge-ver">v1.3.2</span>
+      OmniEarth <span class="badge-ver">v1.4.0</span>
     </a>
     <nav class="nav-links">
       <a href="index.html">Overview</a>
@@ -375,6 +375,7 @@
         <ul class="sidebar-menu">
           <li><a href="#cli-search">omniearth search (All Flags)</a></li>
           <li><a href="#cli-download">omniearth download</a></li>
+          <li><a href="#cli-cdse">CDSE, Presets & Compositing</a></li>
           <li><a href="#cli-compute">omniearth compute (Indices)</a></li>
           <li><a href="#cli-timeseries">omniearth timeseries</a></li>
           <li><a href="#cli-diagnostics">categories & info</a></li>
@@ -674,6 +675,42 @@
                 <td>False</td>
                 <td>Outputs raw structured JSON to stdout. Ideal for piping into <code>jq</code>, shell scripts, or downstream analysis pipelines.</td>
               </tr>
+              <tr>
+                <td><code>--download-all</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Immediately triggers concurrent parallel download of all matching search results to <code>--outdir</code>.</td>
+              </tr>
+              <tr>
+                <td><code>--download-top</code></td>
+                <td>Integer</td>
+                <td>None</td>
+                <td>Immediately downloads the top N matching search results in parallel.</td>
+              </tr>
+              <tr>
+                <td><code>--select</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Comma-separated 1-based indices or ranges to download from search results (e.g. <code>--select 1,3</code> or <code>1-3</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--interactive, -i</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Prompts interactively after displaying search results table to select and download scenes on the fly.</td>
+              </tr>
+              <tr>
+                <td><code>--export</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Exports search result footprints and full metadata directly to <code>.geojson</code> (FeatureCollection) or tabular <code>.csv</code> for QGIS, ArcGIS, or pandas.</td>
+              </tr>
+              <tr>
+                <td><code>--outdir, -o</code></td>
+                <td>String</td>
+                <td><code>./omniearth_downloads</code></td>
+                <td>Destination directory for downloaded assets.</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -681,13 +718,22 @@
 
       <section id="cli-download">
         <h3><code>omniearth download</code></h3>
-        <p>Download scenes or specific assets directly with parallel multipart chunking and byte-range resumption.</p>
+        <p>Download scenes or specific assets directly with parallel multipart chunking, byte-range resumption, and space-agency checksum validation.</p>
 
         <pre><code># Download by exact product ID
 omniearth download --category optical --id S2B_43RFM_20261022_0_L2A --asset visual
 
 # Find latest scene in bbox and download specific band
 omniearth download --category optical --bbox 77.1 28.5 77.3 28.7 --asset red -o ./my_data
+
+# Download raw .SAFE archive from CDSE with space-agency checksum verification
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --format safe --verify-checksum
+
+# Download only RGB 10m bands from CDSE without downloading full 1.1 GB ZIP archive
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb -o ./rgb_bands
+
+# Download bands and generate on-the-fly True Color GeoTIFF composite
+omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb --composite rgb -o ./composites
 
 # Download all 13 assets of a hyperspectral scene concurrently
 omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_... --all --threads 6</code></pre>
@@ -707,13 +753,43 @@ omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_..
                 <td><code>--id</code></td>
                 <td>String</td>
                 <td>None</td>
-                <td>Exact scene/product ID from a previous search.</td>
+                <td>Exact scene/product ID or comma-separated list of IDs from a previous search.</td>
               </tr>
               <tr>
                 <td><code>--asset</code></td>
                 <td>String</td>
                 <td><code>visual</code> / <code>data</code></td>
                 <td>Specific asset key to download (e.g. <code>visual</code>, <code>red</code>, <code>cirrus</code>, <code>swir</code>, <code>dem</code>, <code>map</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--provider</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Explicit data provider backend (e.g. <code>cdse</code>, <code>aws</code>, <code>dlr_enmap</code>, <code>nasa_lpdaac</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--format</code></td>
+                <td>String</td>
+                <td><code>cog</code></td>
+                <td>Output format preference (<code>cog</code> for Cloud-Optimized GeoTIFF, <code>safe</code> for raw full product archives).</td>
+              </tr>
+              <tr>
+                <td><code>--bands</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Comma-separated band names or preset name (<code>rgb</code>, <code>ndvi</code>, <code>tci</code>, <code>vnir</code>, <code>10m</code>, <code>20m</code>, <code>swir</code>, <code>vh</code>, <code>vv</code>, <code>dual</code>, <code>all</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--verify-checksum</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Verifies downloaded file integrity against official space agency MD5 or SHA-256 checksums before finalizing.</td>
+              </tr>
+              <tr>
+                <td><code>--composite</code></td>
+                <td>String</td>
+                <td>None</td>
+                <td>Generates on-the-fly multiband GeoTIFF composite from downloaded bands (<code>rgb</code>, <code>cir</code>, or <code>ndvi</code>).</td>
               </tr>
               <tr>
                 <td><code>--outdir, -o</code></td>
@@ -747,6 +823,30 @@ omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_..
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="cli-cdse">
+        <h3>Copernicus Data Space Ecosystem (CDSE) & Smart Downloader Capabilities</h3>
+        <p>OmniEarth natively integrates official CDSE OData and STAC services for Sentinel-1, 2, 3, and 5P, offering both full raw <code>.SAFE.zip</code> packages and selective band extraction:</p>
+
+        <div class="card-grid">
+          <div class="card">
+            <h4>Raw Product Archives (.SAFE.zip)</h4>
+            <p>Download full sovereign European Space Agency (ESA) product archives directly with byte-range HTTP resume, atomic staging, and MD5/SHA-256 cryptographic verification.</p>
+          </div>
+          <div class="card">
+            <h4>Selective Band Extraction (/Nodes)</h4>
+            <p>Recursively traverses the CDSE OData <code>/Nodes</code> virtual hierarchy to stream only requested bands (e.g. B02, B03, B04) without pulling down 1+ GB ZIP archives.</p>
+          </div>
+          <div class="card">
+            <h4>Band Presets</h4>
+            <p>Built-in presets for rapid analysis: <code>rgb</code>, <code>ndvi</code>, <code>tci</code>, <code>vnir</code>, <code>10m</code>, <code>20m</code>, <code>swir</code> for Sentinel-2; <code>vh</code>, <code>vv</code>, <code>dual</code> for Sentinel-1.</p>
+          </div>
+          <div class="card">
+            <h4>Automated GeoTIFF Compositing</h4>
+            <p>Synthesizes True Color RGB, False Color Infrared (CIR), and float32 NDVI GeoTIFFs immediately upon band download completion.</p>
+          </div>
         </div>
       </section>
 
@@ -837,13 +937,13 @@ omniearth compute --index bsi --nir "[0.4, 0.5]" --red "[0.3, 0.25]" --blue "[0.
       <section id="sdk-python">
         <h2>3. Python and TypeScript SDK Guide</h2>
 
-        <h3>Python SDK Architecture</h3>
+        <h3>Python SDK Architecture & Fluent Chaining</h3>
         <pre><code class="language-python">from omniearth import OmniEarth, Category, AOI
 
 client = OmniEarth()
 
 # 1. Search optical imagery with Top-of-Atmosphere (L1C)
-scenes = client.search(
+results = client.search(
     category=Category.OPTICAL,
     bbox=[77.1, 28.5, 77.3, 28.7],
     year=2026,
@@ -852,14 +952,24 @@ scenes = client.search(
     limit=5
 )
 
-for scene in scenes:
-    print(f"Scene: {scene.id} | Datetime: {scene.datetime} | Cloud: {scene.cloud_cover}%")
-    for key, asset in scene.assets.items():
-        print(f"  * Asset [{key}]: {asset.href}")
+# 2. Export footprints directly to GeoJSON or CSV
+results.export_geojson("./footprints.geojson")
+results.export_csv("./footprints.csv")
 
-# 2. Download the high-resolution visual RGB GeoTIFF
-local_path = client.download(scenes[0], asset_key="visual", outdir="./imagery")
-print(f"Downloaded GeoTIFF to: {local_path}")</code></pre>
+# 3. Fluent chaining: download top scene or all scenes
+latest_scene = results.first()
+if latest_scene:
+    downloaded_path = latest_scene.download(asset_key="visual", outdir="./imagery")
+
+# 4. Copernicus CDSE: Raw SAFE archive or Selective Band Extraction with compositing
+cdse_file = client.download(
+    id="<CDSE_UUID>",
+    provider="cdse",
+    bands="rgb",
+    composite="rgb",      # Synthesizes True Color GeoTIFF composite
+    verify_checksum=True, # Validates space-agency cryptographic hash
+    outdir="./cdse_data"
+)</code></pre>
       </section>
 
       <section id="sdk-node">
@@ -868,18 +978,27 @@ print(f"Downloaded GeoTIFF to: {local_path}")</code></pre>
 
 const client = new OmniEarth();
 
-// Search active wildfire hotspots from NASA FIRMS
-const fires = await client.search({
-  category: Category.FIRE,
-  bbox: [-121.0, 37.0, -120.0, 38.0],
-  startDate: "2026-10-01",
-  limit: 10
+// 1. Search with fluent SearchResults chaining
+const results = await client.search({
+  category: Category.OPTICAL,
+  bbox: [77.1, 28.5, 77.3, 28.7],
+  maxCloudCover: 15,
+  limit: 5
 });
 
-console.log(`Found ${fires.length} active fire record(s)`);
-for (const fire of fires) {
-  console.log(`Hotspot: ${fire.id} | Brightness: ${fire.properties.brightness_ti4}K | FRP: ${fire.properties.frp} MW`);
-}</code></pre>
+// 2. Export spatial footprints directly
+await results.exportGeoJSON("./footprints.geojson");
+await results.exportCSV("./footprints.csv");
+
+// 3. Selective band download & GeoTIFF compositing from CDSE
+const compositePath = await client.download({
+  id: "<CDSE_UUID>",
+  provider: "cdse",
+  bands: "rgb",
+  composite: "rgb",
+  verifyChecksum: true,
+  outdir: "./composites"
+});</code></pre>
       </section>
 
       <section id="sdk-polygon">

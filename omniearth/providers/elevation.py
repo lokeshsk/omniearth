@@ -153,6 +153,29 @@ class ElevationProvider(BaseProvider):
 
         return results
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly reconstructs an elevation tile SearchResult from its standard tile ID."""
+        try:
+            if item_id.startswith("Copernicus_DSM_COG_10_"):
+                parts = item_id.split("_")
+                lat_str, lon_str = parts[4], parts[6]
+                lat = int(lat_str[1:]) * (-1 if lat_str[0] == "S" else 1)
+                lon = int(lon_str[1:]) * (-1 if lon_str[0] == "W" else 1)
+                return self._generate_copernicus_tile(lat, lon)
+            elif item_id.startswith("SRTM_GL1_"):
+                tile = item_id.replace("SRTM_GL1_", "")
+                lat = int(tile[1:3]) * (-1 if tile[0] == "S" else 1)
+                lon = int(tile[4:7]) * (-1 if tile[3] == "W" else 1)
+                return self._generate_srtm_tile(lat, lon)
+            elif item_id.startswith("ALPSMLC30_") or item_id.startswith("ALOS_AW3D30_"):
+                tile = item_id.replace("ALPSMLC30_", "").replace("_DSM", "").replace("ALOS_AW3D30_", "")
+                lat = int(tile[1:4]) * (-1 if tile[0] == "S" else 1)
+                lon = int(tile[5:8]) * (-1 if tile[4] == "W" else 1)
+                return self._generate_alos_tile(lat, lon)
+        except Exception:
+            return None
+        return None
+
     def download(
         self,
         result: SearchResult,

@@ -7,11 +7,11 @@ Author: Lokesh S. K. (https://lokeshsk.github.io)
 Repository: https://github.com/lokeshsk/omniearth
 """
 
-__version__ = "1.3.2"
+__version__ = "1.4.0"
 __author__ = "Lokesh Kumar"
 
 from omniearth.client import OmniEarth
-from omniearth.models import AOI, SearchResult, Asset, Category, FilterOptions
+from omniearth.models import AOI, SearchResult, SearchResults, Asset, Category, FilterOptions
 from omniearth.indices import (
     compute_spectral_index,
     calculate_ndvi,
@@ -29,6 +29,7 @@ __all__ = [
     "OmniEarth",
     "AOI",
     "SearchResult",
+    "SearchResults",
     "Asset",
     "Category",
     "FilterOptions",

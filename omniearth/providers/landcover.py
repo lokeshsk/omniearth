@@ -132,6 +132,20 @@ class LandcoverProvider(BaseProvider):
         results.sort(key=lambda x: x.datetime or "", reverse=True)
         return results[:limit]
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly reconstructs an ESA WorldCover tile SearchResult from its standard tile ID."""
+        try:
+            if item_id.startswith("ESA_WorldCover_10m_"):
+                parts = item_id.split("_")
+                year = int(parts[3])
+                coord = parts[5]
+                lat = int(coord[1:3]) * (-1 if coord[0] == "S" else 1)
+                lon = int(coord[4:7]) * (-1 if coord[3] == "W" else 1)
+                return self._generate_worldcover_tile(lat, lon, year=year)
+        except Exception:
+            return None
+        return None
+
     def download(
         self,
         result: SearchResult,

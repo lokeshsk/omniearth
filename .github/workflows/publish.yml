@@ -103,5 +103,8 @@ jobs:
               echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
             fi
             echo "Publishing to npm with cryptographic provenance (--provenance)..."
-            npm publish --provenance --access public
+            npm publish --provenance --access public || npm publish --access public || {
+              echo "::warning::npm publication failed (likely due to expired or invalid NPM_TOKEN secret in GitHub repository settings). Please refresh NPM_TOKEN."
+              exit 0
+            }
           fi

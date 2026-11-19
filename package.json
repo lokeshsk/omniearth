@@ -1,6 +1,6 @@
 {
   "name": "omniearth",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "type": "module",
   "description": "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine",
   "main": "./dist/index.js",
@@ -20,9 +20,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -f dist/.gitignore && tsc",
     "test": "tsx --test tests_js/client.test.ts",
-    "prepare": "tsc"
+    "prepare": "rm -f dist/.gitignore && tsc"
   },
   "repository": {
     "type": "git",

@@ -207,6 +207,70 @@ class HyperspectralProvider(BaseProvider):
         except requests.exceptions.RequestException:
             return []
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly retrieves a specific hyperspectral scene by STAC item ID."""
+        # 1. EnMAP (DLR EOC STAC direct item endpoint)
+        if item_id.startswith("ENMAP") or "ENMAP" in item_id:
+            url = f"https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items/{item_id}"
+            try:
+                resp = requests.get(url, timeout=config.timeout)
+                if resp.status_code == 200:
+                    f = resp.json()
+                    props = f.get("properties", {})
+                    assets_dict = {}
+                    for k, a in f.get("assets", {}).items():
+                        assets_dict[k] = Asset(
+                            key=k,
+                            href=a.get("href"),
+                            title=a.get("title", k),
+                            media_type=a.get("type"),
+                            roles=a.get("roles", [])
+                        )
+                    return SearchResult(
+                        id=f.get("id", item_id),
+                        collection="enmap-hsi-l2a",
+                        category=self.category,
+                        provider="dlr_enmap",
+                        datetime=props.get("datetime"),
+                        bbox=f.get("bbox"),
+                        properties=props,
+                        assets=assets_dict
+                    )
+            except requests.exceptions.RequestException:
+                pass
+
+        # 2. NASA EMIT (CMR STAC direct item endpoint)
+        if item_id.startswith("EMIT") or "EMIT" in item_id:
+            url = f"https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL_001/items/{item_id}"
+            try:
+                resp = requests.get(url, timeout=config.timeout)
+                if resp.status_code == 200:
+                    f = resp.json()
+                    props = f.get("properties", {})
+                    assets_dict = {}
+                    for k, a in f.get("assets", {}).items():
+                        assets_dict[k] = Asset(
+                            key=k,
+                            href=a.get("href"),
+                            title=a.get("title", k),
+                            media_type=a.get("type"),
+                            roles=a.get("roles", [])
+                        )
+                    return SearchResult(
+                        id=f.get("id", item_id),
+                        collection="emit-l2a-rfl",
+                        category=self.category,
+                        provider="nasa_lpdaac",
+                        datetime=props.get("datetime"),
+                        bbox=f.get("bbox"),
+                        properties=props,
+                        assets=assets_dict
+                    )
+            except requests.exceptions.RequestException:
+                pass
+
+        return None
+
     def download(
         self,
         result: SearchResult,
@@ -217,13 +281,26 @@ class HyperspectralProvider(BaseProvider):
         max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
+        provider_name = result.provider
+        if provider_name == "hyperspectral":
+            if "EMIT" in result.id.upper():
+                provider_name = "nasa_lpdaac"
+            elif "PRS" in result.id.upper() or "PRISMA" in result.id.upper():
+                provider_name = "asi_prisma"
+            else:
+                provider_name = "dlr_enmap"
 
-        if result.provider == "dlr_enmap":
+        if provider_name == "dlr_enmap":
             u, p = config.dlr_credentials
             if not u or not p:
                 raise ValueError("DLR credentials (DLR_USERNAME, DLR_PASSWORD) required in .env for EnMAP downloads.")
 
-            chosen_key = asset_key or ("image" if "image" in result.assets else "thumbnail")
+            chosen_key = asset_key or ("image" if "image" in result.assets else ("thumbnail" if "thumbnail" in result.assets else (next(iter(result.assets.keys())) if result.assets else None)))
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={result.id}"
+                result.assets["image"] = Asset(key="image", href=dl_url, media_type="image/tiff")
+                chosen_key = "image"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".tif"
@@ -240,10 +317,16 @@ class HyperspectralProvider(BaseProvider):
                 max_workers=max_workers
             )
 
-        elif result.provider == "asi_prisma":
+        elif provider_name == "asi_prisma":
             u, p = config.prisma_credentials
             auth = (u, p) if (u and p) else None
-            chosen_key = asset_key or next(iter(result.assets.keys()))
+
+            chosen_key = asset_key or (next(iter(result.assets.keys())) if result.assets else None)
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://prisma.asi.it/download/{result.id}.he5"
+                result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-hdf5")
+                chosen_key = "data"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".he5"
@@ -260,8 +343,13 @@ class HyperspectralProvider(BaseProvider):
                 max_workers=max_workers
             )
 
-        elif result.provider == "nasa_lpdaac":
-            chosen_key = asset_key or ("browse" if "browse" in result.assets else next(iter(result.assets.keys())))
+        elif provider_name == "nasa_lpdaac":
+            chosen_key = asset_key or ("browse" if "browse" in result.assets else (next(iter(result.assets.keys())) if result.assets else None))
+            if not chosen_key or chosen_key not in result.assets:
+                dl_url = f"https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/{result.id}/{result.id}.nc"
+                result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-netcdf")
+                chosen_key = "data"
+
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".nc"

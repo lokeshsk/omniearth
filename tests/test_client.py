@@ -408,3 +408,146 @@ def test_client_new_modalities_shortcuts():
         assert atmo_ts[0]["nitrogen_dioxide"] == 10.5
 
 
+def test_client_get_item():
+    client = OmniEarth()
+    mock_item = SearchResult(
+        id="ENMAP_TEST_1", collection="enmap-hsi-l2a", category=Category.HYPERSPECTRAL, provider="dlr_enmap",
+        assets={"image": Asset(key="image", href="https://example.com/enmap.tif")}
+    )
+    with patch.object(client._providers[Category.HYPERSPECTRAL], "get_item", return_value=mock_item):
+        res = client.get_item("hyperspectral", "ENMAP_TEST_1")
+        assert res is not None
+        assert res.id == "ENMAP_TEST_1"
+        assert res.provider == "dlr_enmap"
+
+    with patch.object(client._providers[Category.HYPERSPECTRAL], "get_item", return_value=None):
+        assert client.get_item(Category.HYPERSPECTRAL, "NONEXISTENT") is None
+
+
+def test_client_search_and_download():
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="SEARCH_DL_TEST", collection="s2", category=Category.OPTICAL, provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/s2.tif")}
+    )
+    from omniearth.models import SearchResults
+    results = SearchResults([mock_res], client=client)
+
+    with patch.object(client, "search", return_value=results), \
+         patch.object(client, "download_many", return_value=["/tmp/downloaded_s2.tif"]) as mock_dm:
+        paths = client.search_and_download(
+            category="optical",
+            bbox=[78.0, 20.0, 78.5, 20.5],
+            outdir="/tmp",
+            max_workers=2
+        )
+        assert paths == ["/tmp/downloaded_s2.tif"]
+        mock_dm.assert_called_once_with(
+            results=[mock_res],
+            asset_key=None,
+            outdir="/tmp",
+            max_workers=2,
+            resume=True,
+            multipart=True
+        )
+
+
+def test_client_cdse_routing_and_composites(tmp_path):
+    client = OmniEarth()
+    mock_cdse_res = SearchResult(
+        id="S2A_MSIL2A_20261119_CDSE",
+        collection="SENTINEL-2",
+        category=Category.OPTICAL,
+        provider="cdse",
+        properties={"cdse_id": "uuid-123"},
+        assets={"full": Asset(key="full", href="https://example.com/s2.zip")}
+    )
+
+    # 1. Search routing to CDSE provider
+    with patch.object(client._cdse_provider, "search", return_value=[mock_cdse_res]) as mock_cdse_search:
+        # via provider="cdse"
+        res1 = client.search(category="optical", bbox=[0, 0, 1, 1], provider="cdse")
+        assert len(res1) == 1
+        assert res1[0].provider == "cdse"
+
+        # via dataset="cdse"
+        res2 = client.search(category="optical", bbox=[0, 0, 1, 1], dataset="cdse")
+        assert len(res2) == 1
+
+        # via format="safe"
+        res3 = client.search(category="optical", bbox=[0, 0, 1, 1], format="safe")
+        assert len(res3) == 1
+
+    # 2. get_item routing: UUID hint, S2 SAFE hint, fallback
+    with patch.object(client._cdse_provider, "get_item", return_value=mock_cdse_res) as mock_cdse_get:
+        # UUID hint
+        item_uuid = client.get_item("optical", "01234567-89ab-cdef-0123-456789abcdef")
+        assert item_uuid is not None
+
+        # SAFE filename hint
+        item_safe = client.get_item("optical", "S2A_MSIL2A_20261119T0530_TEST")
+        assert item_safe is not None
+
+        # Explicit provider="cdse"
+        item_prov = client.get_item("optical", "ANY_ITEM_ID", provider="cdse")
+        assert item_prov is not None
+
+    with patch.object(client._providers[Category.OPTICAL], "get_item", return_value=None), \
+         patch.object(client._cdse_provider, "get_item", return_value=mock_cdse_res):
+        # Fallback to CDSE
+        item_fallback = client.get_item("optical", "UNKNOWN_AWS_ID")
+        assert item_fallback is not None
+
+    # 3. Download routing to CDSE provider
+    with patch.object(client._cdse_provider, "download", return_value="/tmp/cdse_dl.zip") as mock_cdse_dl:
+        dl1 = client.download(mock_cdse_res, outdir="/tmp")
+        assert dl1 == "/tmp/cdse_dl.zip"
+
+    # Download with composite
+    mock_opt_res = SearchResult(
+        id="AWS_OPT_SCENE",
+        collection="s2",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/vis.tif")}
+    )
+    with patch.object(client._providers[Category.OPTICAL], "download", return_value=str(tmp_path / "bands")), \
+         patch("omniearth.processors.create_composite_from_downloaded", return_value=str(tmp_path / "comp_RGB.tif")):
+        comp_res = client.download(mock_opt_res, composite="rgb", outdir=str(tmp_path))
+        assert comp_res.endswith("comp_RGB.tif")
+
+    # 4. download_all routing with CDSE (returns {"data": dl_path})
+    with patch.object(client._cdse_provider, "download", return_value="/tmp/cdse_all.zip"):
+        dl_all_cdse = client.download_all(mock_cdse_res, format="safe", outdir="/tmp")
+        assert dl_all_cdse == {"data": "/tmp/cdse_all.zip"}
+
+    # download_all with extra kwargs and composite
+    with patch.object(client, "download", return_value="/tmp/part.tif"), \
+         patch("omniearth.processors.create_composite_from_downloaded", return_value="/tmp/all_comp.tif"):
+        dl_all_comp = client.download_all(mock_opt_res, composite="rgb", outdir="/tmp", verify_checksum=True, custom_kw=1)
+        assert dl_all_comp["composite"] == "/tmp/all_comp.tif"
+
+    # 5. download_many with extra kwargs
+    with patch.object(client, "download", return_value="/tmp/many_part.tif"):
+        dl_many_extra = client.download_many([mock_cdse_res], format="safe", bands="rgb", verify_checksum=True, composite="rgb")
+        assert dl_many_extra == ["/tmp/many_part.tif"]
+
+    # 6. search_and_download with extra kwargs
+    from omniearth.models import SearchResults
+    results_sr = SearchResults([mock_cdse_res], client=client)
+    with patch.object(client, "search", return_value=results_sr), \
+         patch.object(client, "download_many", return_value=["/tmp/snd.zip"]):
+        dl_snd = client.search_and_download(
+            category="optical",
+            bbox=[0, 0, 1, 1],
+            format="safe",
+            bands="rgb",
+            verify_checksum=True,
+            composite="rgb"
+        )
+        assert dl_snd == ["/tmp/snd.zip"]
+
+
+
+
+

@@ -166,6 +166,32 @@ export class ElevationProvider extends BaseProvider {
     return results;
   }
 
+  override async getItem(itemId: string): Promise<SearchResult | null> {
+    try {
+      if (itemId.startsWith("Copernicus_DSM_COG_10_")) {
+        const parts = itemId.split("_");
+        const latStr = parts[4];
+        const lonStr = parts[6];
+        const lat = parseInt(latStr.slice(1), 10) * (latStr[0] === "S" ? -1 : 1);
+        const lon = parseInt(lonStr.slice(1), 10) * (lonStr[0] === "W" ? -1 : 1);
+        return this.generateCopernicusTile(lat, lon);
+      } else if (itemId.startsWith("SRTM_GL1_")) {
+        const tile = itemId.replace("SRTM_GL1_", "");
+        const lat = parseInt(tile.slice(1, 3), 10) * (tile[0] === "S" ? -1 : 1);
+        const lon = parseInt(tile.slice(4, 7), 10) * (tile[3] === "W" ? -1 : 1);
+        return this.generateSrtmTile(lat, lon);
+      } else if (itemId.startsWith("ALPSMLC30_") || itemId.startsWith("ALOS_AW3D30_")) {
+        const tile = itemId.replace("ALPSMLC30_", "").replace("_DSM", "").replace("ALOS_AW3D30_", "");
+        const lat = parseInt(tile.slice(1, 4), 10) * (tile[0] === "S" ? -1 : 1);
+        const lon = parseInt(tile.slice(5, 8), 10) * (tile[4] === "W" ? -1 : 1);
+        return this.generateAlosTile(lat, lon);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   override async download(
     result: SearchResult,
     assetKey?: string,

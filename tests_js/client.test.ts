@@ -738,3 +738,279 @@ test("OmniEarth searches and downloads new modalities (Atmosphere, Fire, Ocean, 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("OmniEarth SearchResults fluent methods and searchAndDownload", async () => {
+  const { SearchResults } = await import("../src/types.js");
+  const client = new OmniEarth();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniearth_chain_"));
+
+  const mockItem1 = {
+    id: "SCENE_1",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    datetime: "2026-05-01T00:00:00Z",
+    properties: { cloud_cover: 5.0 },
+    assets: { visual: { key: "visual", href: "https://example.com/s1.tif" } }
+  };
+  const mockItem2 = {
+    id: "SCENE_2",
+    collection: "sentinel-2-l2a",
+    category: Category.OPTICAL,
+    provider: "aws",
+    datetime: "2026-04-01T00:00:00Z",
+    properties: { cloud_cover: 25.0 },
+    assets: { visual: { key: "visual", href: "https://example.com/s2.tif" } }
+  };
+
+  const results = new SearchResults([mockItem1, mockItem2], client);
+  assert.equal(results.first()?.id, "SCENE_1");
+
+  const emptyRes = new SearchResults([], client);
+  assert.equal(emptyRes.first(), undefined);
+
+  // Filter
+  const filtered = results.filterResults({ maxCloudCover: 10.0 });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, "SCENE_1");
+
+  const filterByProvider = results.filterResults({ provider: "aws", collection: "sentinel-2-l2a" });
+  assert.equal(filterByProvider.length, 2);
+
+  // Mock download
+  const origDownload = client.download.bind(client);
+  client.download = async (res: any) => path.join(tmpDir, `${res.id}.tif`);
+
+  try {
+    const downloadedAll = await results.downloadAll(undefined, tmpDir);
+    assert.equal(downloadedAll.length, 2);
+
+    const downloadedIndices = await results.downloadIndices([1], undefined, tmpDir);
+    assert.equal(downloadedIndices.length, 1);
+    assert.ok(downloadedIndices[0].includes("SCENE_2"));
+
+    // Detached client check
+    const detached = new SearchResults([mockItem1]);
+    await assert.rejects(async () => detached.downloadAll(), /No OmniEarth client attached/);
+    await assert.rejects(async () => detached.downloadIndices([0]), /No OmniEarth client attached/);
+
+    // searchAndDownload
+    client.search = async () => new SearchResults([mockItem1], client);
+    const searchDl = await client.searchAndDownload({ category: Category.OPTICAL, bbox: [0, 0, 1, 1] }, undefined, tmpDir);
+    assert.equal(searchDl.length, 1);
+    assert.ok(searchDl[0].includes("SCENE_1"));
+  } finally {
+    client.download = origDownload;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("SearchResults GIS exportGeoJSON, exportCSV, and export", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "oe-export-test-"));
+  try {
+    const item = {
+      id: "S2A_MSIL2A_TEST",
+      collection: "sentinel-2-l2a",
+      category: Category.OPTICAL,
+      provider: "cdse",
+      datetime: "2026-11-19T00:00:00Z",
+      bbox: [78.0, 20.0, 78.5, 20.5] as [number, number, number, number],
+      properties: { cloud_cover: 5.0 },
+      assets: { visual: { key: "visual", href: "https://example.com/vis.jp2" } }
+    };
+    const { SearchResults } = await import("../src/types.js");
+    const results = new SearchResults([item]);
+
+    // GeoJSON export
+    const geojsonPath = path.join(tmpDir, "results.geojson");
+    const outGeo = results.exportGeoJSON(geojsonPath);
+    assert.equal(outGeo, path.resolve(geojsonPath));
+    const geoData = JSON.parse(fs.readFileSync(geojsonPath, "utf-8"));
+    assert.equal(geoData.type, "FeatureCollection");
+    assert.equal(geoData.features.length, 1);
+    assert.equal(geoData.features[0].id, "S2A_MSIL2A_TEST");
+    assert.equal(geoData.features[0].geometry.type, "Polygon");
+
+    // CSV export
+    const csvPath = path.join(tmpDir, "results.csv");
+    const outCsv = results.exportCSV(csvPath);
+    assert.equal(outCsv, path.resolve(csvPath));
+    const csvText = fs.readFileSync(csvPath, "utf-8");
+    assert.ok(csvText.includes("S2A_MSIL2A_TEST"));
+    assert.ok(csvText.includes("sentinel-2-l2a"));
+
+    // Auto export
+    const autoGeo = results.export(path.join(tmpDir, "auto.geojson"));
+    assert.ok(fs.existsSync(autoGeo));
+    const autoCsv = results.export(path.join(tmpDir, "auto.csv"));
+    assert.ok(fs.existsSync(autoCsv));
+
+    // Test all 14 modalities export
+    const allCategories = [
+      Category.OPTICAL, Category.SAR, Category.HYPERSPECTRAL, Category.WEATHER,
+      Category.SOIL, Category.ELEVATION, Category.LANDCOVER, Category.ATMOSPHERE,
+      Category.FIRE, Category.OCEAN, Category.ALTIMETRY, Category.PRECIPITATION,
+      Category.HYDROLOGY, Category.NIGHTLIGHTS
+    ];
+    const items14 = allCategories.map((cat, idx) => ({
+      id: `scene_${cat}_${idx}`,
+      collection: `${cat}-col`,
+      category: cat,
+      provider: `prov_${cat}`,
+      datetime: "2026-11-19T00:00:00Z",
+      bbox: (idx % 2 === 0 ? [78.0, 20.0, 78.5, 20.5] : [78.5, 20.5, 78.5, 20.5]) as [number, number, number, number],
+      properties: {
+        latitude: 20.5,
+        longitude: 78.5,
+        cloud_cover: 2.5
+      },
+      assets: { data: { key: "data", href: `https://example.com/${cat}.tif` } }
+    }));
+    const results14 = new SearchResults(items14);
+    const geo14 = results14.exportGeoJSON(path.join(tmpDir, "all_14.geojson"));
+    const geo14Data = JSON.parse(fs.readFileSync(geo14, "utf-8"));
+    assert.equal(geo14Data.features.length, 14);
+
+    const csv14 = results14.exportCSV(path.join(tmpDir, "all_14.csv"));
+    const csv14Text = fs.readFileSync(csv14, "utf-8");
+    assert.ok(csv14Text.includes("weather"));
+    assert.ok(csv14Text.includes("soil"));
+    assert.ok(csv14Text.includes("fire"));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("CDSEAuthManager and CDSEProvider operations", async () => {
+  const { CDSEAuthManager, CDSEProvider } = await import("../src/providers/cdse.js");
+  const auth = new CDSEAuthManager("test_user", "test_pass");
+
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url: any, opts: any) => {
+    const urlStr = String(url);
+    if (urlStr.includes("openid-connect/token")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: "test_bearer_token_123" })
+      } as any;
+    }
+    if (urlStr.includes("stac.dataspace.copernicus.eu/v1/search")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: [
+            {
+              id: "S2A_MSIL2A_20261119_TEST",
+              properties: { id: "cdse-uuid-123", title: "S2A_MSIL2A_20261119_TEST", "eo:cloud_cover": 2.0 },
+              bbox: [78.0, 20.0, 78.5, 20.5],
+              assets: {
+                B04: { href: "https://download.dataspace.copernicus.eu/B04.jp2", type: "image/jp2" }
+              }
+            }
+          ]
+        })
+      } as any;
+    }
+    if (urlStr.includes("catalogue.dataspace.copernicus.eu/odata/v1/Products")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          value: [
+            {
+              Id: "cdse-uuid-123",
+              Name: "S2A_MSIL2A_20261119_TEST",
+              ContentLength: 1048576,
+              Checksum: [{ Value: "d41d8cd98f00b204e9800998ecf8427e", Algorithm: "MD5" }],
+              Attributes: [{ Name: "cloudCover", Value: "2.0" }]
+            }
+          ]
+        })
+      } as any;
+    }
+    return { ok: false, status: 404 } as any;
+  };
+
+  try {
+    const token = await auth.getToken();
+    assert.equal(token, "test_bearer_token_123");
+
+    const cdse = new CDSEProvider(auth);
+    const searchRes = await cdse.search({ bbox: [78.0, 20.0, 78.5, 20.5] });
+    assert.equal(searchRes.length, 1);
+    assert.equal(searchRes[0].id, "S2A_MSIL2A_20261119_TEST");
+    assert.equal(searchRes[0].provider, "cdse");
+
+    // Band presets
+    const rgbBands = cdse.resolveRequestedBands("rgb", "sentinel2");
+    assert.deepEqual(rgbBands, ["TCI", "B04", "B03", "B02"]);
+    const dualPol = cdse.resolveRequestedBands("dual", "sentinel1");
+    assert.deepEqual(dualPol, ["vh", "vv"]);
+    const customBands = cdse.resolveRequestedBands("B01,B02", "sentinel2");
+    assert.deepEqual(customBands, ["B01", "B02"]);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("Processors resolveCompositeBands and createCompositeFromDownloaded", async () => {
+  const { resolveCompositeBands, createCompositeFromDownloaded } = await import("../src/processors.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "oe-proc-test-"));
+  try {
+    const rFile = path.join(tmpDir, "T32TMT_B04_10m.jp2");
+    const gFile = path.join(tmpDir, "T32TMT_B03_10m.jp2");
+    const bFile = path.join(tmpDir, "T32TMT_B02_10m.jp2");
+    const nirFile = path.join(tmpDir, "T32TMT_B08_10m.jp2");
+    fs.writeFileSync(rFile, "fake-red");
+    fs.writeFileSync(gFile, "fake-green");
+    fs.writeFileSync(bFile, "fake-blue");
+    fs.writeFileSync(nirFile, "fake-nir");
+
+    const rgbBands = resolveCompositeBands(tmpDir, "rgb");
+    assert.equal(rgbBands.red, rFile);
+    assert.equal(rgbBands.green, gFile);
+    assert.equal(rgbBands.blue, bFile);
+
+    const falseColorBands = resolveCompositeBands(tmpDir, "false-color");
+    assert.equal(falseColorBands.red, nirFile);
+    assert.equal(falseColorBands.green, rFile);
+    assert.equal(falseColorBands.blue, gFile);
+
+    const compTif = createCompositeFromDownloaded(tmpDir, "rgb");
+    assert.ok(compTif.endsWith(".tif"));
+    assert.ok(fs.existsSync(`${compTif}.meta.json`));
+
+    // Missing bands check
+    assert.throws(() => resolveCompositeBands([rFile, gFile], "rgb"), /missing band file/);
+    assert.throws(() => resolveCompositeBands(tmpDir, "invalid-type"), /Unsupported composite type/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("BaseProvider getItem coordinate-encoded ID resolution", async () => {
+  const { WeatherProvider } = await import("../src/providers/weather.js");
+  const wp = new WeatherProvider();
+  const origSearch = wp.search;
+  wp.search = async () => [{
+    id: "openmeteo_20.68_78.55_latest",
+    collection: "openmeteo",
+    category: Category.WEATHER,
+    provider: "open_meteo",
+    properties: { latitude: 20.68, longitude: 78.55 },
+    assets: { data: { key: "data", href: "https://example.com/wx.json" } }
+  } as any];
+
+  try {
+    const item = await wp.getItem("openmeteo_20.68_78.55_latest");
+    assert.ok(item);
+    assert.equal(item?.id, "openmeteo_20.68_78.55_latest");
+
+    const noItem = await wp.getItem("invalid_id_no_nums");
+    assert.equal(noItem, null);
+  } finally {
+    wp.search = origSearch;
+  }
+});

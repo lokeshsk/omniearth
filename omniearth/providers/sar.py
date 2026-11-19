@@ -80,6 +80,42 @@ class SARProvider(BaseProvider):
             print(f"[ERROR] SAR STAC search error: {e}")
             return []
 
+    def get_item(self, item_id: str) -> Optional[SearchResult]:
+        """Directly retrieves a specific Sentinel-1 SAR STAC item by ID."""
+        payload = {"ids": [item_id]}
+        try:
+            resp = requests.post(self.STAC_SEARCH_URL, json=payload, timeout=config.timeout)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            features = data.get("features", [])
+            if not features:
+                return None
+            f = features[0]
+            props = f.get("properties", {})
+            assets_dict = {
+                k: Asset(
+                    key=k,
+                    href=a.get("href"),
+                    title=a.get("title", k),
+                    media_type=a.get("type"),
+                    roles=a.get("roles", [])
+                )
+                for k, a in f.get("assets", {}).items()
+            }
+            return SearchResult(
+                id=f.get("id"),
+                collection=f.get("collection", self.DEFAULT_COLLECTION),
+                category=self.category,
+                provider="aws_earth_search_s1",
+                datetime=props.get("datetime"),
+                bbox=f.get("bbox"),
+                properties=props,
+                assets=assets_dict
+            )
+        except requests.exceptions.RequestException:
+            return None
+
     def download(
         self,
         result: SearchResult,
@@ -90,6 +126,8 @@ class SARProvider(BaseProvider):
         max_workers: int = 4
     ) -> str:
         target_dir = outdir or config.default_outdir
+        if not result.assets:
+            raise ValueError(f"No downloadable assets found for SAR scene '{result.id}'.")
         chosen_key = asset_key or ("vv" if "vv" in result.assets else "vh" if "vh" in result.assets else next(iter(result.assets.keys())))
         target_asset = result.assets[chosen_key]
         url = target_asset.href

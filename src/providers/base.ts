@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import { AOI, SearchResult, Asset, Category, FilterOptions } from "../types.js";
 import { config } from "../config.js";
 
@@ -8,6 +9,12 @@ export interface DownloadOptions {
   multipart?: boolean;
   concurrency?: number;
   minMultipartSize?: number;
+  expectedChecksum?: string;
+  checksumAlgorithm?: string;
+  verifyChecksum?: boolean;
+  format?: string;
+  bands?: string | string[];
+  composite?: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -50,6 +57,26 @@ export abstract class BaseProvider {
     endDate?: string,
     filters?: FilterOptions
   ): Promise<SearchResult[]>;
+
+  async getItem(itemId: string): Promise<SearchResult | null> {
+    const numbers = itemId.match(/[-+]?\d*\.?\d+/g);
+    if (numbers && numbers.length >= 2) {
+      try {
+        const lat = parseFloat(numbers[0]);
+        const lon = parseFloat(numbers[1]);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          const aoi: AOI = { bbox: [lon - 0.01, lat - 0.01, lon + 0.01, lat + 0.01] };
+          const results = await this.search(aoi, undefined, undefined, { limit: 1 });
+          if (results && results.length > 0) {
+            return results[0];
+          }
+        }
+      } catch {
+        // Fallback to null
+      }
+    }
+    return null;
+  }
 
   async download(
     result: SearchResult,
@@ -149,6 +176,13 @@ export abstract class BaseProvider {
     }
   }
 
+  protected verifyFileHash(filePath: string, expectedHash: string, algorithm: string = "MD5"): boolean {
+    const algo = algorithm.toUpperCase() === "SHA256" || algorithm.toUpperCase() === "SHA-256" ? "sha256" : "md5";
+    const fileBuf = fs.readFileSync(filePath);
+    const computed = crypto.createHash(algo).update(fileBuf).digest("hex");
+    return computed.toLowerCase() === expectedHash.trim().toLowerCase();
+  }
+
   protected async streamDownload(
     url: string,
     destPath: string,
@@ -159,6 +193,9 @@ export abstract class BaseProvider {
     const multipart = options?.multipart ?? true;
     const concurrency = options?.concurrency ?? 4;
     const minMultipartSize = options?.minMultipartSize ?? (10 * 1024 * 1024);
+    const verifyChecksum = options?.verifyChecksum ?? false;
+    const expectedChecksum = options?.expectedChecksum;
+    const checksumAlgorithm = options?.checksumAlgorithm || "MD5";
 
     const headers: Record<string, string> = {
       "User-Agent": "OmniEarth-NodeSDK/1.3.0",
@@ -186,7 +223,13 @@ export abstract class BaseProvider {
     if (fs.existsSync(destPath)) {
       const stat = fs.statSync(destPath);
       if ((totalSize > 0 && stat.size === totalSize) || (totalSize === 0 && stat.size > 0)) {
-        return;
+        if (verifyChecksum && expectedChecksum) {
+          if (this.verifyFileHash(destPath, expectedChecksum, checksumAlgorithm)) {
+            return;
+          }
+        } else {
+          return;
+        }
       }
     }
 
@@ -206,9 +249,18 @@ export abstract class BaseProvider {
     ) {
       try {
         await this.multipartDownload(url, partPath, totalSize, headers, concurrency);
+        if (verifyChecksum && expectedChecksum) {
+          if (!this.verifyFileHash(partPath, expectedChecksum, checksumAlgorithm)) {
+            try { fs.unlinkSync(partPath); } catch {}
+            throw new Error(`Cryptographic ${checksumAlgorithm} checksum verification failed for ${path.basename(destPath)}`);
+          }
+        }
         fs.renameSync(partPath, destPath);
         return;
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("checksum verification failed")) {
+          throw err;
+        }
         if (fs.existsSync(partPath)) {
           try { fs.unlinkSync(partPath); } catch {}
         }
@@ -267,6 +319,14 @@ export abstract class BaseProvider {
     });
 
     finishProgress(desc, currentBytes);
+
+    if (verifyChecksum && expectedChecksum) {
+      if (!this.verifyFileHash(partPath, expectedChecksum, checksumAlgorithm)) {
+        try { fs.unlinkSync(partPath); } catch {}
+        throw new Error(`Cryptographic ${checksumAlgorithm} checksum verification failed for ${path.basename(destPath)}`);
+      }
+    }
+
     fs.renameSync(partPath, destPath);
   }
 }
