@@ -1,3 +1,38 @@
+# OmniEarth v1.5.1 Release Notes
+
+**Release Date:** November 20, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.5.1](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.5.1](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.5.1 is a targeted patch release introducing **Direct Provider and Dataset Targeting** for hyperspectral missions (ASI PRISMA, NASA EMIT, DLR EnMAP) and elevation models (Copernicus DEM, SRTM, ALOS World 3D-30m), along with authenticated query routing for ASI PRISMA across both the Python and TypeScript SDKs.
+
+---
+
+## Key Highlights in v1.5.1
+
+### 1. Direct Hyperspectral Provider and Dataset Routing
+Users can now query specific hyperspectral constellations directly from the CLI and SDK via `--provider` or `--dataset` (`prisma`, `emit`, `enmap`) without triggering the default multi-sensor cascade:
+- `--provider prisma` / `--dataset prisma`: Queries the ASI PRISMA catalogue with automatic basic authentication (`PRISMA_USERNAME`, `PRISMA_PASSWORD`).
+- `--provider emit` / `--dataset emit`: Queries the NASA LP DAAC STAC endpoint for EMIT L2A reflectance products.
+- `--provider enmap` / `--dataset enmap`: Queries DLR EOC WCS for EnMAP hyperspectral L2A data.
+- Example:
+  ```bash
+  omniearth search --category hyperspectral --provider prisma --aoi 12.4 41.8 12.6 42.0 --year 2026
+  ```
+
+### 2. Interchangeable Elevation Provider and Dataset Flags
+Standardized CLI and client parameter handling for digital elevation models, accepting `--provider` and `--dataset` interchangeably:
+- `--provider copernicus` / `--dataset copernicus`: Copernicus DEM GLO-30 (30m global DSM).
+- `--provider srtm` / `--dataset srtm`: NASA SRTM v3 (30m elevation).
+- `--provider alos` / `--dataset alos`: JAXA ALOS World 3D-30m (AW3D30).
+- Example:
+  ```bash
+  omniearth search --category elevation --provider copernicus --aoi 78.0 20.0 78.5 20.5
+  ```
+
+---
+
 # OmniEarth v1.5.0 Release Notes
 
 **Release Date:** November 20, 2026  

@@ -6,7 +6,7 @@ authors:
     email: "lokesh.skshukla@gmail.com"
     website: "https://lokeshsk.github.io"
 title: "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine"
-version: 1.5.0
+version: 1.5.1
 doi: "10.5281/zenodo.24359617"
 date-released: 2026-11-20
 url: "https://github.com/lokeshsk/omniearth"
