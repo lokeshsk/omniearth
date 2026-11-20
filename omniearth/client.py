@@ -353,14 +353,32 @@ class OmniEarth:
         target_outdir = os.path.join(base_outdir, result.id) if (folder or zip) else base_outdir
         os.makedirs(target_outdir, exist_ok=True)
 
-        keys_to_download = asset_keys
-        if not keys_to_download:
-            keys_to_download = [
+        raw_keys = asset_keys
+        if not raw_keys:
+            raw_keys = [
                 k for k, a in result.assets.items()
                 if not k.startswith("s3_") and not (a.href or "").startswith("s3://")
             ]
-        if not keys_to_download and result.provider != "cdse" and not bands:
+        if not raw_keys and result.provider != "cdse" and not bands:
             raise ValueError(f"No assets found to download for result '{result.id}'")
+
+        seen_hrefs = set()
+        keys_to_download = []
+        duplicate_key_map = {}
+
+        for k in raw_keys:
+            asset = result.assets.get(k)
+            href = (asset.href.split("?")[0]) if (asset and asset.href) else None
+            if href:
+                if href in seen_hrefs:
+                    for prev_k in keys_to_download:
+                        prev_asset = result.assets.get(prev_k)
+                        if prev_asset and (prev_asset.href or "").split("?")[0] == href:
+                            duplicate_key_map[k] = prev_k
+                            break
+                    continue
+                seen_hrefs.add(href)
+            keys_to_download.append(k)
 
         if result.provider == "cdse" or format in ("safe", "raw", "node", "band") or bands:
             dl_path = self.download(
@@ -394,37 +412,42 @@ class OmniEarth:
             extra["verify_checksum"] = verify_checksum
         extra.update(kwargs)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(keys_to_download))) as executor:
-            if has_extra:
-                future_to_key = {
-                    executor.submit(
-                        self.download,
-                        result,
-                        k,
-                        target_outdir,
-                        resume,
-                        multipart,
-                        1,
-                        **extra
-                    ): k
-                    for k in keys_to_download
-                }
-            else:
-                future_to_key = {
-                    executor.submit(
-                        self.download,
-                        result,
-                        k,
-                        target_outdir,
-                        resume,
-                        multipart,
-                        1
-                    ): k
-                    for k in keys_to_download
-                }
-            for future in concurrent.futures.as_completed(future_to_key):
-                k = future_to_key[future]
-                results_dict[k] = future.result()
+        if keys_to_download:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(keys_to_download)))) as executor:
+                if has_extra:
+                    future_to_key = {
+                        executor.submit(
+                            self.download,
+                            result,
+                            k,
+                            target_outdir,
+                            resume,
+                            multipart,
+                            1,
+                            **extra
+                        ): k
+                        for k in keys_to_download
+                    }
+                else:
+                    future_to_key = {
+                        executor.submit(
+                            self.download,
+                            result,
+                            k,
+                            target_outdir,
+                            resume,
+                            multipart,
+                            1
+                        ): k
+                        for k in keys_to_download
+                    }
+                for future in concurrent.futures.as_completed(future_to_key):
+                    k = future_to_key[future]
+                    results_dict[k] = future.result()
+
+        for dup_k, canon_k in duplicate_key_map.items():
+            if canon_k in results_dict:
+                results_dict[dup_k] = results_dict[canon_k]
 
         if composite:
             from omniearth.processors import create_composite_from_downloaded

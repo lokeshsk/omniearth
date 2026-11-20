@@ -557,6 +557,7 @@ def test_client_download_folder_and_zip(tmp_path):
         provider="aws",
         assets={
             "visual": Asset(key="visual", href="https://example.com/visual.tif"),
+            "preview": Asset(key="preview", href="https://example.com/visual.tif"),
             "data": Asset(key="data", href="https://example.com/data.tif"),
         }
     )
@@ -566,11 +567,12 @@ def test_client_download_folder_and_zip(tmp_path):
         assert zip_path.endswith(".zip")
         assert os.path.exists(zip_path)
 
-        # Download all with zip=True
+        # Download all with zip=True and deduplication mapping verification
         all_res = client.download_all(mock_res, outdir=str(tmp_path / "multi"), folder=True, zip=True)
         assert "zip" in all_res
         assert all_res["zip"].endswith(".zip")
         assert os.path.exists(all_res["zip"])
+        assert all_res["preview"] == all_res["visual"]
 
         # CDSE zip return branch in download_all
         cdse_res = SearchResult(

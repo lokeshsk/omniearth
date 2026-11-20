@@ -289,6 +289,7 @@ test("OmniEarth downloadAll and downloadMany", async () => {
     provider: "aws",
     assets: {
       visual: { key: "visual", href: "https://example.com/vis1.tif" },
+      preview: { key: "preview", href: "https://example.com/vis1.tif" },
       data: { key: "data", href: "https://example.com/data1.tif" }
     }
   };
@@ -322,9 +323,10 @@ test("OmniEarth downloadAll and downloadMany", async () => {
   try {
     const testDir = path.join(os.tmpdir(), "omniearth_js_all_test_" + Date.now());
     const downloaded = await client.downloadAll(res1, undefined, testDir, { concurrency: 2 });
-    assert.equal(Object.keys(downloaded).length, 2);
+    assert.equal(Object.keys(downloaded).length, 3);
     assert.ok(downloaded["visual"].includes("vis1.tif"));
     assert.ok(downloaded["data"].includes("data1.tif"));
+    assert.equal(downloaded["preview"], downloaded["visual"]);
 
     const manyDownloaded = await client.downloadMany([res1, res2], "visual", testDir, { concurrency: 2 });
     assert.equal(manyDownloaded.length, 2);

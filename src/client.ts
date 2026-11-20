@@ -297,9 +297,32 @@ export class OmniEarth {
       return resDict;
     }
 
-    const keys = assetKeys || Object.keys(result.assets).filter((k) => !k.startsWith("s3_") && (!result.assets[k].href || !result.assets[k].href.startsWith("s3://")));
-    if (keys.length === 0) {
+    const rawKeys = assetKeys || Object.keys(result.assets).filter((k) => !k.startsWith("s3_") && (!result.assets[k].href || !result.assets[k].href.startsWith("s3://")));
+    if (rawKeys.length === 0) {
       throw new Error(`No assets found to download for item '${result.id}'`);
+    }
+
+    const seenHrefs = new Set<string>();
+    const keys: string[] = [];
+    const duplicateKeyMap: Record<string, string> = {};
+
+    for (const k of rawKeys) {
+      const asset = result.assets[k];
+      const href = asset?.href ? asset.href.split("?")[0] : null;
+      if (href) {
+        if (seenHrefs.has(href)) {
+          const canonKey = keys.find(existingKey => {
+            const h = result.assets[existingKey]?.href?.split("?")[0];
+            return h === href;
+          });
+          if (canonKey) {
+            duplicateKeyMap[k] = canonKey;
+          }
+          continue;
+        }
+        seenHrefs.add(href);
+      }
+      keys.push(k);
     }
 
     const downloaded: Record<string, string> = {};
@@ -313,6 +336,12 @@ export class OmniEarth {
           downloaded[k] = filePath;
         })
       );
+    }
+
+    for (const [dupKey, canonKey] of Object.entries(duplicateKeyMap)) {
+      if (downloaded[canonKey]) {
+        downloaded[dupKey] = downloaded[canonKey];
+      }
     }
 
     if (options?.composite) {

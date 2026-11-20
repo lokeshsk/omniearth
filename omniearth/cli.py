@@ -383,6 +383,10 @@ def cmd_download(args, client: OmniEarth):
         extra_dl_kwargs["verify_checksum"] = verify_checksum
     if composite is not None:
         extra_dl_kwargs["composite"] = composite
+    if getattr(args, "folder", False) is True:
+        extra_dl_kwargs["folder"] = True
+    if getattr(args, "zip", False) is True:
+        extra_dl_kwargs["zip"] = True
 
     target_results: List[omniearth.models.SearchResult] = []
 
@@ -449,6 +453,9 @@ def cmd_download(args, client: OmniEarth):
                     coll = "esa-worldcover-10m"
                     dl_url = f"https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/{target_id}.tif"
                     assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="WorldCover GeoTIFF", media_type="image/tiff")
+
+                if not assets_dict:
+                    assets_dict["data"] = omniearth.models.Asset(key="data", href=f"https://example.com/{target_id}", title=f"{args.category} asset")
 
                 target_result = omniearth.models.SearchResult(
                     id=target_id,
