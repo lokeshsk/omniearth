@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
 [![Documentation](https://img.shields.io/badge/docs-guide.html-blue.svg)](https://lokeshsk.github.io/omniearth/guide.html)
-[![Release](https://img.shields.io/badge/release-v1.4.0-brightgreen.svg)](RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v1.5.0-brightgreen.svg)](RELEASE_NOTES.md)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
 [![npm version](https://img.shields.io/npm/v/omniearth.svg?color=green)](https://www.npmjs.com/package/omniearth)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/lokeshsk/omniearth)
@@ -247,10 +247,40 @@ omniearth download --category optical \
   --outdir ./downloads
 ```
 
-### Step 10: Network Interruption Resumption
+### Step 10: Interactive Asset Picker & Universal Semantic Aliases
+OmniEarth v1.5.0 features an interactive terminal asset selector and universal semantic aliasing across all 14 modalities:
+```bash
+# 1. Interactive terminal picker: inspects all assets with human-readable file sizes and prompts for selection
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_20260819T071612_2623105_035 -i
+
+# 2. Universal Semantic Asset Aliasing (no need to memorize obscure internal STAC keys):
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_... --asset rfl       # Downloads science reflectance cube
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_... --asset mask      # Downloads quality/cloud mask
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_... --asset browse    # Downloads browse preview
+omniearth download --category elevation --id Copernicus_DSM_COG_... --asset dem        # Downloads elevation DEM COG
+omniearth download --category landcover --id ESA_WorldCover_10m_... --asset map         # Downloads WorldCover GeoTIFF
+omniearth download --category sar --id S1A_IW_GRDH_1SDV_... --asset vh                 # Downloads VH polarization
+omniearth download --category atmosphere --id S5P_RPRO_L2__NO2____... --asset no2       # Downloads Sentinel-5P NO2 NetCDF
+```
+
+### Step 11: Dedicated Scene Packaging (--folder) and Direct Zip Archiving (--zip)
+Isolate complex multi-file scenes into dedicated subfolders or bundle them directly into compressed `.zip` packages:
+```bash
+# 1. Download all scene assets into a dedicated scene subdirectory (<outdir>/<scene_id>/...):
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_... --all --folder --outdir ./downloads
+
+# 2. Package all downloaded assets directly into a single compressed .zip archive:
+omniearth download --category elevation --id Copernicus_DSM_COG_10_N20_00_E078_00_DEM --zip --outdir ./downloads
+# Creates: ./downloads/Copernicus_DSM_COG_10_N20_00_E078_00_DEM.zip
+
+# 3. Archive a full multi-asset scene directly to ZIP with automated parallel URL deduplication:
+omniearth download --category optical --id S2A_32TPT_20260315_0_L2A --all --zip --outdir ./downloads
+```
+
+### Step 12: Network Interruption Resumption
 If a connection drops during a large download, re-run the same command. OmniEarth detects the `<file>.part` staging file, queries byte ranges via `HTTP 206 Partial Content`, and automatically resumes without restarting from byte 0.
 
-### Step 11: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
+### Step 13: On-the-Fly Biophysical & Spectral Indices (9 Sensors-Agnostic Indices)
 Compute standard remote sensing vegetation, water, soil, and burn ratio indices directly from CLI:
 - Supported: `ndvi`, `ndwi`, `ndre`, `evi`, `nbr`, `savi`, `msavi`, `bsi`, `mndwi`.
 ```bash
@@ -267,7 +297,7 @@ omniearth compute --index evi --nir 0.75 --red 0.15 --blue 0.08
 omniearth compute --index ndvi --nir "[0.8, 0.7, 0.85]" --red "[0.2, 0.15, 0.22]" --outpath ./ndvi_stats.json
 ```
 
-### Step 12: Historical Time-Series Extraction
+### Step 14: Historical Time-Series Extraction
 Extract chronological time-series profiles across satellite passes or hourly weather observations:
 ```bash
 # Hourly meteorological time-series
@@ -379,16 +409,35 @@ if optical_scenes:
     print(f"Downloaded to: {file_path}")
 ```
 
-### Step 6: Concurrent Multi-Asset Download (download_all)
+### Step 6: Concurrent Multi-Asset Download, Folder Isolation & Zip Archiving (download_all)
 ```python
-# Concurrently download all assets (B02, B03, B04, B08, visual) for a scene:
+# 1. Concurrently download all assets into an isolated scene folder (<outdir>/<scene_id>/...):
 downloaded_map = client.download_all(
     result=scene,
+    folder=True,
     outdir="./downloads",
     max_workers=4
 )
 for asset_key, path in downloaded_map.items():
     print(f"Asset '{asset_key}' saved to: {path}")
+
+# 2. Package all downloaded assets directly into a .zip archive:
+archive_map = client.download_all(
+    result=scene,
+    zip=True,
+    outdir="./downloads"
+)
+print("Archived scene package:", archive_map["zip"])
+
+# 3. Download a single asset with universal semantic aliasing directly to zip:
+zip_file = client.download(
+    result=scene,
+    asset_key="visual",
+    folder=True,
+    zip=True,
+    outdir="./downloads"
+)
+print("Single-asset zip:", zip_file)
 ```
 
 ### Step 7: Bulk Downloading Across Multiple Scenes (download_many)
@@ -557,13 +606,20 @@ if (results.length > 0) {
 }
 ```
 
-### Step 4: Concurrent Multi-Asset Download (downloadAll)
+### Step 4: Concurrent Multi-Asset Download, Folder Isolation & Zip Archiving (downloadAll)
 ```typescript
-// Download all assets for a given scene in concurrent batches:
+// 1. Download all assets for a given scene into an isolated scene folder (<outdir>/<scene_id>/...):
 const assetMap = await client.downloadAll(results[0], undefined, "./downloads", {
-  concurrency: 4
+  concurrency: 4,
+  folder: true
 });
 console.log("Downloaded assets:", assetMap);
+
+// 2. Package all downloaded assets directly into a .zip archive:
+const zipMap = await client.downloadAll(results[0], undefined, "./downloads", {
+  zip: true
+});
+console.log("Archived scene package:", zipMap.zip);
 ```
 
 ### Step 5: Bulk Downloads Across Scenes (downloadMany)
