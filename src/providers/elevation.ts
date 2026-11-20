@@ -135,7 +135,7 @@ export class ElevationProvider extends BaseProvider {
     endDate?: string,
     filters?: FilterOptions
   ): Promise<SearchResult[]> {
-    const dataset = (filters?.dataset || "copernicus").toLowerCase();
+    const dataset = (filters?.provider || filters?.dataset || "copernicus").toLowerCase();
     const limit = filters?.limit || 10;
 
     const [minx, miny, maxx, maxy] = aoi.bbox;
