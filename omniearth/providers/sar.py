@@ -128,17 +128,18 @@ class SARProvider(BaseProvider):
         target_dir = outdir or config.default_outdir
         if not result.assets:
             raise ValueError(f"No downloadable assets found for SAR scene '{result.id}'.")
-        chosen_key = asset_key or ("vv" if "vv" in result.assets else "vh" if "vh" in result.assets else next(iter(result.assets.keys())))
+        chosen_key = result.resolve_asset_key(asset_key) or next(iter(result.assets.keys()))
         target_asset = result.assets[chosen_key]
         url = target_asset.href
-        ext = os.path.splitext(url)[1].split("?")[0] or ".tif"
-        filename = f"{result.id}_{chosen_key}{ext}"
+        ext = os.path.splitext(url.split("?")[0])[1] or ".tif"
+        safe_key = chosen_key.replace("/", "_")
+        filename = f"{result.id}_{safe_key}{ext}"
         outpath = os.path.join(target_dir, filename)
 
         return self._stream_download(
             url=url,
             outpath=outpath,
-            desc=f"{result.id[:18]} [{chosen_key}]",
+            desc=f"{result.id[:18]} [{safe_key}]",
             resume=resume,
             multipart=multipart,
             max_workers=max_workers

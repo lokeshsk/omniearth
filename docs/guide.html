@@ -344,7 +344,7 @@
   <!-- TOP NAV -->
   <header class="top-nav">
     <a href="index.html" class="brand">
-      OmniEarth <span class="badge-ver">v1.4.0</span>
+      OmniEarth <span class="badge-ver">v1.5.0</span>
     </a>
     <nav class="nav-links">
       <a href="index.html">Overview</a>
@@ -736,7 +736,16 @@ omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands
 omniearth download --category optical --id "<CDSE_UUID>" --provider cdse --bands rgb --composite rgb -o ./composites
 
 # Download all 13 assets of a hyperspectral scene concurrently
-omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_... --all --threads 6</code></pre>
+omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_... --all --threads 6
+
+# Interactive asset selector prompt (lists asset keys, formats, sizes to pick from)
+omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_20260819T071612_2623105_035 -i
+
+# Download scene files into dedicated scene subdirectory (<outdir>/<scene_id>/...)
+omniearth download --category optical --id S2A_32TPT_20260315_0_L2A --all --folder
+
+# Download scene assets and compress into a single .zip archive
+omniearth download --category elevation --id Copernicus_DSM_COG_10_N20_00_E078_00_DEM --zip</code></pre>
 
         <div class="table-container">
           <table>
@@ -802,6 +811,24 @@ omniearth download --category hyperspectral --id ENMAP01-____L2A-DT0000174819_..
                 <td>Flag</td>
                 <td>False</td>
                 <td>Downloads every single asset associated with the scene in parallel.</td>
+              </tr>
+              <tr>
+                <td><code>-i, --interactive</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Interactively inspects available assets and prompts to select an asset or download all.</td>
+              </tr>
+              <tr>
+                <td><code>--folder</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Isolates downloaded scene assets into a dedicated scene folder (<code>&lt;outdir&gt;/&lt;scene_id&gt;/</code>).</td>
+              </tr>
+              <tr>
+                <td><code>--zip</code></td>
+                <td>Flag</td>
+                <td>False</td>
+                <td>Packages downloaded scene files directly into a compressed <code>&lt;scene_id&gt;.zip</code> archive.</td>
               </tr>
               <tr>
                 <td><code>--threads, -t</code></td>

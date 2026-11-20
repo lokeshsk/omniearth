@@ -156,15 +156,8 @@ class LandcoverProvider(BaseProvider):
         max_workers: int = 4
     ) -> str:
         """Download Land Cover raster tile with resumable, multipart streaming."""
-        target_asset = None
-        if asset_key and asset_key in result.assets:
-            target_asset = result.assets[asset_key]
-        elif "map" in result.assets:
-            target_asset = result.assets["map"]
-        elif "data" in result.assets:
-            target_asset = result.assets["data"]
-        elif result.assets:
-            target_asset = next(iter(result.assets.values()))
+        resolved_key = result.resolve_asset_key(asset_key)
+        target_asset = (result.assets.get(resolved_key) if resolved_key else None) or (next(iter(result.assets.values())) if result.assets else None)
 
         if not target_asset or not target_asset.href:
             raise ValueError(f"No valid Landcover asset found to download for '{result.id}'")

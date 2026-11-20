@@ -1,4 +1,20 @@
 import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
+
+function archiveFolderSync(sourceDir: string, zipPath: string): string {
+  try {
+    const parentDir = path.dirname(sourceDir);
+    const folderName = path.basename(sourceDir);
+    if (process.platform === "win32") {
+      execSync(`powershell -Command "Compress-Archive -Path '${sourceDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: "ignore" });
+    } else {
+      execSync(`cd "${parentDir}" && zip -r -q "${path.resolve(zipPath)}" "${folderName}"`, { stdio: "ignore" });
+    }
+    if (fs.existsSync(zipPath)) return zipPath;
+  } catch {}
+  return sourceDir;
+}
 import {
   Category,
   AOI,
@@ -214,6 +230,12 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<string> {
+    const baseOutdir = outdir || config.defaultOutdir;
+    const targetOutdir = (options?.folder || options?.zip) ? path.join(baseOutdir, result.id) : baseOutdir;
+    if (!fs.existsSync(targetOutdir)) {
+      fs.mkdirSync(targetOutdir, { recursive: true });
+    }
+
     let downloadedPath: string;
 
     if (
@@ -224,13 +246,13 @@ export class OmniEarth {
       options?.format === "band" ||
       (options?.bands !== undefined && result.provider === "cdse")
     ) {
-      downloadedPath = await this.cdseProvider.download(result, assetKey, outdir, options);
+      downloadedPath = await this.cdseProvider.download(result, assetKey, targetOutdir, options);
     } else {
       const provider = this.providers.get(result.category);
       if (!provider) {
         throw new Error(`No provider adapter found for category '${result.category}'`);
       }
-      downloadedPath = await provider.download(result, assetKey, outdir, options);
+      downloadedPath = await provider.download(result, assetKey, targetOutdir, options);
     }
 
     if (options?.composite) {
@@ -239,6 +261,11 @@ export class OmniEarth {
         const comp = createCompositeFromDownloaded(downloadedPath, options.composite);
         if (comp) return comp;
       } catch {}
+    }
+
+    if (options?.zip && !downloadedPath.endsWith(".zip") && fs.existsSync(targetOutdir)) {
+      const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+      return archiveFolderSync(targetOutdir, zipPath);
     }
 
     return downloadedPath;
@@ -250,14 +277,52 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<Record<string, string>> {
-    if (result.provider === "cdse" || options?.format === "safe" || options?.format === "raw" || options?.bands) {
-      const dl = await this.download(result, undefined, outdir, options);
-      return { data: dl };
+    const baseOutdir = outdir || config.defaultOutdir;
+    const targetOutdir = (options?.folder !== false) ? path.join(baseOutdir, result.id) : baseOutdir;
+    if (!fs.existsSync(targetOutdir)) {
+      fs.mkdirSync(targetOutdir, { recursive: true });
     }
 
-    const keys = assetKeys || Object.keys(result.assets);
-    if (keys.length === 0) {
+    if (result.provider === "cdse" || options?.format === "safe" || options?.format === "raw" || options?.bands) {
+      const dl = await this.download(result, undefined, targetOutdir, { ...options, zip: false });
+      const resDict: Record<string, string> = { data: dl };
+      if (options?.zip) {
+        if (dl.endsWith(".zip")) {
+          resDict["zip"] = dl;
+        } else if (fs.existsSync(targetOutdir)) {
+          const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+          resDict["zip"] = archiveFolderSync(targetOutdir, zipPath);
+        }
+      }
+      return resDict;
+    }
+
+    const rawKeys = assetKeys || Object.keys(result.assets).filter((k) => !k.startsWith("s3_") && (!result.assets[k].href || !result.assets[k].href.startsWith("s3://")));
+    if (rawKeys.length === 0) {
       throw new Error(`No assets found to download for item '${result.id}'`);
+    }
+
+    const seenHrefs = new Set<string>();
+    const keys: string[] = [];
+    const duplicateKeyMap: Record<string, string> = {};
+
+    for (const k of rawKeys) {
+      const asset = result.assets[k];
+      const href = asset?.href ? asset.href.split("?")[0] : null;
+      if (href) {
+        if (seenHrefs.has(href)) {
+          const canonKey = keys.find(existingKey => {
+            const h = result.assets[existingKey]?.href?.split("?")[0];
+            return h === href;
+          });
+          if (canonKey) {
+            duplicateKeyMap[k] = canonKey;
+          }
+          continue;
+        }
+        seenHrefs.add(href);
+      }
+      keys.push(k);
     }
 
     const downloaded: Record<string, string> = {};
@@ -267,10 +332,16 @@ export class OmniEarth {
       const batch = keys.slice(i, i + concurrency);
       await Promise.all(
         batch.map(async (k) => {
-          const filePath = await this.download(result, k, outdir, { ...options, multipart: false });
+          const filePath = await this.download(result, k, targetOutdir, { ...options, multipart: false, folder: false, zip: false });
           downloaded[k] = filePath;
         })
       );
+    }
+
+    for (const [dupKey, canonKey] of Object.entries(duplicateKeyMap)) {
+      if (downloaded[canonKey]) {
+        downloaded[dupKey] = downloaded[canonKey];
+      }
     }
 
     if (options?.composite) {
@@ -279,6 +350,11 @@ export class OmniEarth {
         const comp = createCompositeFromDownloaded(Object.values(downloaded), options.composite);
         if (comp) downloaded["composite"] = comp;
       } catch {}
+    }
+
+    if (options?.zip && fs.existsSync(targetOutdir)) {
+      const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+      downloaded["zip"] = archiveFolderSync(targetOutdir, zipPath);
     }
 
     return downloaded;

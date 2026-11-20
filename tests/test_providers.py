@@ -1614,6 +1614,9 @@ def test_cdse_provider_items_nodes_and_downloads(tmp_path):
         res_dl = provider.download(item_uuid, format="band", bands="B04", outdir=str(tmp_path))
         assert res_dl == str(tmp_path / "b4.jp2")
 
+        res_dl_asset = provider.download(item_uuid, asset_key="B04", outdir=str(tmp_path))
+        assert res_dl_asset == str(tmp_path / "b4.jp2")
+
     # download band extraction multiple bands returns product folder
     with patch.object(auth, "get_token", return_value="tok"), \
          patch.object(provider, "find_files_for_bands", return_value=[

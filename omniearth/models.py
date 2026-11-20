@@ -266,10 +266,153 @@ class SearchResult(BaseModel):
             }
         return None
 
+    def resolve_asset_key(self, query: Optional[str] = None) -> Optional[str]:
+        """
+        Resolves friendly asset names/aliases or selects the primary science asset.
+        Supports aliases: 'data', 'rfl', 'cube', 'nc', 'image', 'visual', 'uncert',
+        'mask', 'browse', 'preview', 'metadata', or partial/case-insensitive key matching.
+        """
+        if not self.assets:
+            return None
+
+        if not query or not str(query).strip():
+            for k in (
+                "visual", "data", "image", "dem", "map", "vv", "SPECTRAL_IMAGE_COG",
+                "tropospheric_no2", "chlorophyll_a", "altimetry_l2", "gpm_imerg_daily",
+                "surface_soil_moisture", "dnb_radiance"
+            ):
+                if k in self.assets:
+                    return k
+            for k, a in self.assets.items():
+                if k.startswith("s3_") or "s3://" in (a.href or ""):
+                    continue
+                k_lower = k.lower()
+                href_lower = (a.href or "").lower()
+                if any(skip in k_lower for skip in ("browse", "thumbnail", "uncert", "mask", "metadata", "xml")):
+                    continue
+                if any(ext in href_lower for ext in (".nc", ".he5", ".tif", ".tiff", ".zip", ".tar", ".safe")):
+                    return k
+                if "rfl" in k_lower or "reflectance" in k_lower or "cube" in k_lower:
+                    return k
+            for k, a in self.assets.items():
+                if not k.startswith("s3_") and "s3://" not in (a.href or ""):
+                    return k
+            return next(iter(self.assets.keys()))
+
+        q = str(query).strip().lower()
+        if query in self.assets:
+            return query
+        for k in self.assets:
+            if k.lower() == q:
+                return k
+
+        if q in ("visual", "rgb", "truecolor", "tci"):
+            for cand in ("visual", "image", "tci", "rgb", "preview"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("dem", "elevation", "dsm", "dtm", "altitude"):
+            for cand in ("dem", "elevation", "dsm", "dtm"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("map", "landcover", "classification", "worldcover"):
+            for cand in ("map", "landcover", "classification", "worldcover"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("sar", "radar"):
+            for cand in ("vv", "vh", "hh", "hv"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("no2", "tropospheric_no2", "cams", "s5p", "tracegas"):
+            for cand in ("tropospheric_no2", "no2", "cams"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("ocean", "chlorophyll", "chlorophyll_a", "sst"):
+            for cand in ("chlorophyll_a", "chlorophyll", "ocean"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("altimetry", "altimetry_l2", "ssh"):
+            for cand in ("altimetry_l2", "altimetry", "ssh"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("precipitation", "gpm", "gpm_imerg_daily", "rain", "rainfall"):
+            for cand in ("gpm_imerg_daily", "gpm", "precipitation", "rain"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("hydrology", "moisture", "surface_soil_moisture"):
+            for cand in ("surface_soil_moisture", "hydrology", "moisture"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("nightlights", "dnb", "dnb_radiance", "viirs", "radiance"):
+            for cand in ("dnb_radiance", "dnb", "nightlights", "radiance"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("weather", "meteo", "forecast"):
+            for cand in ("data", "weather", "feed"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("soil", "soilgrids", "profile"):
+            for cand in ("soil_profile", "soilgrids", "profile", "soil"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and "moisture" not in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("data", "cube", "science", "rfl", "reflectance", "nc", "image"):
+            for k, a in self.assets.items():
+                if k.startswith("s3_") or "s3://" in (a.href or ""):
+                    continue
+                k_lower = k.lower()
+                href_lower = (a.href or "").lower()
+                if any(skip in k_lower for skip in ("browse", "thumbnail", "uncert", "mask", "metadata")):
+                    continue
+                if any(ext in href_lower for ext in (".nc", ".he5", ".tif", ".tiff")) or "rfl" in k_lower:
+                    return k
+        elif q in ("uncert", "uncertainty"):
+            for k in self.assets:
+                if "uncert" in k.lower() and not k.startswith("s3_"):
+                    return k
+        elif q in ("mask", "cloud_mask", "qa"):
+            for k in self.assets:
+                if "mask" in k.lower() and not k.startswith("s3_"):
+                    return k
+        elif q in ("browse", "preview", "thumbnail", "thumb", "png", "jpg", "jpeg"):
+            for k in self.assets:
+                if any(w in k.lower() for w in ("browse", "thumbnail", "preview")) and not k.startswith("s3_"):
+                    return k
+        elif q in ("metadata", "meta", "xml", "info"):
+            for k in self.assets:
+                if any(w in k.lower() for w in ("metadata", "meta", "xml")):
+                    return k
+        elif q in ("safe", "full", "product", "raw", "zip"):
+            for cand in ("safe", "full", "product", "raw", "data"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+
+        for k in self.assets:
+            if not k.startswith("s3_") and q in k.lower():
+                return k
+
+        for k in self.assets:
+            if q in k.lower():
+                return k
+
+        return None
+
     def get_download_url(self, preferred_key: str = "data") -> Optional[str]:
         """Returns the primary asset download URL."""
-        if preferred_key in self.assets:
-            return self.assets[preferred_key].href
+        resolved = self.resolve_asset_key(preferred_key)
+        if resolved and resolved in self.assets:
+            return self.assets[resolved].href
         if "data" in self.assets:
             return self.assets["data"].href
         if "image" in self.assets:

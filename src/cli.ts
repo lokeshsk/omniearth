@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { OmniEarth } from "./client.js";
-import { Category } from "./types.js";
+import { Category, resolveAssetKey } from "./types.js";
 import { config } from "./config.js";
 
 const ASCII_BANNER = `  ___  __  __ _   _ ___ _____    _    ____ _____ _   _ 
@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.4.0")
+  .version("1.5.0")
   .addHelpText("before", `\n${ASCII_BANNER}\n`);
 
 program
@@ -104,7 +104,7 @@ program
     console.log(ASCII_BANNER);
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.4.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.5.0 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");
@@ -318,6 +318,9 @@ program
   .option("--limit <number>", "Maximum number of scenes to download when searching by AOI", "1")
   .option("--all-scenes", "Download all matching scenes found in AOI up to --limit")
   .option("--all", "Download all assets associated with the scene concurrently")
+  .option("-i, --interactive", "Prompt interactively to choose specific assets or download all")
+  .option("--folder", "Download scene assets into a dedicated subfolder named by the scene ID")
+  .option("--zip", "Package downloaded scene assets into a .zip archive")
   .option("-t, --threads <number>", "Number of parallel worker threads", "4")
   .option("--no-resume", "Disable byte-range download resumption")
   .option("--no-multipart", "Disable parallel chunked multipart downloading")
@@ -442,15 +445,60 @@ program
 
       if (targetResults.length === 1) {
         const targetResult = targetResults[0];
-        if (opts.all) {
-          const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, downloadOpts);
-          console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${opts.outdir}`);
-          for (const [k, p] of Object.entries(downloaded)) {
-            console.log(`  * ${k}: ${p}`);
+        if (opts.interactive && targetResult.assets) {
+          const availKeys = Object.keys(targetResult.assets).filter((k) => !k.startsWith("s3_") && (!targetResult.assets[k].href || !targetResult.assets[k].href.startsWith("s3://")));
+          if (availKeys.length > 0) {
+            console.log(`\nAvailable assets for '${targetResult.id}':`);
+            availKeys.forEach((k, idx) => {
+              const a = targetResult.assets[k];
+              const baseName = (k.split("/").pop() || k);
+              const mtype = a.mediaType || a.media_type ? ` [${a.mediaType || a.media_type}]` : "";
+              console.log(`  [${idx + 1}] ${baseName}${mtype}`);
+            });
+            console.log("  [a] all (download all assets into dedicated folder)");
+            const readline = await import("readline");
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            const answer: string = await new Promise((resolve) => {
+              rl.question("\nSelect asset to download (1-N, 'all', or 'q' to quit): ", (ans) => {
+                rl.close();
+                resolve(ans.trim().toLowerCase());
+              });
+            });
+            if (answer === "q" || answer === "quit" || !answer) {
+              console.log("Download cancelled.");
+              return;
+            } else if (answer === "a" || answer === "all") {
+              opts.all = true;
+            } else {
+              const num = parseInt(answer, 10);
+              if (num >= 1 && num <= availKeys.length) {
+                opts.asset = availKeys[num - 1];
+              }
+            }
+          }
+        }
+
+        const resolvedKey = resolveAssetKey(targetResult, opts.asset);
+        const finalAssetKey = resolvedKey || opts.asset;
+
+        if (opts.all || (opts.zip && !opts.asset)) {
+          const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, { ...downloadOpts, folder: true, zip: opts.zip });
+          if (opts.zip && downloaded["zip"]) {
+            console.log(`\nSuccessfully archived scene package: ${downloaded["zip"]}`);
+          } else {
+            const targetDirDisp = (opts.folder || opts.all) ? `${opts.outdir}/${targetResult.id}` : opts.outdir;
+            console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${targetDirDisp}`);
+            for (const [k, p] of Object.entries(downloaded)) {
+              console.log(`  * ${k}: ${p}`);
+            }
           }
         } else {
-          const filePath = await client.download(targetResult, opts.asset, opts.outdir, downloadOpts);
-          console.log(`Successfully downloaded: ${filePath}`);
+          const filePath = await client.download(targetResult, finalAssetKey, opts.outdir, { ...downloadOpts, folder: opts.folder || opts.zip, zip: opts.zip });
+          if (opts.zip) {
+            console.log(`\nSuccessfully archived scene package: ${filePath}`);
+          } else {
+            console.log(`Successfully downloaded: ${filePath}`);
+          }
         }
       } else {
         console.log(`Downloading ${targetResults.length} scenes concurrently with ${downloadOpts.concurrency} worker thread(s)...`);

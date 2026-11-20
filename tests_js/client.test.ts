@@ -289,6 +289,7 @@ test("OmniEarth downloadAll and downloadMany", async () => {
     provider: "aws",
     assets: {
       visual: { key: "visual", href: "https://example.com/vis1.tif" },
+      preview: { key: "preview", href: "https://example.com/vis1.tif" },
       data: { key: "data", href: "https://example.com/data1.tif" }
     }
   };
@@ -322,9 +323,10 @@ test("OmniEarth downloadAll and downloadMany", async () => {
   try {
     const testDir = path.join(os.tmpdir(), "omniearth_js_all_test_" + Date.now());
     const downloaded = await client.downloadAll(res1, undefined, testDir, { concurrency: 2 });
-    assert.equal(Object.keys(downloaded).length, 2);
+    assert.equal(Object.keys(downloaded).length, 3);
     assert.ok(downloaded["visual"].includes("vis1.tif"));
     assert.ok(downloaded["data"].includes("data1.tif"));
+    assert.equal(downloaded["preview"], downloaded["visual"]);
 
     const manyDownloaded = await client.downloadMany([res1, res2], "visual", testDir, { concurrency: 2 });
     assert.equal(manyDownloaded.length, 2);
@@ -1013,4 +1015,61 @@ test("BaseProvider getItem coordinate-encoded ID resolution", async () => {
   } finally {
     wp.search = origSearch;
   }
+});
+
+test("resolveAssetKey resolves semantic aliases and falls back appropriately", async () => {
+  const { resolveAssetKey } = await import("../src/types.js");
+  const sampleResult: any = {
+    id: "EMIT_L2A_RFL_TEST",
+    assets: {
+      browse: { key: "browse", href: "https://example.com/browse.jpeg" },
+      "001/EMIT/EMIT_DATA": { key: "001/EMIT/EMIT_DATA", href: "https://example.com/EMIT_DATA.nc" },
+      "001/EMIT/EMIT_UNCERT": { key: "001/EMIT/EMIT_UNCERT", href: "https://example.com/EMIT_UNCERT.nc" },
+      "001/EMIT/EMIT_MASK": { key: "001/EMIT/EMIT_MASK", href: "https://example.com/EMIT_MASK.nc" },
+      "s3_raw": { key: "s3_raw", href: "s3://example.com/raw.nc" },
+      metadata: { key: "metadata", href: "https://example.com/meta.xml" }
+    }
+  };
+
+  assert.equal(resolveAssetKey(sampleResult, "browse"), "browse");
+  assert.equal(resolveAssetKey(sampleResult, "rfl"), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey(sampleResult, "cube"), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey(sampleResult, "uncert"), "001/EMIT/EMIT_UNCERT");
+  assert.equal(resolveAssetKey(sampleResult, "mask"), "001/EMIT/EMIT_MASK");
+  assert.equal(resolveAssetKey(sampleResult, "xml"), "metadata");
+  assert.equal(resolveAssetKey(sampleResult, undefined), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey({ id: "no_assets" } as any, "data"), undefined);
+
+  const multiResult: any = {
+    id: "multi_test_ts",
+    assets: {
+      visual_cog: { key: "visual_cog", href: "https://example.com/visual.tif" },
+      dem_raster: { key: "dem_raster", href: "https://example.com/dem.tif" },
+      map_cover: { key: "map_cover", href: "https://example.com/map.tif" },
+      vv_amplitude: { key: "vv_amplitude", href: "https://example.com/vv.tif" },
+      tropospheric_no2_grid: { key: "tropospheric_no2_grid", href: "https://example.com/no2.nc" },
+      chlorophyll_a_surface: { key: "chlorophyll_a_surface", href: "https://example.com/chla.nc" },
+      altimetry_l2_pass: { key: "altimetry_l2_pass", href: "https://example.com/alt.nc" },
+      gpm_imerg_daily_accum: { key: "gpm_imerg_daily_accum", href: "https://example.com/gpm.nc" },
+      surface_soil_moisture_level: { key: "surface_soil_moisture_level", href: "https://example.com/ssm.nc" },
+      dnb_radiance_night: { key: "dnb_radiance_night", href: "https://example.com/dnb.tif" },
+      weather_feed: { key: "weather_feed", href: "https://example.com/wx.json" },
+      soil_profile: { key: "soil_profile", href: "https://example.com/soil.json" },
+      safe_package: { key: "safe_package", href: "https://example.com/s2.zip" }
+    }
+  };
+
+  assert.equal(resolveAssetKey(multiResult, "visual"), "visual_cog");
+  assert.equal(resolveAssetKey(multiResult, "dem"), "dem_raster");
+  assert.equal(resolveAssetKey(multiResult, "map"), "map_cover");
+  assert.equal(resolveAssetKey(multiResult, "sar"), "vv_amplitude");
+  assert.equal(resolveAssetKey(multiResult, "no2"), "tropospheric_no2_grid");
+  assert.equal(resolveAssetKey(multiResult, "ocean"), "chlorophyll_a_surface");
+  assert.equal(resolveAssetKey(multiResult, "altimetry"), "altimetry_l2_pass");
+  assert.equal(resolveAssetKey(multiResult, "precipitation"), "gpm_imerg_daily_accum");
+  assert.equal(resolveAssetKey(multiResult, "hydrology"), "surface_soil_moisture_level");
+  assert.equal(resolveAssetKey(multiResult, "nightlights"), "dnb_radiance_night");
+  assert.equal(resolveAssetKey(multiResult, "weather"), "weather_feed");
+  assert.equal(resolveAssetKey(multiResult, "soil"), "soil_profile");
+  assert.equal(resolveAssetKey(multiResult, "safe"), "safe_package");
 });
