@@ -145,20 +145,18 @@ class OpticalProvider(BaseProvider):
 
         # Determine asset to download
         # For optical: prefer visual RGB or red band or requested band
-        chosen_key = asset_key or ("visual" if "visual" in result.assets else "red")
-        if chosen_key not in result.assets:
-            chosen_key = next(iter(result.assets.keys()))
-
+        chosen_key = result.resolve_asset_key(asset_key) or next(iter(result.assets.keys()))
         target_asset = result.assets[chosen_key]
         url = target_asset.href
         ext = os.path.splitext(url)[1].split("?")[0] or ".tif"
-        filename = f"{result.id}_{chosen_key}{ext}"
+        safe_key = chosen_key.replace("/", "_")
+        filename = f"{result.id}_{safe_key}{ext}"
         outpath = os.path.join(target_dir, filename)
 
         return self._stream_download(
             url=url,
             outpath=outpath,
-            desc=f"{result.id[:18]} [{chosen_key}]",
+            desc=f"{result.id[:18]} [{safe_key}]",
             resume=resume,
             multipart=multipart,
             max_workers=max_workers

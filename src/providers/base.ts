@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
-import { AOI, SearchResult, Asset, Category, FilterOptions } from "../types.js";
+import { AOI, SearchResult, Asset, Category, FilterOptions, resolveAssetKey } from "../types.js";
 import { config } from "../config.js";
 
 export interface DownloadOptions {
@@ -15,6 +15,8 @@ export interface DownloadOptions {
   format?: string;
   bands?: string | string[];
   composite?: string;
+  folder?: boolean;
+  zip?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -89,9 +91,10 @@ export abstract class BaseProvider {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
+    const resolvedKey = resolveAssetKey(result, assetKey);
     let asset: Asset | undefined;
-    if (assetKey && result.assets[assetKey]) {
-      asset = result.assets[assetKey];
+    if (resolvedKey && result.assets[resolvedKey]) {
+      asset = result.assets[resolvedKey];
     } else if (result.assets["data"]) {
       asset = result.assets["data"];
     } else if (result.assets["visual"]) {
@@ -112,10 +115,16 @@ export abstract class BaseProvider {
       throw new Error(`No downloadable asset found for item '${result.id}'`);
     }
 
-    const url = new URL(asset.href);
-    let filename = path.basename(url.pathname);
+    let filename = "";
+    try {
+      const url = new URL(asset.href);
+      filename = path.basename(url.pathname);
+    } catch {
+      filename = path.basename(asset.href.split("?")[0]);
+    }
     if (!filename || filename === "/") {
-      filename = `${result.id}.dat`;
+      const cleanKey = (resolvedKey || "data").replace(/\//g, "_");
+      filename = `${result.id}_${cleanKey}.dat`;
     }
 
     const destPath = path.join(targetDir, filename);

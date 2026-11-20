@@ -510,5 +510,123 @@ def test_all_14_modalities_footprint_export_geojson_and_csv(tmp_path):
         assert row["assets"] == "data"
 
 
+def test_search_result_resolve_asset_key():
+    res_empty = SearchResult(
+        id="empty", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={}, assets={}
+    )
+    assert res_empty.resolve_asset_key("data") is None
+    assert res_empty.resolve_asset_key(None) is None
+
+    emit_res = SearchResult(
+        id="EMIT_001",
+        collection="emit-l2a-rfl",
+        category=Category.HYPERSPECTRAL,
+        provider="nasa_lpdaac",
+        properties={},
+        assets={
+            "browse": Asset(key="browse", href="https://example.com/browse.png"),
+            "thumbnail_0": Asset(key="thumbnail_0", href="https://example.com/thumb.png"),
+            "001/EMIT/EMIT_RFL": Asset(key="001/EMIT/EMIT_RFL", href="https://example.com/rfl.nc"),
+            "001/EMIT/EMIT_RFLUNCERT": Asset(key="001/EMIT/EMIT_RFLUNCERT", href="https://example.com/uncert.nc"),
+            "001/EMIT/EMIT_MASK": Asset(key="001/EMIT/EMIT_MASK", href="https://example.com/mask.nc"),
+            "s3_001/EMIT/EMIT_RFL": Asset(key="s3_001/EMIT/EMIT_RFL", href="s3://bucket/rfl.nc"),
+            "metadata": Asset(key="metadata", href="https://example.com/meta.xml"),
+        }
+    )
+    assert emit_res.resolve_asset_key(None) == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("browse") == "browse"
+    assert emit_res.resolve_asset_key("BROWSE") == "browse"
+    assert emit_res.resolve_asset_key("data") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("rfl") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("cube") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("uncert") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("mask") == "001/EMIT/EMIT_MASK"
+    assert emit_res.resolve_asset_key("metadata") == "metadata"
+    assert emit_res.resolve_asset_key("xml") == "metadata"
+    assert emit_res.resolve_asset_key("RFLUNCERT") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("s3_001") == "s3_001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("nonexistent_anything") is None
+
+    # Test aliases not matching exact key
+    assert emit_res.resolve_asset_key("preview") == "browse"
+    assert emit_res.resolve_asset_key("science") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("qa") == "001/EMIT/EMIT_MASK"
+    assert emit_res.resolve_asset_key("uncertainty") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("info") == "metadata"
+
+    # Test visual/data primary key exact branch
+    opt_res = SearchResult(
+        id="opt", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"visual": Asset(key="visual", href="https://example.com/vis.tif")}
+    )
+    assert opt_res.resolve_asset_key(None) == "visual"
+
+    # Test rfl in key without standard extension
+    rfl_no_ext = SearchResult(
+        id="rfl_ne", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={},
+        assets={"my_rfl_cube": Asset(key="my_rfl_cube", href="https://example.com/cube")}
+    )
+    assert rfl_no_ext.resolve_asset_key(None) == "my_rfl_cube"
+
+    fallback_res = SearchResult(
+        id="fb", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"some_misc_key": Asset(key="some_misc_key", href="https://example.com/misc.bin")}
+    )
+    assert fallback_res.resolve_asset_key(None) == "some_misc_key"
+
+    s3_only_res = SearchResult(
+        id="s3_only", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"s3_data": Asset(key="s3_data", href="s3://bucket/data")}
+    )
+    assert s3_only_res.resolve_asset_key(None) == "s3_data"
+
+    s3_first_res = SearchResult(
+        id="s3_f", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={},
+        assets={
+            "s3_data": Asset(key="s3_data", href="s3://bucket/data.nc"),
+            "data_http": Asset(key="data_http", href="https://example.com/data.nc")
+        }
+    )
+    assert s3_first_res.resolve_asset_key("science") == "data_http"
+
+    multi_res = SearchResult(
+        id="multi_test",
+        collection="test",
+        category=Category.OPTICAL,
+        provider="test",
+        properties={},
+        assets={
+            "visual_cog": Asset(key="visual_cog", href="https://example.com/visual.tif"),
+            "dem_raster": Asset(key="dem_raster", href="https://example.com/dem.tif"),
+            "map_cover": Asset(key="map_cover", href="https://example.com/map.tif"),
+            "vv_amplitude": Asset(key="vv_amplitude", href="https://example.com/vv.tif"),
+            "tropospheric_no2_grid": Asset(key="tropospheric_no2_grid", href="https://example.com/no2.nc"),
+            "chlorophyll_a_surface": Asset(key="chlorophyll_a_surface", href="https://example.com/chla.nc"),
+            "altimetry_l2_pass": Asset(key="altimetry_l2_pass", href="https://example.com/alt.nc"),
+            "gpm_imerg_daily_accum": Asset(key="gpm_imerg_daily_accum", href="https://example.com/gpm.nc"),
+            "surface_soil_moisture_level": Asset(key="surface_soil_moisture_level", href="https://example.com/ssm.nc"),
+            "dnb_radiance_night": Asset(key="dnb_radiance_night", href="https://example.com/dnb.tif"),
+            "weather_feed": Asset(key="weather_feed", href="https://example.com/wx.json"),
+            "soil_profile": Asset(key="soil_profile", href="https://example.com/soil.json"),
+            "safe_package": Asset(key="safe_package", href="https://example.com/s2.zip"),
+        }
+    )
+    assert multi_res.resolve_asset_key("visual") == "visual_cog"
+    assert multi_res.resolve_asset_key("dem") == "dem_raster"
+    assert multi_res.resolve_asset_key("map") == "map_cover"
+    assert multi_res.resolve_asset_key("sar") == "vv_amplitude"
+    assert multi_res.resolve_asset_key("no2") == "tropospheric_no2_grid"
+    assert multi_res.resolve_asset_key("ocean") == "chlorophyll_a_surface"
+    assert multi_res.resolve_asset_key("altimetry") == "altimetry_l2_pass"
+    assert multi_res.resolve_asset_key("precipitation") == "gpm_imerg_daily_accum"
+    assert multi_res.resolve_asset_key("hydrology") == "surface_soil_moisture_level"
+    assert multi_res.resolve_asset_key("nightlights") == "dnb_radiance_night"
+    assert multi_res.resolve_asset_key("weather") == "weather_feed"
+    assert multi_res.resolve_asset_key("soil") == "soil_profile"
+    assert multi_res.resolve_asset_key("safe") == "safe_package"
+
+
+
 
 

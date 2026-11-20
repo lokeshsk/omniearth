@@ -59,7 +59,7 @@ class BaseProvider(ABC):
                 lon = float(numbers[1])
                 if -90 <= lat <= 90 and -180 <= lon <= 180:
                     aoi = AOI.from_point(lon, lat, radius_km=1.0)
-                    res = self.search(aoi=aoi, limit=1)
+                    res = self.search(aoi=aoi, filters=FilterOptions(limit=1))
                     if res:
                         return res[0]
             except Exception:  # pragma: no cover

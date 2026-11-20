@@ -1,3 +1,66 @@
+# OmniEarth v1.5.0 Release Notes
+
+**Release Date:** November 20, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.5.0](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.5.0](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.5.0 introduces **Universal Semantic Asset Selection**, an **Interactive Terminal Asset Selector (`-i` / `--interactive`)**, dedicated **Scene Folder Packaging (`--folder` / `folder=True`)**, direct **ZIP Archive Packaging (`--zip` / `zip=True`)**, and **URL-Level Parallel Asset Deduplication** across all 14 Earth Observation and environmental modalities in both the Python SDK and Node.js / TypeScript SDK.
+
+---
+
+## Key Highlights in v1.5.0
+
+### 1. Universal Semantic Asset Aliasing (`resolve_asset_key` / `resolveAssetKey`)
+Standardizes asset resolution across all 14 modalities and providers. Users no longer need to know provider-specific internal STAC dictionary keys (such as `001/EMIT_L2A_RFL_.../EMIT_L2A_RFL_...` or `B04`):
+- **Hyperspectral (NASA EMIT & DLR EnMAP)**: `cube`, `rfl`, `reflectance`, `uncert`, `mask`, `browse`, `thumbnail`, `xml`, `metadata`
+- **Optical (Sentinel-2 & Landsat-8/9)**: `visual`, `rgb`, `tci`, `red`, `green`, `blue`, `nir`, `swir16`, `swir22`, `b02`, `b03`, `b04`, `b08`, `b11`, `b12`, `safe`
+- **SAR (Sentinel-1)**: `sar`, `vv`, `vh`, `hh`, `hv`, `amplitude`, `intensity`, `measurement`, `safe`
+- **Elevation (Copernicus DEM & NASADEM)**: `dem`, `elevation`, `height`, `terrain`, `cog`
+- **Land Cover (ESA WorldCover & Dynamic World)**: `map`, `landcover`, `classification`, `lc`, `cog`
+- **Atmosphere (Sentinel-5P & CAMS)**: `no2`, `co`, `o3`, `so2`, `ch4`, `aer_ai`, `hcho`, `atmosphere`, `netcdf`
+- **Weather (Open-Meteo & ERA5)**: `weather`, `meteo`, `forecast`, `temperature`, `data`
+- **Soil (ISRIC SoilGrids)**: `soil`, `profile`, `clay`, `sand`, `ph`, `soc`, `bulk_density`, `cec`
+- **Fire (FIRMS VIIRS/MODIS)**: `fire`, `hotspot`, `thermal`, `csv`, `geojson`
+- **Ocean (Sentinel-3 OLCI/SLSTR & Copernicus Marine)**: `ocean`, `sst`, `chlorophyll`, `salinity`, `temperature`
+- **Altimetry (Sentinel-6 & Jason-3)**: `altimetry`, `sla`, `adt`, `ssh`, `sea_surface_height`
+- **Precipitation (GPM IMERG & CHIRPS)**: `precipitation`, `precip`, `rain`, `rainfall`, `imerg`
+- **Hydrology (GLDAS & NASA SMAP)**: `hydrology`, `hydro`, `soil_moisture`, `runoff`, `evapotranspiration`
+- **Nightlights (VIIRS DNB & Black Marble)**: `nightlights`, `dnb`, `radiance`, `lights`
+
+### 2. Interactive Terminal Asset Picker (`-i` / `--interactive`)
+Adds an interactive selection mode when downloading scenes from the CLI:
+- Automatically queries available assets for the specified scene ID.
+- Displays an interactive menu displaying each asset key, format (MIME type), and human-readable file size.
+- Prompts the user to pick a specific asset number or download all scene assets concurrently.
+- Syntax:
+  ```bash
+  omniearth download --category hyperspectral --id EMIT_L2A_RFL_001_20260819T071612_2623105_035 -i
+  ```
+
+### 3. Dedicated Scene Folder Packaging (`--folder` / `folder=True`)
+Prevents output directory clutter when downloading complex scenes containing dozens of band files and metadata:
+- Automatically creates an isolated scene subdirectory at `<outdir>/<scene_id>/...`.
+- Supported across `download()`, `download_all()`, and CLI `omniearth download`.
+
+### 4. Direct ZIP Archive Packaging (`--zip` / `zip=True`)
+Bundles downloaded scene assets directly into a clean, portable `.zip` archive:
+- In Python: Leverages standard library `shutil.make_archive` for lossless compression.
+- In TypeScript / Node.js: Implements cross-platform native archive generation (`zip -r -q` on Unix/macOS, `Compress-Archive` on Windows PowerShell).
+- Automatically sets the archive path at `<outdir>/<scene_id>.zip`.
+- Syntax:
+  ```bash
+  omniearth download --category elevation --id Copernicus_DSM_COG_10_N20_00_E078_00_DEM --zip
+  ```
+
+### 5. Parallel Asset URL Deduplication
+STAC catalogs frequently map multiple metadata keys (e.g. `data` and `dem`) to the exact same remote GeoTIFF URL:
+- OmniEarth now deduplicates candidate asset keys by underlying URL (`href`) before launching concurrent worker threads.
+- Eliminates redundant network egress, duplicate disk writes, and concurrent `.part` staging file lock collisions.
+- Returns all mapped keys pointing to the single resolved local file in the returned download dictionary.
+
+---
+
 # OmniEarth v1.4.0 Release Notes
 
 **Release Date:** November 19, 2026  

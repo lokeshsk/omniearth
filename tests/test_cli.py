@@ -304,6 +304,133 @@ def test_cmd_download_all_and_flags(capsys, tmp_path):
         mock_dl_all.assert_called_once_with(mock_res, outdir=str(tmp_path), max_workers=4, resume=False, multipart=False)
 
 
+def test_cmd_download_interactive_and_zip(capsys, tmp_path):
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="EMIT_SCENE_TEST",
+        collection="emit-l2a",
+        category=Category.HYPERSPECTRAL,
+        provider="nasa_lpdaac",
+        assets={
+            "browse": Asset(key="browse", href="https://example.com/browse.jpeg", media_type="image/jpeg"),
+            "data": Asset(key="001/EMIT/EMIT_DATA", href="https://example.com/data.nc", media_type="application/x-netcdf"),
+            "s3_raw": Asset(key="s3_raw", href="s3://example.com/raw.nc"),
+        }
+    )
+
+    # 1. Interactive cancel with 'q'
+    args_interactive_cancel = MagicMock()
+    args_interactive_cancel.category = "hyperspectral"
+    args_interactive_cancel.id = "EMIT_SCENE_TEST"
+    args_interactive_cancel.bbox = None
+    args_interactive_cancel.asset = None
+    args_interactive_cancel.outdir = str(tmp_path)
+    args_interactive_cancel.interactive = True
+    args_interactive_cancel.threads = 1
+    args_interactive_cancel.no_resume = False
+    args_interactive_cancel.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch("builtins.input", return_value="q"):
+        cmd_download(args_interactive_cancel, client)
+        captured = capsys.readouterr()
+        assert "Available assets for 'EMIT_SCENE_TEST'" in captured.out
+        assert "Download cancelled." in captured.out
+
+    # 2. Interactive with EOFError / KeyboardInterrupt
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch("builtins.input", side_effect=KeyboardInterrupt):
+        cmd_download(args_interactive_cancel, client)
+        captured = capsys.readouterr()
+        assert "Download cancelled." in captured.out
+
+    # 3. Interactive choose 'all'
+    args_interactive_all = MagicMock()
+    args_interactive_all.category = "hyperspectral"
+    args_interactive_all.id = "EMIT_SCENE_TEST"
+    args_interactive_all.bbox = None
+    args_interactive_all.asset = None
+    args_interactive_all.outdir = str(tmp_path)
+    args_interactive_all.interactive = True
+    args_interactive_all.all = False
+    args_interactive_all.zip = False
+    args_interactive_all.folder = False
+    args_interactive_all.threads = 2
+    args_interactive_all.no_resume = False
+    args_interactive_all.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch("builtins.input", return_value="all"), \
+         patch.object(client, "download_all", return_value={"browse": str(tmp_path / "browse.jpg")}):
+        cmd_download(args_interactive_all, client)
+        captured = capsys.readouterr()
+        assert "Downloading all assets" in captured.out
+
+    # 4. Interactive choose index '2'
+    args_interactive_pick = MagicMock()
+    args_interactive_pick.category = "hyperspectral"
+    args_interactive_pick.id = "EMIT_SCENE_TEST"
+    args_interactive_pick.bbox = None
+    args_interactive_pick.asset = None
+    args_interactive_pick.outdir = str(tmp_path)
+    args_interactive_pick.interactive = True
+    args_interactive_pick.all = False
+    args_interactive_pick.zip = False
+    args_interactive_pick.folder = False
+    args_interactive_pick.threads = 1
+    args_interactive_pick.no_resume = False
+    args_interactive_pick.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch("builtins.input", return_value="2"), \
+         patch.object(client, "download", return_value=str(tmp_path / "data.nc")):
+        cmd_download(args_interactive_pick, client)
+        captured = capsys.readouterr()
+        assert "Successfully downloaded:" in captured.out
+
+    # 5. Zip mode download_all output check
+    args_zip = MagicMock()
+    args_zip.category = "hyperspectral"
+    args_zip.id = "EMIT_SCENE_TEST"
+    args_zip.bbox = None
+    args_zip.asset = None
+    args_zip.outdir = str(tmp_path)
+    args_zip.interactive = False
+    args_zip.all = True
+    args_zip.zip = True
+    args_zip.folder = True
+    args_zip.threads = 2
+    args_zip.no_resume = False
+    args_zip.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch.object(client, "download_all", return_value={"data": str(tmp_path / "data.nc"), "zip": str(tmp_path / "EMIT_SCENE_TEST.zip")}):
+        cmd_download(args_zip, client)
+        captured = capsys.readouterr()
+        assert "Successfully archived scene package:" in captured.out
+
+    # 6. Single asset download with zip=True
+    args_single_zip = MagicMock()
+    args_single_zip.category = "optical"
+    args_single_zip.id = "OPT_SCENE_TEST"
+    args_single_zip.bbox = None
+    args_single_zip.asset = "visual"
+    args_single_zip.outdir = str(tmp_path)
+    args_single_zip.interactive = False
+    args_single_zip.all = False
+    args_single_zip.zip = True
+    args_single_zip.folder = True
+    args_single_zip.threads = 1
+    args_single_zip.no_resume = False
+    args_single_zip.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch.object(client, "download", return_value=str(tmp_path / "OPT_SCENE_TEST.zip")):
+        cmd_download(args_single_zip, client)
+        captured = capsys.readouterr()
+        assert "Successfully archived scene package:" in captured.out
+
+
 def test_cmd_search_error_and_cloud_formatting(capsys):
     import pytest
     client = OmniEarth()
