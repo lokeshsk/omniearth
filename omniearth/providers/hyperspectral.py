@@ -30,6 +30,15 @@ class HyperspectralProvider(BaseProvider):
         filters: Optional[FilterOptions] = None
     ) -> List[SearchResult]:
         limit = filters.limit if filters else 10
+
+        target = (filters.provider or filters.dataset or "").lower() if filters else ""
+        if "prisma" in target:
+            return self._search_prisma(aoi, start_date, end_date, limit=limit)[:limit]
+        if "enmap" in target:
+            return self._search_enmap(aoi, start_date, end_date, filters, limit=limit)[:limit]
+        if "emit" in target:
+            return self._search_emit(aoi, start_date, end_date, limit=limit)[:limit]
+
         results = []
 
         # 1. Search EnMAP on DLR EOC STAC
@@ -174,8 +183,11 @@ class HyperspectralProvider(BaseProvider):
         if end_date:
             params["end"] = end_date
 
+        u, p = config.prisma_credentials
+        auth = (u, p) if (u and p) else None
+
         try:
-            resp = requests.get(self.PRISMA_CATALOG_URL, params=params, timeout=config.timeout)
+            resp = requests.get(self.PRISMA_CATALOG_URL, params=params, auth=auth, timeout=config.timeout)
             if resp.status_code != 200:
                 return []
             data = resp.json()

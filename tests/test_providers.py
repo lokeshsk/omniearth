@@ -331,6 +331,19 @@ def test_hyperspectral_search_all_branches_and_filters():
     provider = HyperspectralProvider()
     aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
 
+    # Direct provider targeting (prisma, enmap, emit)
+    with patch.object(provider, "_search_prisma", return_value=[SearchResult(id="PRISMA_DIR", collection="c", category=Category.HYPERSPECTRAL, provider="asi_prisma")]):
+        p_res = provider.search(aoi=aoi, filters=FilterOptions(provider="prisma"))
+        assert len(p_res) == 1 and p_res[0].id == "PRISMA_DIR"
+
+    with patch.object(provider, "_search_enmap", return_value=[SearchResult(id="ENMAP_DIR", collection="c", category=Category.HYPERSPECTRAL, provider="dlr_enmap")]):
+        en_res = provider.search(aoi=aoi, filters=FilterOptions(dataset="enmap"))
+        assert len(en_res) == 1 and en_res[0].id == "ENMAP_DIR"
+
+    with patch.object(provider, "_search_emit", return_value=[SearchResult(id="EMIT_DIR", collection="c", category=Category.HYPERSPECTRAL, provider="nasa_lpdaac")]):
+        em_res = provider.search(aoi=aoi, filters=FilterOptions(provider="emit"))
+        assert len(em_res) == 1 and em_res[0].id == "EMIT_DIR"
+
     # 1. DLR EnMAP date branches & cloud filter
     mock_dlr = MagicMock()
     mock_dlr.status_code = 200
