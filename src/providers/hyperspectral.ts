@@ -20,9 +20,6 @@ export class HyperspectralProvider extends BaseProvider {
     const limit = filters?.limit || 10;
     const target = (filters?.provider || filters?.dataset || "").toLowerCase();
 
-    if (target.includes("prisma")) {
-      return this.queryPrisma(aoi, startDate, endDate, limit);
-    }
     if (target.includes("enmap")) {
       return this.queryEnmap(aoi, startDate, endDate, limit);
     }
@@ -33,10 +30,6 @@ export class HyperspectralProvider extends BaseProvider {
     const enmapResults = await this.queryEnmap(aoi, startDate, endDate, limit);
     const emitResults = await this.queryEmit(aoi, startDate, endDate, limit);
     const results = [...enmapResults, ...emitResults];
-    if (results.length < limit) {
-      const prismaResults = await this.queryPrisma(aoi, startDate, endDate, limit - results.length);
-      results.push(...prismaResults);
-    }
 
     results.sort((a, b) => (b.datetime || "").localeCompare(a.datetime || ""));
     return results.slice(0, limit);
@@ -145,55 +138,6 @@ export class HyperspectralProvider extends BaseProvider {
     return results;
   }
 
-  async queryPrisma(aoi: AOI, startDate?: string, endDate?: string, limit: number = 10): Promise<SearchResult[]> {
-    const results: SearchResult[] = [];
-    try {
-      const bboxStr = `${aoi.bbox[0]},${aoi.bbox[1]},${aoi.bbox[2]},${aoi.bbox[3]}`;
-      const params = new URLSearchParams({
-        bbox: bboxStr,
-        limit: String(limit)
-      });
-      if (startDate) params.append("start", startDate);
-      if (endDate) params.append("end", endDate);
-
-      const headers: Record<string, string> = {};
-      const [u, p] = config.prismaCredentials;
-      if (u && p) {
-        headers["Authorization"] = `Basic ${Buffer.from(`${u}:${p}`).toString("base64")}`;
-      }
-
-      const res = await fetch(`https://prisma.asi.it/api/v1/search?${params.toString()}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        for (const feat of data.features || []) {
-          const assets: Record<string, Asset> = {};
-          for (const [k, a] of Object.entries<any>(feat.assets || {})) {
-            assets[k] = {
-              key: k,
-              href: a.href,
-              title: a.title,
-              media_type: a.type,
-              roles: a.roles
-            };
-          }
-          results.push({
-            id: feat.id,
-            collection: "asi-prisma-l2d",
-            category: this.category,
-            provider: "asi_prisma",
-            datetime: feat.properties?.datetime,
-            bbox: feat.bbox,
-            properties: { ...feat.properties, platform: "prisma" },
-            assets
-          });
-        }
-      }
-    } catch {
-      // Handled
-    }
-    return results;
-  }
-
   override async getItem(itemId: string): Promise<SearchResult | null> {
     // 1. DLR EnMAP STAC direct item endpoint
     if (itemId.startsWith("ENMAP") || itemId.includes("ENMAP")) {
@@ -276,10 +220,8 @@ export class HyperspectralProvider extends BaseProvider {
     if (providerName === "hyperspectral") {
       if (result.id.startsWith("ENMAP") || result.id.includes("ENMAP")) {
         providerName = "dlr_enmap";
-      } else if (result.id.startsWith("EMIT") || result.id.includes("EMIT")) {
+      } else {
         providerName = "nasa_emit";
-      } else if (result.id.startsWith("PRS") || result.id.includes("PRISMA")) {
-        providerName = "asi_prisma";
       }
     }
 

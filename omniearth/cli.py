@@ -48,8 +48,8 @@ def cmd_categories(args, client: OmniEarth):
         },
         "hyperspectral": {
             "name": "Hyperspectral Data Cubes (200+ Bands)",
-            "satellites": ["DLR EnMAP (224 bands)", "NASA EMIT (285 bands)", "ASI PRISMA (240 bands)"],
-            "backend": "DLR EOC STAC, NASA CMR STAC, ASI PRISMA Portal",
+            "satellites": ["DLR EnMAP (224 bands)", "NASA EMIT (285 bands)"],
+            "backend": "DLR EOC STAC, NASA CMR STAC",
             "auth": "DLR Credentials (Free) / NASA Earthdata (Free)"
         },
         "sar": {
@@ -152,14 +152,10 @@ def cmd_info(args, client: OmniEarth):
     dlr_p = config.get("DLR_PASSWORD")
     dlr_status = "Configured" if (dlr_u and dlr_p) else "Optional (Needed for EnMAP raw download)"
 
-    prisma_u = config.get("PRISMA_USERNAME")
-    prisma_status = "Configured" if prisma_u else "Optional (Needed for PRISMA download)"
-
     ed_u = config.get("EARTHDATA_USERNAME")
     ed_status = "Configured" if ed_u else "Optional (Needed for NASA EMIT direct cubes)"
 
     print(f"  * DLR Geoservice (EnMAP):     [{dlr_status}]")
-    print(f"  * ASI PRISMA Portal:          [{prisma_status}]")
     print(f"  * NASA Earthdata (EMIT):       [{ed_status}]")
     print(f"  * Open-Meteo (Weather):        [Native Zero-Config]")
     print(f"  * ISRIC SoilGrids (Soil):      [Native Zero-Config]")
@@ -426,11 +422,6 @@ def cmd_download(args, client: OmniEarth):
                         coll = "emit-l2a-rfl"
                         dl_url = f"https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/{target_id}/{target_id}.nc"
                         assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="EMIT NetCDF Cube", media_type="application/x-netcdf")
-                    elif target_id.startswith("PRS") or "prisma" in target_id.lower():
-                        prov = "asi_prisma"
-                        coll = "asi-prisma-l2d"
-                        dl_url = f"https://prisma.asi.it/download/{target_id}.he5"
-                        assets_dict["data"] = omniearth.models.Asset(key="data", href=dl_url, title="PRISMA HDF5 Cube", media_type="application/x-hdf5")
                     else:
                         prov = "dlr_enmap"
                         coll = "enmap-hsi-l2a"
@@ -793,11 +784,30 @@ def main():
     ts_p.add_argument("--limit", type=int, default=30, help="Maximum number of time-steps")
     ts_p.add_argument("--json", action="store_true", help="Output raw JSON format")
 
+    # What's New command
+    subparsers.add_parser("whatsnew", help="Display latest release notes, new features, and upgrade information")
+
     args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    if args.command == "whatsnew":
+        from omniearth.version_checker import whats_new
+        whats_new()
+        sys.exit(0)
+
+    # Non-blocking CLI update check
+    try:
+        from omniearth.version_checker import check_for_updates
+        check_for_updates(
+            current_version=omniearth.__version__,
+            json_mode=getattr(args, "json", False),
+            is_cli=True,
+        )
+    except Exception:
+        pass
 
     client = OmniEarth(env_path=args.env)
 

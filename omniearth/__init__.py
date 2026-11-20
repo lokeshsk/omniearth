@@ -25,6 +25,8 @@ from omniearth.indices import (
     calculate_mndwi,
 )
 
+from omniearth.version_checker import check_for_updates, whats_new
+
 __all__ = [
     "OmniEarth",
     "AOI",
@@ -33,6 +35,8 @@ __all__ = [
     "Asset",
     "Category",
     "FilterOptions",
+    "check_for_updates",
+    "whats_new",
     "compute_spectral_index",
     "calculate_ndvi",
     "calculate_ndwi",

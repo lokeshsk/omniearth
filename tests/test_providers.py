@@ -331,11 +331,7 @@ def test_hyperspectral_search_all_branches_and_filters():
     provider = HyperspectralProvider()
     aoi = AOI.from_bounds(78.5, 20.65, 78.6, 20.72)
 
-    # Direct provider targeting (prisma, enmap, emit)
-    with patch.object(provider, "_search_prisma", return_value=[SearchResult(id="PRISMA_DIR", collection="c", category=Category.HYPERSPECTRAL, provider="asi_prisma")]):
-        p_res = provider.search(aoi=aoi, filters=FilterOptions(provider="prisma"))
-        assert len(p_res) == 1 and p_res[0].id == "PRISMA_DIR"
-
+    # Direct provider targeting (enmap, emit)
     with patch.object(provider, "_search_enmap", return_value=[SearchResult(id="ENMAP_DIR", collection="c", category=Category.HYPERSPECTRAL, provider="dlr_enmap")]):
         en_res = provider.search(aoi=aoi, filters=FilterOptions(dataset="enmap"))
         assert len(en_res) == 1 and en_res[0].id == "ENMAP_DIR"
@@ -403,32 +399,6 @@ def test_hyperspectral_search_all_branches_and_filters():
 
     with patch("requests.post", side_effect=requests.exceptions.Timeout):
         assert provider._search_emit(aoi, None, None, limit=5) == []
-
-    # 3. ASI PRISMA search branches
-    mock_prisma = MagicMock()
-    mock_prisma.status_code = 200
-    mock_prisma.json.return_value = {
-        "features": [
-            {
-                "id": "PRISMA_L2D_01",
-                "properties": {"datetime": "2026-04-12T08:00:00Z"},
-                "assets": {"he5": {"href": "https://prisma.asi.it/p1.he5"}}
-            }
-        ]
-    }
-    with patch("requests.get", return_value=mock_prisma) as mock_p:
-        res_prisma = provider._search_prisma(aoi, "2026-04-01", "2026-04-30", limit=2)
-        assert len(res_prisma) == 1
-        assert res_prisma[0].id == "PRISMA_L2D_01"
-        assert mock_p.call_args[1]["params"]["start"] == "2026-04-01"
-        assert mock_p.call_args[1]["params"]["end"] == "2026-04-30"
-
-    mock_prisma_bad = MagicMock(status_code=503)
-    with patch("requests.get", return_value=mock_prisma_bad):
-        assert provider._search_prisma(aoi, None, None, limit=2) == []
-
-    with patch("requests.get", side_effect=requests.exceptions.HTTPError):
-        assert provider._search_prisma(aoi, None, None, limit=2) == []
 
 
 def test_base_provider_download_stream(tmp_path):
@@ -685,18 +655,6 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         assert os.path.exists(out_prot)
         assert mock_get_prot.call_args[1]["auth"] == ("test_nasa_user", "test_nasa_pass")
 
-    # 3. ASI PRISMA download
-    prisma_res = SearchResult(
-        id="PRISMA_001",
-        collection="prisma",
-        category=Category.HYPERSPECTRAL,
-        provider="asi_prisma",
-        assets={"he5": Asset(key="he5", href="https://prisma.asi.it/data.he5")}
-    )
-    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
-        out = provider.download(prisma_res, outdir=str(tmp_path))
-        assert os.path.exists(out)
-
     # 4. Unknown hyperspectral provider
     bad_res = SearchResult(
         id="BAD_001", collection="c", category=Category.HYPERSPECTRAL, provider="unknown_sensor"
@@ -726,14 +684,6 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
         out_emit_auto = provider.download(emit_auto, outdir=str(tmp_path))
         assert os.path.exists(out_emit_auto)
 
-    prs_auto = SearchResult(
-        id="PRS_AUTO_1", collection="c", category=Category.HYPERSPECTRAL, provider="hyperspectral",
-        assets={"he5": Asset(key="he5", href="https://example.com/prs.he5")}
-    )
-    with patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
-        out_prs_auto = provider.download(prs_auto, outdir=str(tmp_path))
-        assert os.path.exists(out_prs_auto)
-
     # Empty assets fallback download tests
     enmap_empty = SearchResult(
         id="ENMAP_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="dlr_enmap", assets={}
@@ -741,17 +691,12 @@ def test_hyperspectral_downloads_all_sources(tmp_path):
     emit_empty = SearchResult(
         id="EMIT_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="nasa_lpdaac", assets={}
     )
-    prs_empty = SearchResult(
-        id="PRS_EMPTY_1", collection="c", category=Category.HYPERSPECTRAL, provider="asi_prisma", assets={}
-    )
     with patch.dict(os.environ, {"DLR_USERNAME": "test_dlr_user", "DLR_PASSWORD": "test_dlr_pass"}), \
          patch("requests.head", return_value=mock_head), patch("requests.get", return_value=mock_resp):
         out_enm = provider.download(enmap_empty, outdir=str(tmp_path))
         assert os.path.exists(out_enm)
         out_emi = provider.download(emit_empty, outdir=str(tmp_path))
         assert os.path.exists(out_emi)
-        out_prs = provider.download(prs_empty, outdir=str(tmp_path))
-        assert os.path.exists(out_prs)
 
     # 6. get_item test cases
     # EnMAP get_item success

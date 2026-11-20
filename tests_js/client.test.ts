@@ -204,14 +204,6 @@ test("OmniEarth searches Hyperspectral and parses DLR EnMAP", async () => {
     assert.equal(results[0].id, "ENMAP_HSI_MOCK");
     assert.equal(results[0].category, Category.HYPERSPECTRAL);
 
-    // Direct provider targeting
-    const prismaRes = await client.search({
-      category: Category.HYPERSPECTRAL,
-      bbox: [78.50, 20.65, 78.60, 20.72],
-      provider: "prisma"
-    });
-    assert.ok(Array.isArray(prismaRes));
-
     const emitRes = await client.search({
       category: Category.HYPERSPECTRAL,
       bbox: [78.50, 20.65, 78.60, 20.72],
@@ -259,7 +251,6 @@ test("OmniEarth Config checks credentials and environment", async () => {
   assert.equal(config.get("NONEXISTENT_KEY_123", "fallback_val"), "fallback_val");
 
   const [du, dp] = config.dlrCredentials;
-  const [pu, pp] = config.prismaCredentials;
   const [eu, ep] = config.earthdataCredentials;
   assert.ok(Array.isArray(config.dlrCredentials));
 });

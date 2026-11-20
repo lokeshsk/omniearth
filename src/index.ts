@@ -36,3 +36,4 @@ export { NightlightsProvider } from "./providers/nightlights.js";
 export { CDSEProvider, CDSEAuthManager } from "./providers/cdse.js";
 export { resolveCompositeBands, createCompositeFromDownloaded } from "./processors.js";
 export { computeSpectralIndex, SUPPORTED_INDICES, IndexInputs, IndexStats } from "./indices.js";
+export { whatsNew, checkForUpdates, getWhatsNew, isNewerVersion } from "./version_checker.js";

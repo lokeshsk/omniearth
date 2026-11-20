@@ -1,8 +1,8 @@
 """
 OmniEarth Hyperspectral Provider Adapter
 ========================================
-Integrates German EnMAP (DLR EOC Geoservice STAC), Italian PRISMA (ASI),
-and NASA EMIT (224 to 285 contiguous hyperspectral bands).
+Integrates German EnMAP (DLR EOC Geoservice STAC) and NASA EMIT
+(224 to 285 contiguous hyperspectral bands).
 """
 
 import os
@@ -20,7 +20,6 @@ class HyperspectralProvider(BaseProvider):
 
     DLR_STAC_URL = "https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items"
     NASA_EMIT_STAC_URL = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search"
-    PRISMA_CATALOG_URL = "https://prisma.asi.it/api/v1/search"
 
     def search(
         self,
@@ -32,8 +31,6 @@ class HyperspectralProvider(BaseProvider):
         limit = filters.limit if filters else 10
 
         target = (filters.provider or filters.dataset or "").lower() if filters else ""
-        if "prisma" in target:
-            return self._search_prisma(aoi, start_date, end_date, limit=limit)[:limit]
         if "enmap" in target:
             return self._search_enmap(aoi, start_date, end_date, filters, limit=limit)[:limit]
         if "emit" in target:
@@ -46,11 +43,6 @@ class HyperspectralProvider(BaseProvider):
 
         # 2. Search NASA EMIT on CMR STAC
         results.extend(self._search_emit(aoi, start_date, end_date, limit=limit))
-
-        # 3. If limit still not reached, search ASI PRISMA
-        if len(results) < limit:
-            remaining = limit - len(results)
-            results.extend(self._search_prisma(aoi, start_date, end_date, remaining))
 
         # Sort all aggregated hyperspectral scenes chronologically descending (newest first)
         results.sort(key=lambda x: x.datetime or "", reverse=True)
@@ -166,59 +158,6 @@ class HyperspectralProvider(BaseProvider):
         except requests.exceptions.RequestException:
             return []
 
-    def _search_prisma(
-        self,
-        aoi: AOI,
-        start_date: Optional[str],
-        end_date: Optional[str],
-        limit: int
-    ) -> List[SearchResult]:
-        """Queries Italian Space Agency (ASI) PRISMA Hyperspectral archive."""
-        params = {
-            "bbox": aoi.to_bbox_string(),
-            "limit": limit
-        }
-        if start_date:
-            params["start"] = start_date
-        if end_date:
-            params["end"] = end_date
-
-        u, p = config.prisma_credentials
-        auth = (u, p) if (u and p) else None
-
-        try:
-            resp = requests.get(self.PRISMA_CATALOG_URL, params=params, auth=auth, timeout=config.timeout)
-            if resp.status_code != 200:
-                return []
-            data = resp.json()
-            features = data.get("features", [])
-
-            items = []
-            for f in features:
-                props = f.get("properties", {})
-                assets_dict = {}
-                for k, a in f.get("assets", {}).items():
-                    assets_dict[k] = Asset(
-                        key=k,
-                        href=a.get("href", ""),
-                        title=a.get("title", k),
-                        media_type=a.get("type")
-                    )
-
-                items.append(SearchResult(
-                    id=f.get("id"),
-                    collection="asi-prisma-l2d",
-                    category=self.category,
-                    provider="asi_prisma",
-                    datetime=props.get("datetime"),
-                    bbox=f.get("bbox"),
-                    properties=props,
-                    assets=assets_dict
-                ))
-            return items
-        except requests.exceptions.RequestException:
-            return []
-
     def get_item(self, item_id: str) -> Optional[SearchResult]:
         """Directly retrieves a specific hyperspectral scene by STAC item ID."""
         # 1. EnMAP (DLR EOC STAC direct item endpoint)
@@ -297,8 +236,6 @@ class HyperspectralProvider(BaseProvider):
         if provider_name == "hyperspectral":
             if "EMIT" in result.id.upper():
                 provider_name = "nasa_lpdaac"
-            elif "PRS" in result.id.upper() or "PRISMA" in result.id.upper():
-                provider_name = "asi_prisma"
             else:
                 provider_name = "dlr_enmap"
 
@@ -327,35 +264,6 @@ class HyperspectralProvider(BaseProvider):
                 outpath=outpath,
                 auth=(u, p),
                 desc=f"{result.id[:18]} [{chosen_key}]",
-                resume=resume,
-                multipart=multipart,
-                max_workers=max_workers
-            )
-
-        elif provider_name == "asi_prisma":
-            u, p = config.prisma_credentials
-            auth = (u, p) if (u and p) else None
-
-            chosen_key = result.resolve_asset_key(asset_key)
-            if not chosen_key or chosen_key not in result.assets:
-                dl_url = f"https://prisma.asi.it/download/{result.id}.he5"
-                result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-hdf5")
-                chosen_key = "data"
-
-            target_asset = result.assets[chosen_key]
-            url = target_asset.href
-            ext = os.path.splitext(url)[1].split("?")[0] or ".he5"
-            base_key = os.path.basename(chosen_key) or chosen_key.replace("/", "_")
-            if not base_key.endswith(ext):
-                base_key = f"{base_key}{ext}"
-            filename = base_key if base_key.startswith(result.id) else f"{result.id}_{base_key}"
-            outpath = os.path.join(target_dir, filename)
-
-            return self._stream_download(
-                url=url,
-                outpath=outpath,
-                auth=auth,
-                desc=f"PRISMA {result.id[:16]}",
                 resume=resume,
                 multipart=multipart,
                 max_workers=max_workers

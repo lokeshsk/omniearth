@@ -22,7 +22,6 @@ keywords = [
   "soilgrids",
   "sentinel-2",
   "enmap",
-  "prisma",
   "landsat",
   "elevation",
   "dem",
@@ -87,6 +86,7 @@ Homepage = "https://lokeshsk.github.io/omniearth/"
 Repository = "https://github.com/lokeshsk/omniearth"
 Documentation = "https://lokeshsk.github.io/omniearth/"
 "Bug Tracker" = "https://github.com/lokeshsk/omniearth/issues"
+Changelog = "https://github.com/lokeshsk/omniearth/blob/main/CHANGELOG.md"
 "Release Notes" = "https://github.com/lokeshsk/omniearth/blob/main/RELEASE_NOTES.md"
 Security = "https://github.com/lokeshsk/omniearth/security/policy"
 

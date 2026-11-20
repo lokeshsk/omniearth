@@ -21,7 +21,7 @@
 **OmniEarth** is an open-source, universal multi-modal Earth Observation (EO), hyperspectral cube, topography, and environmental data aggregation engine. It provides a unified **Python SDK**, **Node.js / TypeScript SDK**, and **Universal CLI** to discover, query, filter, and stream open earth observation data across all modalities:
 
 - **Optical Multispectral**: Sentinel-2 (Level-2A Surface Reflectance & Level-1C Top-of-Atmosphere), Landsat-8/9 (30m) via AWS Open Data STAC.
-- **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands), NASA EMIT (285 bands), and ASI PRISMA (240 bands).
+- **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands, 420-2450 nm) and NASA EMIT (285 bands, 381-2493 nm).
 - **Synthetic Aperture Radar (SAR)**: Sentinel-1 (GRD / RTC VV/VH 10m COGs).
 - **Digital Elevation Models (DEM / DSM / DTM)**: Copernicus DEM GLO-30 (30m DSM), SRTM GL1 (30m), ALOS World 3D (AW3D30 30m).
 - **Land Use / Land Cover (LULC)**: ESA WorldCover 10m (2020 v100 and 2021 v200 global maps).
@@ -64,7 +64,6 @@
 | **Land Cover** | ESA WorldCover 10m (2020, 2021) | 10m global classification | AWS Open Data S3 | **Zero-Config** (Free direct COGs) |
 | **Hyperspectral** | DLR EnMAP | 30m, 224 bands (420-2450 nm) | DLR EOC STAC + Geoservice | Free DLR Account (Optional) |
 | **Hyperspectral** | NASA EMIT | 60m, 285 bands (381-2493 nm) | NASA CMR STAC | Free Earthdata Login (Optional) |
-| **Hyperspectral** | ASI PRISMA | 30m, 240 bands | ASI PRISMA Portal | Free ASI Account (Optional) |
 | **Weather** | Open-Meteo, ERA5, FAO-56 ET0, VPD | Global 1-11km, hourly | Open-Meteo REST API | **Zero-Config** (Public open API) |
 | **Soil & 3D** | ISRIC SoilGrids v2.0 | 250m 3D profiles (0-200cm) | ISRIC REST API | **Zero-Config** (Public open API) |
 | **Atmosphere** | Sentinel-5P TROPOMI, CAMS | NO2, CO, CH4, SO2, O3, AOD | Copernicus STAC / Open-Meteo | **Zero-Config** (Public open API) |
@@ -834,11 +833,6 @@ DLR_PASSWORD=your_dlr_password
 # Register free: https://urs.earthdata.nasa.gov/
 EARTHDATA_USERNAME=your_earthdata_username
 EARTHDATA_PASSWORD=your_earthdata_password
-
-# ASI PRISMA (Optional: for PRISMA hyperspectral missions)
-# Register free: https://prisma.asi.it/
-PRISMA_USERNAME=your_prisma_username
-PRISMA_PASSWORD=your_prisma_password
 ```
 
 *(Optical Sentinel-2 COGs, Sentinel-1 SAR COGs, Copernicus DEM, ESA WorldCover, Open-Meteo Weather, and ISRIC SoilGrids require zero credentials!)*
@@ -868,7 +862,6 @@ OmniEarth is distributed under the **OmniEarth Open Source License with Mandator
    - **ESA / Copernicus Sentinel Data**: Open access under the [EU Copernicus Legal Notice](https://sentinels.copernicus.eu/web/sentinel/terms-conditions) (Sentinel-1, Sentinel-2, Sentinel-3, Sentinel-5P, Sentinel-6, Copernicus DEM, ESA WorldCover).
    - **NASA Open Data Policy**: Public domain and open access under [NASA Data and Information Policy](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/data-and-information-policy) (Landsat 8/9, NASA EMIT Hyperspectral, NASA FIRMS Active Fire, NASA GPM IMERG Precipitation, NASA SMAP Hydrology, Suomi-NPP / NOAA VIIRS Nighttime Lights).
    - **German Aerospace Center (DLR)**: Governed by the [DLR EnMAP Data Policy and User License](https://www.enmap.org/data/policy/).
-   - **Italian Space Agency (ASI)**: Governed by the [ASI PRISMA Policy on Data Access and Utilization](https://prisma.asi.it/).
    - **Open-Meteo & ECMWF**: Open access under [CC BY 4.0](https://open-meteo.com/en/terms).
    - **ISRIC SoilGrids**: Open access under [CC BY 4.0](https://www.isric.org/about/data-policy).
    - **JAXA ALOS**: Open access under [JAXA Earth Observation Data Policy](https://earth.jaxa.jp/en/data/policy/).

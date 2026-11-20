@@ -67,6 +67,14 @@ class OmniEarth:
         }
         self._cdse_provider = CDSEProvider()
 
+        # Non-blocking version update check
+        try:
+            from omniearth.version_checker import check_for_updates
+            import omniearth
+            check_for_updates(current_version=omniearth.__version__, is_cli=False)
+        except Exception:
+            pass
+
     def list_categories(self) -> List[str]:
         """Returns all supported data categories."""
         return [c.value for c in Category]

@@ -4,6 +4,7 @@ Comprehensive Tests for OmniEarth CLI Commands and Formatting
 
 import os
 import sys
+import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
 import omniearth
@@ -999,6 +1000,26 @@ def test_cmd_download_cdse_flags_and_fallbacks(capsys, tmp_path):
         mock_search.assert_called_once()
         assert mock_search.call_args.kwargs["provider"] == "cdse"
         assert mock_search.call_args.kwargs["format"] == "safe"
+
+
+def test_cli_whatsnew(capsys):
+    with patch("sys.argv", ["omniearth", "whatsnew"]):
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        captured = capsys.readouterr()
+        assert "OmniEarth - Latest Features & Release Highlights" in captured.out
+
+
+def test_cli_update_check_exception(monkeypatch):
+    monkeypatch.setattr(
+        "omniearth.version_checker.check_for_updates",
+        MagicMock(side_effect=RuntimeError("check failed"))
+    )
+    with patch("sys.argv", ["omniearth", "categories"]):
+        with patch("omniearth.cli.cmd_categories"):
+            main()
+
 
 
 

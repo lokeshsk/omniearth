@@ -42,12 +42,6 @@ class Config:
         return u, p
 
     @property
-    def prisma_credentials(self) -> Tuple[Optional[str], Optional[str]]:
-        u = os.getenv("PRISMA_USERNAME") or os.getenv("ASI_USERNAME")
-        p = os.getenv("PRISMA_PASSWORD") or os.getenv("ASI_PASSWORD")
-        return u, p
-
-    @property
     def earthdata_credentials(self) -> Tuple[Optional[str], Optional[str]]:
         u = os.getenv("EARTHDATA_USERNAME") or os.getenv("NASA_USERNAME")
         p = os.getenv("EARTHDATA_PASSWORD") or os.getenv("NASA_PASSWORD")
