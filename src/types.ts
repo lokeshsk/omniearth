@@ -51,6 +51,69 @@ export interface SearchResult {
   checksum_algorithm?: string;
 }
 
+export function resolveAssetKey(result: SearchResult, query?: string): string | undefined {
+  if (!result.assets) return undefined;
+
+  const entries = Object.entries(result.assets);
+  if (!query || !query.trim()) {
+    for (const k of ["data", "image", "visual", "SPECTRAL_IMAGE_COG", "dem", "map"]) {
+      if (result.assets[k]) return k;
+    }
+    for (const [k, a] of entries) {
+      if (k.startsWith("s3_") || (a.href && a.href.startsWith("s3://"))) continue;
+      const kLower = k.toLowerCase();
+      const hrefLower = (a.href || "").toLowerCase();
+      if (["browse", "thumbnail", "uncert", "mask", "metadata", "xml"].some((s) => kLower.includes(s))) continue;
+      if ([".nc", ".he5", ".tif", ".tiff", ".zip", ".tar", ".safe"].some((ext) => hrefLower.includes(ext))) return k;
+      if (kLower.includes("rfl") || kLower.includes("reflectance") || kLower.includes("cube")) return k;
+    }
+    for (const [k, a] of entries) {
+      if (!k.startsWith("s3_") && (!a.href || !a.href.startsWith("s3://"))) return k;
+    }
+    return Object.keys(result.assets)[0];
+  }
+
+  const q = query.trim().toLowerCase();
+  if (result.assets[query]) return query;
+  for (const k of Object.keys(result.assets)) {
+    if (k.toLowerCase() === q) return k;
+  }
+
+  if (["data", "cube", "science", "rfl", "reflectance", "nc", "image"].includes(q)) {
+    for (const [k, a] of entries) {
+      if (k.startsWith("s3_") || (a.href && a.href.startsWith("s3://"))) continue;
+      const kLower = k.toLowerCase();
+      const hrefLower = (a.href || "").toLowerCase();
+      if (["browse", "thumbnail", "uncert", "mask", "metadata"].some((s) => kLower.includes(s))) continue;
+      if ([".nc", ".he5", ".tif", ".tiff"].some((ext) => hrefLower.includes(ext)) || kLower.includes("rfl")) return k;
+    }
+  } else if (["uncert", "uncertainty"].includes(q)) {
+    for (const k of Object.keys(result.assets)) {
+      if (k.toLowerCase().includes("uncert") && !k.startsWith("s3_")) return k;
+    }
+  } else if (["mask", "cloud_mask", "qa"].includes(q)) {
+    for (const k of Object.keys(result.assets)) {
+      if (k.toLowerCase().includes("mask") && !k.startsWith("s3_")) return k;
+    }
+  } else if (["browse", "preview", "thumbnail", "thumb", "png", "jpg", "jpeg"].includes(q)) {
+    for (const k of Object.keys(result.assets)) {
+      if (["browse", "thumbnail", "preview"].some((w) => k.toLowerCase().includes(w)) && !k.startsWith("s3_")) return k;
+    }
+  } else if (["metadata", "meta", "xml", "info"].includes(q)) {
+    for (const k of Object.keys(result.assets)) {
+      if (["metadata", "meta", "xml"].some((w) => k.toLowerCase().includes(w))) return k;
+    }
+  }
+
+  for (const k of Object.keys(result.assets)) {
+    if (!k.startsWith("s3_") && k.toLowerCase().includes(q)) return k;
+  }
+  for (const k of Object.keys(result.assets)) {
+    if (k.toLowerCase().includes(q)) return k;
+  }
+  return undefined;
+}
+
 export interface FilterOptions {
   maxCloudCover?: number;
   bands?: string[];

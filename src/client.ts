@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 import {
   Category,
   AOI,
@@ -214,6 +215,12 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<string> {
+    const baseOutdir = outdir || config.defaultOutdir;
+    const targetOutdir = (options?.folder || options?.zip) ? path.join(baseOutdir, result.id) : baseOutdir;
+    if (!fs.existsSync(targetOutdir)) {
+      fs.mkdirSync(targetOutdir, { recursive: true });
+    }
+
     let downloadedPath: string;
 
     if (
@@ -224,13 +231,13 @@ export class OmniEarth {
       options?.format === "band" ||
       (options?.bands !== undefined && result.provider === "cdse")
     ) {
-      downloadedPath = await this.cdseProvider.download(result, assetKey, outdir, options);
+      downloadedPath = await this.cdseProvider.download(result, assetKey, targetOutdir, options);
     } else {
       const provider = this.providers.get(result.category);
       if (!provider) {
         throw new Error(`No provider adapter found for category '${result.category}'`);
       }
-      downloadedPath = await provider.download(result, assetKey, outdir, options);
+      downloadedPath = await provider.download(result, assetKey, targetOutdir, options);
     }
 
     if (options?.composite) {
@@ -250,12 +257,18 @@ export class OmniEarth {
     outdir?: string,
     options?: DownloadOptions
   ): Promise<Record<string, string>> {
+    const baseOutdir = outdir || config.defaultOutdir;
+    const targetOutdir = (options?.folder !== false) ? path.join(baseOutdir, result.id) : baseOutdir;
+    if (!fs.existsSync(targetOutdir)) {
+      fs.mkdirSync(targetOutdir, { recursive: true });
+    }
+
     if (result.provider === "cdse" || options?.format === "safe" || options?.format === "raw" || options?.bands) {
-      const dl = await this.download(result, undefined, outdir, options);
+      const dl = await this.download(result, undefined, targetOutdir, options);
       return { data: dl };
     }
 
-    const keys = assetKeys || Object.keys(result.assets);
+    const keys = assetKeys || Object.keys(result.assets).filter((k) => !k.startsWith("s3_") && (!result.assets[k].href || !result.assets[k].href.startsWith("s3://")));
     if (keys.length === 0) {
       throw new Error(`No assets found to download for item '${result.id}'`);
     }
@@ -267,7 +280,7 @@ export class OmniEarth {
       const batch = keys.slice(i, i + concurrency);
       await Promise.all(
         batch.map(async (k) => {
-          const filePath = await this.download(result, k, outdir, { ...options, multipart: false });
+          const filePath = await this.download(result, k, targetOutdir, { ...options, multipart: false, folder: false, zip: false });
           downloaded[k] = filePath;
         })
       );

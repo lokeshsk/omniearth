@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { BaseProvider } from "./base.js";
-import { AOI, SearchResult, Asset, Category, FilterOptions } from "../types.js";
+import { AOI, SearchResult, Asset, Category, FilterOptions, resolveAssetKey } from "../types.js";
 import { config } from "../config.js";
 
 export class HyperspectralProvider extends BaseProvider {
@@ -220,14 +220,19 @@ export class HyperspectralProvider extends BaseProvider {
       }
     }
 
-    const key = assetKey || "SPECTRAL_IMAGE_COG";
-    const asset = result.assets[key] || result.assets["data"] || Object.values(result.assets)[0];
+    const resolvedKey = resolveAssetKey(result, assetKey);
+    const key = resolvedKey || assetKey || "data";
+    const asset = (resolvedKey ? result.assets[resolvedKey] : undefined) || result.assets[key] || result.assets["data"] || Object.values(result.assets)[0];
 
     if (!asset || !asset.href) {
       throw new Error(`Asset '${key}' not found in hyperspectral scene ${result.id}`);
     }
 
-    const filename = `${result.id}_${key}.tif`;
+    const ext = path.extname(asset.href.split("?")[0]) || ".nc";
+    const baseKey = path.basename(key) || key.replace(/\//g, "_");
+    const filename = baseKey.endsWith(ext)
+      ? (baseKey.startsWith(result.id) ? baseKey : `${result.id}_${baseKey}`)
+      : (baseKey.startsWith(result.id) ? `${baseKey}${ext}` : `${result.id}_${baseKey}${ext}`);
     const destPath = path.join(targetDir, filename);
 
     await this.streamDownload(asset.href, destPath, authHeaders);

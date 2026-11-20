@@ -4,6 +4,7 @@ OmniEarth Main Client
 The primary interface for searching and downloading multi-modal Earth data.
 """
 
+import os
 import concurrent.futures
 from typing import List, Optional, Union, Dict, Any
 from omniearth.models import AOI, SearchResult, SearchResults, Category, FilterOptions
@@ -268,11 +269,19 @@ class OmniEarth:
         bands: Optional[Union[str, List[str]]] = None,
         verify_checksum: bool = False,
         composite: Optional[str] = None,
+        folder: bool = False,
+        zip: bool = False,
         **kwargs
     ) -> str:
         """
         Downloads a search result asset to local storage with multipart and resumable support.
         """
+        base_outdir = outdir or config.default_outdir
+        target_outdir = os.path.join(base_outdir, result.id) if (folder or zip) else base_outdir
+        os.makedirs(target_outdir, exist_ok=True)
+
+        resolved_key = result.resolve_asset_key(asset_key) if asset_key else None
+
         if (
             result.provider == "cdse"
             or format in ("safe", "raw", "node", "band")
@@ -280,8 +289,8 @@ class OmniEarth:
         ):
             downloaded = self._cdse_provider.download(
                 result=result,
-                asset_key=asset_key,
-                outdir=outdir,
+                asset_key=resolved_key,
+                outdir=target_outdir,
                 resume=resume,
                 multipart=multipart,
                 max_workers=max_workers,
@@ -296,8 +305,8 @@ class OmniEarth:
 
             downloaded = provider.download(
                 result=result,
-                asset_key=asset_key,
-                outdir=outdir,
+                asset_key=resolved_key,
+                outdir=target_outdir,
                 resume=resume,
                 multipart=multipart,
                 max_workers=max_workers
@@ -311,6 +320,12 @@ class OmniEarth:
             )
             if comp_path:
                 return comp_path
+
+        if zip and not (isinstance(downloaded, str) and downloaded.endswith(".zip")):
+            if os.path.exists(target_outdir):
+                import shutil
+                zip_base = os.path.join(base_outdir, result.id)
+                return shutil.make_archive(zip_base, "zip", target_outdir)
 
         return downloaded
 
@@ -326,20 +341,31 @@ class OmniEarth:
         bands: Optional[Union[str, List[str]]] = None,
         verify_checksum: bool = False,
         composite: Optional[str] = None,
+        folder: bool = True,
+        zip: bool = False,
         **kwargs
     ) -> Dict[str, str]:
         """
         Downloads multiple or all assets of a search result concurrently.
         Returns a dictionary mapping asset_key -> downloaded absolute file path.
         """
-        keys_to_download = asset_keys or list(result.assets.keys())
+        base_outdir = outdir or config.default_outdir
+        target_outdir = os.path.join(base_outdir, result.id) if (folder or zip) else base_outdir
+        os.makedirs(target_outdir, exist_ok=True)
+
+        keys_to_download = asset_keys
+        if not keys_to_download:
+            keys_to_download = [
+                k for k, a in result.assets.items()
+                if not k.startswith("s3_") and not (a.href or "").startswith("s3://")
+            ]
         if not keys_to_download and result.provider != "cdse" and not bands:
             raise ValueError(f"No assets found to download for result '{result.id}'")
 
         if result.provider == "cdse" or format in ("safe", "raw", "node", "band") or bands:
             dl_path = self.download(
                 result=result,
-                outdir=outdir,
+                outdir=target_outdir,
                 resume=resume,
                 multipart=multipart,
                 max_workers=max_workers,
@@ -347,9 +373,19 @@ class OmniEarth:
                 bands=bands,
                 verify_checksum=verify_checksum,
                 composite=composite,
+                folder=False,
+                zip=False,
                 **kwargs
             )
-            return {"data": dl_path}
+            res_dict = {"data": dl_path}
+            if zip:
+                if isinstance(dl_path, str) and dl_path.endswith(".zip"):
+                    res_dict["zip"] = dl_path
+                elif os.path.exists(target_outdir):
+                    import shutil
+                    zip_base = os.path.join(base_outdir, result.id)
+                    res_dict["zip"] = shutil.make_archive(zip_base, "zip", target_outdir)
+            return res_dict
 
         results_dict: Dict[str, str] = {}
         has_extra = bool(verify_checksum or kwargs)
@@ -365,7 +401,7 @@ class OmniEarth:
                         self.download,
                         result,
                         k,
-                        outdir,
+                        target_outdir,
                         resume,
                         multipart,
                         1,
@@ -379,7 +415,7 @@ class OmniEarth:
                         self.download,
                         result,
                         k,
-                        outdir,
+                        target_outdir,
                         resume,
                         multipart,
                         1
@@ -398,6 +434,12 @@ class OmniEarth:
             )
             if comp_path:
                 results_dict["composite"] = comp_path
+
+        if zip and os.path.exists(target_outdir):
+            import shutil
+            zip_base = os.path.join(base_outdir, result.id)
+            zip_path = shutil.make_archive(zip_base, "zip", target_outdir)
+            results_dict["zip"] = zip_path
 
         return results_dict
 

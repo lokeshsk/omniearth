@@ -548,6 +548,49 @@ def test_client_cdse_routing_and_composites(tmp_path):
         assert dl_snd == ["/tmp/snd.zip"]
 
 
+def test_client_download_folder_and_zip(tmp_path):
+    client = OmniEarth()
+    mock_res = SearchResult(
+        id="scene_zip_01",
+        collection="test",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={
+            "visual": Asset(key="visual", href="https://example.com/visual.tif"),
+            "data": Asset(key="data", href="https://example.com/data.tif"),
+        }
+    )
+    with patch.object(client._providers[Category.OPTICAL], "download", side_effect=lambda result, asset_key, outdir, resume, multipart, max_workers: os.path.join(outdir, f"{asset_key}.tif")):
+        # Single download with zip=True
+        zip_path = client.download(mock_res, asset_key="visual", outdir=str(tmp_path), folder=True, zip=True)
+        assert zip_path.endswith(".zip")
+        assert os.path.exists(zip_path)
+
+        # Download all with zip=True
+        all_res = client.download_all(mock_res, outdir=str(tmp_path / "multi"), folder=True, zip=True)
+        assert "zip" in all_res
+        assert all_res["zip"].endswith(".zip")
+        assert os.path.exists(all_res["zip"])
+
+        # CDSE zip return branch in download_all
+        cdse_res = SearchResult(
+            id="cdse_item_01",
+            collection="c",
+            category=Category.OPTICAL,
+            provider="cdse",
+            assets={}
+        )
+        with patch.object(client._cdse_provider, "download", return_value="/tmp/mock_cdse.zip"):
+            cdse_out = client.download_all(cdse_res, outdir=str(tmp_path), zip=True)
+            assert cdse_out["zip"] == "/tmp/mock_cdse.zip"
+
+        with patch.object(client._cdse_provider, "download", return_value=str(tmp_path / "mock_band.tif")):
+            cdse_out2 = client.download_all(cdse_res, outdir=str(tmp_path), zip=True)
+            assert cdse_out2["zip"].endswith(".zip")
+            assert os.path.exists(cdse_out2["zip"])
+
+
+
 
 
 

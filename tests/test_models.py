@@ -510,5 +510,87 @@ def test_all_14_modalities_footprint_export_geojson_and_csv(tmp_path):
         assert row["assets"] == "data"
 
 
+def test_search_result_resolve_asset_key():
+    res_empty = SearchResult(
+        id="empty", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={}, assets={}
+    )
+    assert res_empty.resolve_asset_key("data") is None
+    assert res_empty.resolve_asset_key(None) is None
+
+    emit_res = SearchResult(
+        id="EMIT_001",
+        collection="emit-l2a-rfl",
+        category=Category.HYPERSPECTRAL,
+        provider="nasa_lpdaac",
+        properties={},
+        assets={
+            "browse": Asset(key="browse", href="https://example.com/browse.png"),
+            "thumbnail_0": Asset(key="thumbnail_0", href="https://example.com/thumb.png"),
+            "001/EMIT/EMIT_RFL": Asset(key="001/EMIT/EMIT_RFL", href="https://example.com/rfl.nc"),
+            "001/EMIT/EMIT_RFLUNCERT": Asset(key="001/EMIT/EMIT_RFLUNCERT", href="https://example.com/uncert.nc"),
+            "001/EMIT/EMIT_MASK": Asset(key="001/EMIT/EMIT_MASK", href="https://example.com/mask.nc"),
+            "s3_001/EMIT/EMIT_RFL": Asset(key="s3_001/EMIT/EMIT_RFL", href="s3://bucket/rfl.nc"),
+            "metadata": Asset(key="metadata", href="https://example.com/meta.xml"),
+        }
+    )
+    assert emit_res.resolve_asset_key(None) == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("browse") == "browse"
+    assert emit_res.resolve_asset_key("BROWSE") == "browse"
+    assert emit_res.resolve_asset_key("data") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("rfl") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("cube") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("uncert") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("mask") == "001/EMIT/EMIT_MASK"
+    assert emit_res.resolve_asset_key("metadata") == "metadata"
+    assert emit_res.resolve_asset_key("xml") == "metadata"
+    assert emit_res.resolve_asset_key("RFLUNCERT") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("s3_001") == "s3_001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("nonexistent_anything") is None
+
+    # Test aliases not matching exact key
+    assert emit_res.resolve_asset_key("preview") == "browse"
+    assert emit_res.resolve_asset_key("science") == "001/EMIT/EMIT_RFL"
+    assert emit_res.resolve_asset_key("qa") == "001/EMIT/EMIT_MASK"
+    assert emit_res.resolve_asset_key("uncertainty") == "001/EMIT/EMIT_RFLUNCERT"
+    assert emit_res.resolve_asset_key("info") == "metadata"
+
+    # Test visual/data primary key exact branch
+    opt_res = SearchResult(
+        id="opt", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"visual": Asset(key="visual", href="https://example.com/vis.tif")}
+    )
+    assert opt_res.resolve_asset_key(None) == "visual"
+
+    # Test rfl in key without standard extension
+    rfl_no_ext = SearchResult(
+        id="rfl_ne", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={},
+        assets={"my_rfl_cube": Asset(key="my_rfl_cube", href="https://example.com/cube")}
+    )
+    assert rfl_no_ext.resolve_asset_key(None) == "my_rfl_cube"
+
+    fallback_res = SearchResult(
+        id="fb", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"some_misc_key": Asset(key="some_misc_key", href="https://example.com/misc.bin")}
+    )
+    assert fallback_res.resolve_asset_key(None) == "some_misc_key"
+
+    s3_only_res = SearchResult(
+        id="s3_only", collection="c", category=Category.OPTICAL, provider="p", properties={},
+        assets={"s3_data": Asset(key="s3_data", href="s3://bucket/data")}
+    )
+    assert s3_only_res.resolve_asset_key(None) == "s3_data"
+
+    s3_first_res = SearchResult(
+        id="s3_f", collection="c", category=Category.HYPERSPECTRAL, provider="p", properties={},
+        assets={
+            "s3_data": Asset(key="s3_data", href="s3://bucket/data.nc"),
+            "data_http": Asset(key="data_http", href="https://example.com/data.nc")
+        }
+    )
+    assert s3_first_res.resolve_asset_key("science") == "data_http"
+
+
+
 
 

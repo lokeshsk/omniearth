@@ -1014,3 +1014,27 @@ test("BaseProvider getItem coordinate-encoded ID resolution", async () => {
     wp.search = origSearch;
   }
 });
+
+test("resolveAssetKey resolves semantic aliases and falls back appropriately", async () => {
+  const { resolveAssetKey } = await import("../src/types.js");
+  const sampleResult: any = {
+    id: "EMIT_L2A_RFL_TEST",
+    assets: {
+      browse: { key: "browse", href: "https://example.com/browse.jpeg" },
+      "001/EMIT/EMIT_DATA": { key: "001/EMIT/EMIT_DATA", href: "https://example.com/EMIT_DATA.nc" },
+      "001/EMIT/EMIT_UNCERT": { key: "001/EMIT/EMIT_UNCERT", href: "https://example.com/EMIT_UNCERT.nc" },
+      "001/EMIT/EMIT_MASK": { key: "001/EMIT/EMIT_MASK", href: "https://example.com/EMIT_MASK.nc" },
+      "s3_raw": { key: "s3_raw", href: "s3://example.com/raw.nc" },
+      metadata: { key: "metadata", href: "https://example.com/meta.xml" }
+    }
+  };
+
+  assert.equal(resolveAssetKey(sampleResult, "browse"), "browse");
+  assert.equal(resolveAssetKey(sampleResult, "rfl"), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey(sampleResult, "cube"), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey(sampleResult, "uncert"), "001/EMIT/EMIT_UNCERT");
+  assert.equal(resolveAssetKey(sampleResult, "mask"), "001/EMIT/EMIT_MASK");
+  assert.equal(resolveAssetKey(sampleResult, "xml"), "metadata");
+  assert.equal(resolveAssetKey(sampleResult, undefined), "001/EMIT/EMIT_DATA");
+  assert.equal(resolveAssetKey({ id: "no_assets" } as any, "data"), undefined);
+});

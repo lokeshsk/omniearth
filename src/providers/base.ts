@@ -15,6 +15,8 @@ export interface DownloadOptions {
   format?: string;
   bands?: string | string[];
   composite?: string;
+  folder?: boolean;
+  zip?: boolean;
 }
 
 function formatBytes(bytes: number): string {

@@ -295,7 +295,7 @@ class HyperspectralProvider(BaseProvider):
             if not u or not p:
                 raise ValueError("DLR credentials (DLR_USERNAME, DLR_PASSWORD) required in .env for EnMAP downloads.")
 
-            chosen_key = asset_key or ("image" if "image" in result.assets else ("thumbnail" if "thumbnail" in result.assets else (next(iter(result.assets.keys())) if result.assets else None)))
+            chosen_key = result.resolve_asset_key(asset_key)
             if not chosen_key or chosen_key not in result.assets:
                 dl_url = f"https://geoservice.dlr.de/eoc/ogc/wcs/v1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={result.id}"
                 result.assets["image"] = Asset(key="image", href=dl_url, media_type="image/tiff")
@@ -304,7 +304,10 @@ class HyperspectralProvider(BaseProvider):
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".tif"
-            filename = f"{result.id}_{chosen_key}{ext}"
+            base_key = os.path.basename(chosen_key) or chosen_key.replace("/", "_")
+            if not base_key.endswith(ext):
+                base_key = f"{base_key}{ext}"
+            filename = base_key if base_key.startswith(result.id) else f"{result.id}_{base_key}"
             outpath = os.path.join(target_dir, filename)
 
             return self._stream_download(
@@ -321,7 +324,7 @@ class HyperspectralProvider(BaseProvider):
             u, p = config.prisma_credentials
             auth = (u, p) if (u and p) else None
 
-            chosen_key = asset_key or (next(iter(result.assets.keys())) if result.assets else None)
+            chosen_key = result.resolve_asset_key(asset_key)
             if not chosen_key or chosen_key not in result.assets:
                 dl_url = f"https://prisma.asi.it/download/{result.id}.he5"
                 result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-hdf5")
@@ -330,7 +333,10 @@ class HyperspectralProvider(BaseProvider):
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".he5"
-            filename = f"{result.id}_{chosen_key}{ext}"
+            base_key = os.path.basename(chosen_key) or chosen_key.replace("/", "_")
+            if not base_key.endswith(ext):
+                base_key = f"{base_key}{ext}"
+            filename = base_key if base_key.startswith(result.id) else f"{result.id}_{base_key}"
             outpath = os.path.join(target_dir, filename)
 
             return self._stream_download(
@@ -344,7 +350,7 @@ class HyperspectralProvider(BaseProvider):
             )
 
         elif provider_name == "nasa_lpdaac":
-            chosen_key = asset_key or ("browse" if "browse" in result.assets else (next(iter(result.assets.keys())) if result.assets else None))
+            chosen_key = result.resolve_asset_key(asset_key)
             if not chosen_key or chosen_key not in result.assets:
                 dl_url = f"https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/{result.id}/{result.id}.nc"
                 result.assets["data"] = Asset(key="data", href=dl_url, media_type="application/x-netcdf")
@@ -353,7 +359,10 @@ class HyperspectralProvider(BaseProvider):
             target_asset = result.assets[chosen_key]
             url = target_asset.href
             ext = os.path.splitext(url)[1].split("?")[0] or ".nc"
-            filename = f"{result.id}_{chosen_key}{ext}"
+            base_key = os.path.basename(chosen_key) or chosen_key.replace("/", "_")
+            if not base_key.endswith(ext):
+                base_key = f"{base_key}{ext}"
+            filename = base_key if base_key.startswith(result.id) else f"{result.id}_{base_key}"
             outpath = os.path.join(target_dir, filename)
 
             auth = None
@@ -361,12 +370,20 @@ class HyperspectralProvider(BaseProvider):
                 u, p = config.earthdata_credentials
                 if u and p:
                     auth = (u, p)
+                else:
+                    import sys
+                    print(
+                        "Notice: NASA Earthdata credentials (EARTHDATA_USERNAME, EARTHDATA_PASSWORD) not configured in .env. "
+                        "Protected EMIT NetCDF cubes require an Earthdata login (free at urs.earthdata.nasa.gov). "
+                        "If download fails with HTTP 401, provide credentials or pass '--asset browse' for public preview.",
+                        file=sys.stderr
+                    )
 
             return self._stream_download(
                 url=url,
                 outpath=outpath,
                 auth=auth,
-                desc=f"{result.id[:18]} [{chosen_key}]",
+                desc=f"{result.id[:18]} [{os.path.basename(chosen_key)}]",
                 resume=resume,
                 multipart=multipart,
                 max_workers=max_workers

@@ -515,8 +515,38 @@ def cmd_download(args, client: OmniEarth):
     try:
         if len(target_results) == 1:
             target_result = target_results[0]
-            if getattr(args, "all", False) is True:
-                print(f"Downloading all assets for '{target_result.id}' with {threads} worker thread(s)...")
+            if getattr(args, "interactive", False) is True and target_result.assets:
+                avail_keys = [
+                    k for k in target_result.assets.keys()
+                    if not k.startswith("s3_") and not (target_result.assets[k].href or "").startswith("s3://")
+                ]
+                if avail_keys:
+                    print(f"\nAvailable assets for '{target_result.id}':")
+                    for idx, k in enumerate(avail_keys, start=1):
+                        asset_obj = target_result.assets[k]
+                        base_name = os.path.basename(k) or k
+                        mtype = f" [{asset_obj.media_type}]" if asset_obj.media_type else ""
+                        print(f"  [{idx}] {base_name}{mtype}")
+                    print("  [a] all (download all assets into dedicated folder)")
+                    try:
+                        choice = input("\nSelect asset to download (1-N, 'all', or 'q' to quit): ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        choice = "q"
+                    if choice in ("q", "quit", ""):
+                        print("Download cancelled.")
+                        return
+                    elif choice in ("a", "all"):
+                        setattr(args, "all", True)
+                        extra_dl_kwargs["folder"] = True
+                    elif choice.isdigit() and 1 <= int(choice) <= len(avail_keys):
+                        setattr(args, "asset", avail_keys[int(choice) - 1])
+
+            chosen_asset_key = target_result.resolve_asset_key(getattr(args, "asset", None)) if getattr(args, "asset", None) else None
+
+            if getattr(args, "all", False) is True or getattr(args, "zip", False) is True:
+                is_zip = getattr(args, "zip", False) is True
+                folder_desc = " (zipped archive)" if is_zip else ""
+                print(f"Downloading all assets for '{target_result.id}'{folder_desc} with {threads} worker thread(s)...")
                 paths = client.download_all(
                     target_result,
                     outdir=outdir,
@@ -525,13 +555,17 @@ def cmd_download(args, client: OmniEarth):
                     multipart=multipart,
                     **extra_dl_kwargs
                 )
-                print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {outdir}")
-                for k, p in paths.items():
-                    print(f"  * {k}: {p}")
+                if is_zip and "zip" in paths:
+                    print(f"\nSuccessfully archived scene package: {paths['zip']}")
+                else:
+                    target_dir_disp = os.path.join(outdir, target_result.id) if extra_dl_kwargs.get("folder") else outdir
+                    print(f"\nSuccessfully downloaded {len(paths)} asset(s) to: {target_dir_disp}")
+                    for k, p in paths.items():
+                        print(f"  * {k}: {p}")
             else:
                 path = client.download(
                     target_result,
-                    asset_key=getattr(args, "asset", None) if isinstance(getattr(args, "asset", None), str) else None,
+                    asset_key=chosen_asset_key,
                     outdir=outdir,
                     resume=resume,
                     multipart=multipart,
@@ -719,6 +753,9 @@ def main():
     dl_p.add_argument("--limit", type=int, default=1, help="Maximum number of scenes to download when searching by AOI (default: 1)")
     dl_p.add_argument("--all-scenes", action="store_true", help="Download all matching scenes found in AOI up to --limit")
     dl_p.add_argument("--all", action="store_true", help="Download all assets associated with the scene concurrently")
+    dl_p.add_argument("-i", "--interactive", action="store_true", help="Prompt interactively to choose specific assets or download all")
+    dl_p.add_argument("--folder", action="store_true", help="Save downloaded scene assets in a dedicated subfolder named by the scene ID")
+    dl_p.add_argument("--zip", action="store_true", help="Archive downloaded scene assets into a compressed .zip file")
     dl_p.add_argument("--threads", "-t", type=int, default=4, help="Number of parallel worker threads (default: 4)")
     dl_p.add_argument("--no-resume", action="store_true", help="Disable byte-range download resumption")
     dl_p.add_argument("--no-multipart", action="store_true", help="Disable parallel chunked multipart downloading")
