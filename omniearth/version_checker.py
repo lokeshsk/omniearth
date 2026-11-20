@@ -211,3 +211,4 @@ def whats_new() -> None:
     print("Subscribe to releases: https://github.com/lokeshsk/omniearth/releases")
     print("PyPI RSS: https://pypi.org/rss/project/omniearth/releases.xml")
     print("=" * 76)
+

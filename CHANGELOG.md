@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-20
+
 ### Added
 - **Non-Blocking Version & Update Notification Engine**:
   - Automatic background checks against PyPI and npm registries cached for 24 hours (`~/.cache/omniearth/version_check.json` and `npm_version_check.json`).
@@ -105,7 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Optical multispectral imagery (Sentinel-2 L2A/L1C and Landsat-8/9) via AWS Earth Search STAC.
   - Zero-config public cloud-optimized GeoTIFF streaming.
 
-[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/lokeshsk/omniearth/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/lokeshsk/omniearth/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/lokeshsk/omniearth/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/lokeshsk/omniearth/compare/v1.3.0...v1.4.0

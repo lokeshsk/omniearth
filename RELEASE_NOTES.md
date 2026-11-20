@@ -1,3 +1,36 @@
+# OmniEarth v1.5.2 Release Notes
+
+**Release Date:** November 20, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.5.2](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.5.2](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.5.2 is a maintenance and feature patch release introducing a **Non-Blocking Version & Update Notification Engine** across Python and Node.js SDKs/CLIs, **Automated GitHub Release Notes Generation**, and streamlined **Hyperspectral Provider Routing** focused on NASA EMIT and DLR EnMAP.
+
+---
+
+## Key Highlights in v1.5.2
+
+### 1. Non-Blocking Version & Update Notification Engine
+Users are now automatically alerted when newer OmniEarth releases are published on PyPI or npm:
+- **24-Hour Cache**: Checked against local cache (`~/.cache/omniearth/version_check.json` / `npm_version_check.json`) with an aggressive 1.5s timeout. Queries remote registries only once daily.
+- **Non-Intrusive Stderr Banner**: Clean box banner sent to `sys.stderr`, preventing corruption of piped CLI JSON outputs or automated scripts.
+- **Opt-Out Controls**: Respects `OMNIEARTH_NO_UPDATE_CHECK=1`, `CI=true`, `--json`, and non-interactive TTY environments.
+- **Inspect New Releases**:
+  - CLI: `omniearth whatsnew` displays formatted highlights and changelog links.
+  - Python SDK: `omniearth.whats_new()`
+  - Node.js / TypeScript SDK: `whatsNew()`
+
+### 2. Automated GitHub Release Notes & Provenance
+- `publish.yml` integrates `softprops/action-gh-release@v2` with `generate_release_notes: true`, automatically compiling pull requests, commit highlights, and distributing signed wheel/sdist/npm artifacts upon tag push.
+- Full compliance with Keep a Changelog documented in `CHANGELOG.md`.
+
+### 3. Streamlined Hyperspectral Architecture
+- Decoupled ASI PRISMA routing from OmniEarth core while automated programmatic download protocol is finalized in a dedicated external pilot project (`prisma_pilot`).
+- Hyperspectral searches and downloads remain fully supported and focused on **NASA EMIT** (285 bands, 381-2493 nm) and **DLR EnMAP** (224 bands, 420-2450 nm).
+
+---
+
 # OmniEarth v1.5.1 Release Notes
 
 **Release Date:** November 20, 2026  
