@@ -121,7 +121,7 @@ class ElevationProvider(BaseProvider):
         Searches and generates intersecting DEM tiles for the specified AOI.
         Supports datasets: 'copernicus' (default), 'srtm', 'alos'/'aw3d30'.
         """
-        dataset = (filters.dataset.lower() if filters and filters.dataset else "copernicus")
+        dataset = ((filters.provider or filters.dataset).lower() if filters and (filters.provider or filters.dataset) else "copernicus")
         limit = filters.limit if filters and filters.limit else 10
 
         minx, miny, maxx, maxy = aoi.bbox
