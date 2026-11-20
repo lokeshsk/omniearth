@@ -517,6 +517,11 @@ class CDSEProvider(BaseProvider):
 
         # 1. Selective Node Band Extraction
         bands_str = ",".join(bands) if isinstance(bands, list) else bands
+        if not bands_str and asset_key and asset_key.upper() in (
+            "B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12", "VV", "VH", "HH", "HV"
+        ):
+            bands_str = asset_key.upper()
+
         if format in ("node", "band") or bands_str:
             cdse_id = result.properties.get("cdse_id") or result.id
             matched_files = self.find_files_for_bands(cdse_id, bands_str)
@@ -543,7 +548,8 @@ class CDSEProvider(BaseProvider):
             return downloaded_paths[0] if len(downloaded_paths) == 1 else product_folder
 
         # 2. Full .SAFE ZIP Archive Download
-        target_asset = result.assets.get(asset_key or "full") or result.assets.get("safe")
+        resolved_key = result.resolve_asset_key(asset_key)
+        target_asset = (result.assets.get(resolved_key) if resolved_key else None) or result.assets.get("full") or result.assets.get("safe")
         if not target_asset or not target_asset.href:
             cdse_id = result.properties.get("cdse_id") or result.id
             dl_url = f"{self.DOWNLOAD_URL}/Products({cdse_id})/$value"

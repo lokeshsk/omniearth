@@ -116,23 +116,27 @@ class AtmosphereProvider(BaseProvider):
     ) -> str:
         target_dir = outdir or config.default_outdir
         os.makedirs(target_dir, exist_ok=True)
-        filename = f"{result.id}.json"
+        resolved_key = result.resolve_asset_key(asset_key) or "data"
+        safe_key = resolved_key.replace("/", "_")
+        filename = f"{result.id}_{safe_key}.json" if resolved_key != "data" else f"{result.id}.json"
         outpath = os.path.join(target_dir, filename)
 
-        if "_raw_data" in result.properties:
+        if resolved_key == "data" and "_raw_data" in result.properties:
             with open(outpath, "w") as f:
                 json.dump(result.properties["_raw_data"], f, indent=2)
             print(f"[OK] Saved atmospheric profile to: {os.path.abspath(outpath)}")
             return os.path.abspath(outpath)
 
-        target_asset = result.assets.get(asset_key or "data")
-        if not target_asset:
+        target_asset = result.assets.get(resolved_key) or result.assets.get("data")
+        if not target_asset or not target_asset.href:
             raise ValueError("No download asset found for atmosphere result.")
 
+        ext = os.path.splitext(target_asset.href.split("?")[0])[1] or ".json"
+        outpath = os.path.join(target_dir, f"{result.id}_{safe_key}{ext}")
         return self._stream_download(
             url=target_asset.href,
             outpath=outpath,
-            desc=f"{result.id[:20]} [atmosphere]",
+            desc=f"{result.id[:20]} [{safe_key}]",
             resume=resume,
             multipart=multipart,
             max_workers=max_workers

@@ -409,6 +409,27 @@ def test_cmd_download_interactive_and_zip(capsys, tmp_path):
         captured = capsys.readouterr()
         assert "Successfully archived scene package:" in captured.out
 
+    # 6. Single asset download with zip=True
+    args_single_zip = MagicMock()
+    args_single_zip.category = "optical"
+    args_single_zip.id = "OPT_SCENE_TEST"
+    args_single_zip.bbox = None
+    args_single_zip.asset = "visual"
+    args_single_zip.outdir = str(tmp_path)
+    args_single_zip.interactive = False
+    args_single_zip.all = False
+    args_single_zip.zip = True
+    args_single_zip.folder = True
+    args_single_zip.threads = 1
+    args_single_zip.no_resume = False
+    args_single_zip.no_multipart = False
+
+    with patch.object(client, "search", return_value=[mock_res]), \
+         patch.object(client, "download", return_value=str(tmp_path / "OPT_SCENE_TEST.zip")):
+        cmd_download(args_single_zip, client)
+        captured = capsys.readouterr()
+        assert "Successfully archived scene package:" in captured.out
+
 
 def test_cmd_search_error_and_cloud_formatting(capsys):
     import pytest

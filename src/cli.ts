@@ -481,16 +481,24 @@ program
         const resolvedKey = resolveAssetKey(targetResult, opts.asset);
         const finalAssetKey = resolvedKey || opts.asset;
 
-        if (opts.all) {
+        if (opts.all || (opts.zip && !opts.asset)) {
           const downloaded = await client.downloadAll(targetResult, undefined, opts.outdir, { ...downloadOpts, folder: true, zip: opts.zip });
-          const targetDirDisp = (opts.folder || opts.all) ? `${opts.outdir}/${targetResult.id}` : opts.outdir;
-          console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${targetDirDisp}`);
-          for (const [k, p] of Object.entries(downloaded)) {
-            console.log(`  * ${k}: ${p}`);
+          if (opts.zip && downloaded["zip"]) {
+            console.log(`\nSuccessfully archived scene package: ${downloaded["zip"]}`);
+          } else {
+            const targetDirDisp = (opts.folder || opts.all) ? `${opts.outdir}/${targetResult.id}` : opts.outdir;
+            console.log(`Successfully downloaded ${Object.keys(downloaded).length} asset(s) to: ${targetDirDisp}`);
+            for (const [k, p] of Object.entries(downloaded)) {
+              console.log(`  * ${k}: ${p}`);
+            }
           }
         } else {
           const filePath = await client.download(targetResult, finalAssetKey, opts.outdir, { ...downloadOpts, folder: opts.folder || opts.zip, zip: opts.zip });
-          console.log(`Successfully downloaded: ${filePath}`);
+          if (opts.zip) {
+            console.log(`\nSuccessfully archived scene package: ${filePath}`);
+          } else {
+            console.log(`Successfully downloaded: ${filePath}`);
+          }
         }
       } else {
         console.log(`Downloading ${targetResults.length} scenes concurrently with ${downloadOpts.concurrency} worker thread(s)...`);

@@ -129,25 +129,27 @@ class WeatherProvider(BaseProvider):
     ) -> str:
         target_dir = outdir or config.default_outdir
         os.makedirs(target_dir, exist_ok=True)
-        filename = f"{result.id}.json"
+        resolved_key = result.resolve_asset_key(asset_key) or "data"
+        safe_key = resolved_key.replace("/", "_")
+        filename = f"{result.id}_{safe_key}.json" if resolved_key != "data" else f"{result.id}.json"
         outpath = os.path.join(target_dir, filename)
 
         # If already cached in search result
-        if "_raw_data" in result.properties:
+        if resolved_key == "data" and "_raw_data" in result.properties:
             with open(outpath, "w") as f:
                 json.dump(result.properties["_raw_data"], f, indent=2)
             print(f"[OK] Saved weather data to: {os.path.abspath(outpath)}")
             return os.path.abspath(outpath)
 
         # Otherwise fetch from URL
-        target_asset = result.assets.get(asset_key or "data")
-        if not target_asset:
-            raise ValueError("No download asset found for weather result.")
+        target_asset = result.assets.get(resolved_key) or result.assets.get("data")
+        if not target_asset or not target_asset.href:
+            raise ValueError(f"No download asset found for weather result key '{resolved_key}'.")
 
         return self._stream_download(
             url=target_asset.href,
             outpath=outpath,
-            desc=f"{result.id[:20]}",
+            desc=f"{result.id[:20]} [{safe_key}]",
             resume=resume,
             multipart=multipart,
             max_workers=max_workers

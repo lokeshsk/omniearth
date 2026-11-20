@@ -590,6 +590,42 @@ def test_search_result_resolve_asset_key():
     )
     assert s3_first_res.resolve_asset_key("science") == "data_http"
 
+    multi_res = SearchResult(
+        id="multi_test",
+        collection="test",
+        category=Category.OPTICAL,
+        provider="test",
+        properties={},
+        assets={
+            "visual_cog": Asset(key="visual_cog", href="https://example.com/visual.tif"),
+            "dem_raster": Asset(key="dem_raster", href="https://example.com/dem.tif"),
+            "map_cover": Asset(key="map_cover", href="https://example.com/map.tif"),
+            "vv_amplitude": Asset(key="vv_amplitude", href="https://example.com/vv.tif"),
+            "tropospheric_no2_grid": Asset(key="tropospheric_no2_grid", href="https://example.com/no2.nc"),
+            "chlorophyll_a_surface": Asset(key="chlorophyll_a_surface", href="https://example.com/chla.nc"),
+            "altimetry_l2_pass": Asset(key="altimetry_l2_pass", href="https://example.com/alt.nc"),
+            "gpm_imerg_daily_accum": Asset(key="gpm_imerg_daily_accum", href="https://example.com/gpm.nc"),
+            "surface_soil_moisture_level": Asset(key="surface_soil_moisture_level", href="https://example.com/ssm.nc"),
+            "dnb_radiance_night": Asset(key="dnb_radiance_night", href="https://example.com/dnb.tif"),
+            "weather_feed": Asset(key="weather_feed", href="https://example.com/wx.json"),
+            "soil_profile": Asset(key="soil_profile", href="https://example.com/soil.json"),
+            "safe_package": Asset(key="safe_package", href="https://example.com/s2.zip"),
+        }
+    )
+    assert multi_res.resolve_asset_key("visual") == "visual_cog"
+    assert multi_res.resolve_asset_key("dem") == "dem_raster"
+    assert multi_res.resolve_asset_key("map") == "map_cover"
+    assert multi_res.resolve_asset_key("sar") == "vv_amplitude"
+    assert multi_res.resolve_asset_key("no2") == "tropospheric_no2_grid"
+    assert multi_res.resolve_asset_key("ocean") == "chlorophyll_a_surface"
+    assert multi_res.resolve_asset_key("altimetry") == "altimetry_l2_pass"
+    assert multi_res.resolve_asset_key("precipitation") == "gpm_imerg_daily_accum"
+    assert multi_res.resolve_asset_key("hydrology") == "surface_soil_moisture_level"
+    assert multi_res.resolve_asset_key("nightlights") == "dnb_radiance_night"
+    assert multi_res.resolve_asset_key("weather") == "weather_feed"
+    assert multi_res.resolve_asset_key("soil") == "soil_profile"
+    assert multi_res.resolve_asset_key("safe") == "safe_package"
+
 
 
 

@@ -56,7 +56,11 @@ export function resolveAssetKey(result: SearchResult, query?: string): string | 
 
   const entries = Object.entries(result.assets);
   if (!query || !query.trim()) {
-    for (const k of ["data", "image", "visual", "SPECTRAL_IMAGE_COG", "dem", "map"]) {
+    for (const k of [
+      "visual", "data", "image", "dem", "map", "vv", "SPECTRAL_IMAGE_COG",
+      "tropospheric_no2", "chlorophyll_a", "altimetry_l2", "gpm_imerg_daily",
+      "surface_soil_moisture", "dnb_radiance"
+    ]) {
       if (result.assets[k]) return k;
     }
     for (const [k, a] of entries) {
@@ -79,7 +83,79 @@ export function resolveAssetKey(result: SearchResult, query?: string): string | 
     if (k.toLowerCase() === q) return k;
   }
 
-  if (["data", "cube", "science", "rfl", "reflectance", "nc", "image"].includes(q)) {
+  if (["visual", "rgb", "truecolor", "tci"].includes(q)) {
+    for (const cand of ["visual", "image", "tci", "rgb", "preview"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["dem", "elevation", "dsm", "dtm", "altitude"].includes(q)) {
+    for (const cand of ["dem", "elevation", "dsm", "dtm"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["map", "landcover", "classification", "worldcover"].includes(q)) {
+    for (const cand of ["map", "landcover", "classification", "worldcover"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["sar", "radar"].includes(q)) {
+    for (const cand of ["vv", "vh", "hh", "hv"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["no2", "tropospheric_no2", "cams", "s5p", "tracegas"].includes(q)) {
+    for (const cand of ["tropospheric_no2", "no2", "cams"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["ocean", "chlorophyll", "chlorophyll_a", "sst"].includes(q)) {
+    for (const cand of ["chlorophyll_a", "chlorophyll", "ocean"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["altimetry", "altimetry_l2", "ssh"].includes(q)) {
+    for (const cand of ["altimetry_l2", "altimetry", "ssh"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["precipitation", "gpm", "gpm_imerg_daily", "rain", "rainfall"].includes(q)) {
+    for (const cand of ["gpm_imerg_daily", "gpm", "precipitation", "rain"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["hydrology", "moisture", "surface_soil_moisture"].includes(q)) {
+    for (const cand of ["surface_soil_moisture", "hydrology", "moisture"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["nightlights", "dnb", "dnb_radiance", "viirs", "radiance"].includes(q)) {
+    for (const cand of ["dnb_radiance", "dnb", "nightlights", "radiance"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["weather", "meteo", "forecast"].includes(q)) {
+    for (const cand of ["data", "weather", "feed"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["soil", "soilgrids", "profile"].includes(q)) {
+    for (const cand of ["soil_profile", "soilgrids", "profile", "soil"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.toLowerCase().includes("moisture") && !k.startsWith("s3_")) return k;
+      }
+    }
+  } else if (["data", "cube", "science", "rfl", "reflectance", "nc", "image"].includes(q)) {
     for (const [k, a] of entries) {
       if (k.startsWith("s3_") || (a.href && a.href.startsWith("s3://"))) continue;
       const kLower = k.toLowerCase();
@@ -102,6 +178,12 @@ export function resolveAssetKey(result: SearchResult, query?: string): string | 
   } else if (["metadata", "meta", "xml", "info"].includes(q)) {
     for (const k of Object.keys(result.assets)) {
       if (["metadata", "meta", "xml"].some((w) => k.toLowerCase().includes(w))) return k;
+    }
+  } else if (["safe", "full", "product", "raw", "zip"].includes(q)) {
+    for (const cand of ["safe", "full", "product", "raw", "data"]) {
+      for (const k of Object.keys(result.assets)) {
+        if (k.toLowerCase().includes(cand) && !k.startsWith("s3_")) return k;
+      }
     }
   }
 

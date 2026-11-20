@@ -543,7 +543,7 @@ def cmd_download(args, client: OmniEarth):
 
             chosen_asset_key = target_result.resolve_asset_key(getattr(args, "asset", None)) if getattr(args, "asset", None) else None
 
-            if getattr(args, "all", False) is True or getattr(args, "zip", False) is True:
+            if getattr(args, "all", False) is True or (getattr(args, "zip", False) is True and not getattr(args, "asset", None)):
                 is_zip = getattr(args, "zip", False) is True
                 folder_desc = " (zipped archive)" if is_zip else ""
                 print(f"Downloading all assets for '{target_result.id}'{folder_desc} with {threads} worker thread(s)...")
@@ -572,7 +572,10 @@ def cmd_download(args, client: OmniEarth):
                     max_workers=threads,
                     **extra_dl_kwargs
                 )
-                print(f"\nSuccessfully downloaded: {path}")
+                if getattr(args, "zip", False) is True:
+                    print(f"\nSuccessfully archived scene package: {path}")
+                else:
+                    print(f"\nSuccessfully downloaded: {path}")
         else:
             print(f"Downloading {len(target_results)} scenes concurrently with {threads} worker thread(s)...")
             paths = client.download_many(

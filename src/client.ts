@@ -1,5 +1,20 @@
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
+
+function archiveFolderSync(sourceDir: string, zipPath: string): string {
+  try {
+    const parentDir = path.dirname(sourceDir);
+    const folderName = path.basename(sourceDir);
+    if (process.platform === "win32") {
+      execSync(`powershell -Command "Compress-Archive -Path '${sourceDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: "ignore" });
+    } else {
+      execSync(`cd "${parentDir}" && zip -r -q "${path.resolve(zipPath)}" "${folderName}"`, { stdio: "ignore" });
+    }
+    if (fs.existsSync(zipPath)) return zipPath;
+  } catch {}
+  return sourceDir;
+}
 import {
   Category,
   AOI,
@@ -248,6 +263,11 @@ export class OmniEarth {
       } catch {}
     }
 
+    if (options?.zip && !downloadedPath.endsWith(".zip") && fs.existsSync(targetOutdir)) {
+      const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+      return archiveFolderSync(targetOutdir, zipPath);
+    }
+
     return downloadedPath;
   }
 
@@ -264,8 +284,17 @@ export class OmniEarth {
     }
 
     if (result.provider === "cdse" || options?.format === "safe" || options?.format === "raw" || options?.bands) {
-      const dl = await this.download(result, undefined, targetOutdir, options);
-      return { data: dl };
+      const dl = await this.download(result, undefined, targetOutdir, { ...options, zip: false });
+      const resDict: Record<string, string> = { data: dl };
+      if (options?.zip) {
+        if (dl.endsWith(".zip")) {
+          resDict["zip"] = dl;
+        } else if (fs.existsSync(targetOutdir)) {
+          const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+          resDict["zip"] = archiveFolderSync(targetOutdir, zipPath);
+        }
+      }
+      return resDict;
     }
 
     const keys = assetKeys || Object.keys(result.assets).filter((k) => !k.startsWith("s3_") && (!result.assets[k].href || !result.assets[k].href.startsWith("s3://")));
@@ -292,6 +321,11 @@ export class OmniEarth {
         const comp = createCompositeFromDownloaded(Object.values(downloaded), options.composite);
         if (comp) downloaded["composite"] = comp;
       } catch {}
+    }
+
+    if (options?.zip && fs.existsSync(targetOutdir)) {
+      const zipPath = path.join(baseOutdir, `${result.id}.zip`);
+      downloaded["zip"] = archiveFolderSync(targetOutdir, zipPath);
     }
 
     return downloaded;

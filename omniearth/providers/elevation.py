@@ -186,15 +186,8 @@ class ElevationProvider(BaseProvider):
         max_workers: int = 4
     ) -> str:
         """Download DEM raster tile with resumable, multipart streaming."""
-        target_asset = None
-        if asset_key and asset_key in result.assets:
-            target_asset = result.assets[asset_key]
-        elif "dem" in result.assets:
-            target_asset = result.assets["dem"]
-        elif "data" in result.assets:
-            target_asset = result.assets["data"]
-        elif result.assets:
-            target_asset = next(iter(result.assets.values()))
+        resolved_key = result.resolve_asset_key(asset_key)
+        target_asset = (result.assets.get(resolved_key) if resolved_key else None) or (next(iter(result.assets.values())) if result.assets else None)
 
         if not target_asset or not target_asset.href:
             raise ValueError(f"No valid DEM asset found to download for '{result.id}'")

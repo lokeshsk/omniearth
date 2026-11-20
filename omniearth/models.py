@@ -276,7 +276,11 @@ class SearchResult(BaseModel):
             return None
 
         if not query or not str(query).strip():
-            for k in ("data", "image", "visual", "SPECTRAL_IMAGE_COG", "dem", "map"):
+            for k in (
+                "visual", "data", "image", "dem", "map", "vv", "SPECTRAL_IMAGE_COG",
+                "tropospheric_no2", "chlorophyll_a", "altimetry_l2", "gpm_imerg_daily",
+                "surface_soil_moisture", "dnb_radiance"
+            ):
                 if k in self.assets:
                     return k
             for k, a in self.assets.items():
@@ -302,7 +306,67 @@ class SearchResult(BaseModel):
             if k.lower() == q:
                 return k
 
-        if q in ("data", "cube", "science", "rfl", "reflectance", "nc", "image"):
+        if q in ("visual", "rgb", "truecolor", "tci"):
+            for cand in ("visual", "image", "tci", "rgb", "preview"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("dem", "elevation", "dsm", "dtm", "altitude"):
+            for cand in ("dem", "elevation", "dsm", "dtm"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("map", "landcover", "classification", "worldcover"):
+            for cand in ("map", "landcover", "classification", "worldcover"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("sar", "radar"):
+            for cand in ("vv", "vh", "hh", "hv"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("no2", "tropospheric_no2", "cams", "s5p", "tracegas"):
+            for cand in ("tropospheric_no2", "no2", "cams"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("ocean", "chlorophyll", "chlorophyll_a", "sst"):
+            for cand in ("chlorophyll_a", "chlorophyll", "ocean"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("altimetry", "altimetry_l2", "ssh"):
+            for cand in ("altimetry_l2", "altimetry", "ssh"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("precipitation", "gpm", "gpm_imerg_daily", "rain", "rainfall"):
+            for cand in ("gpm_imerg_daily", "gpm", "precipitation", "rain"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("hydrology", "moisture", "surface_soil_moisture"):
+            for cand in ("surface_soil_moisture", "hydrology", "moisture"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("nightlights", "dnb", "dnb_radiance", "viirs", "radiance"):
+            for cand in ("dnb_radiance", "dnb", "nightlights", "radiance"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("weather", "meteo", "forecast"):
+            for cand in ("data", "weather", "feed"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("soil", "soilgrids", "profile"):
+            for cand in ("soil_profile", "soilgrids", "profile", "soil"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and "moisture" not in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
+        elif q in ("data", "cube", "science", "rfl", "reflectance", "nc", "image"):
             for k, a in self.assets.items():
                 if k.startswith("s3_") or "s3://" in (a.href or ""):
                     continue
@@ -328,6 +392,11 @@ class SearchResult(BaseModel):
             for k in self.assets:
                 if any(w in k.lower() for w in ("metadata", "meta", "xml")):
                     return k
+        elif q in ("safe", "full", "product", "raw", "zip"):
+            for cand in ("safe", "full", "product", "raw", "data"):
+                for asset_k in self.assets:
+                    if cand in asset_k.lower() and not asset_k.startswith("s3_"):
+                        return asset_k
 
         for k in self.assets:
             if not k.startswith("s3_") and q in k.lower():

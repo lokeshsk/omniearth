@@ -1037,4 +1037,37 @@ test("resolveAssetKey resolves semantic aliases and falls back appropriately", a
   assert.equal(resolveAssetKey(sampleResult, "xml"), "metadata");
   assert.equal(resolveAssetKey(sampleResult, undefined), "001/EMIT/EMIT_DATA");
   assert.equal(resolveAssetKey({ id: "no_assets" } as any, "data"), undefined);
+
+  const multiResult: any = {
+    id: "multi_test_ts",
+    assets: {
+      visual_cog: { key: "visual_cog", href: "https://example.com/visual.tif" },
+      dem_raster: { key: "dem_raster", href: "https://example.com/dem.tif" },
+      map_cover: { key: "map_cover", href: "https://example.com/map.tif" },
+      vv_amplitude: { key: "vv_amplitude", href: "https://example.com/vv.tif" },
+      tropospheric_no2_grid: { key: "tropospheric_no2_grid", href: "https://example.com/no2.nc" },
+      chlorophyll_a_surface: { key: "chlorophyll_a_surface", href: "https://example.com/chla.nc" },
+      altimetry_l2_pass: { key: "altimetry_l2_pass", href: "https://example.com/alt.nc" },
+      gpm_imerg_daily_accum: { key: "gpm_imerg_daily_accum", href: "https://example.com/gpm.nc" },
+      surface_soil_moisture_level: { key: "surface_soil_moisture_level", href: "https://example.com/ssm.nc" },
+      dnb_radiance_night: { key: "dnb_radiance_night", href: "https://example.com/dnb.tif" },
+      weather_feed: { key: "weather_feed", href: "https://example.com/wx.json" },
+      soil_profile: { key: "soil_profile", href: "https://example.com/soil.json" },
+      safe_package: { key: "safe_package", href: "https://example.com/s2.zip" }
+    }
+  };
+
+  assert.equal(resolveAssetKey(multiResult, "visual"), "visual_cog");
+  assert.equal(resolveAssetKey(multiResult, "dem"), "dem_raster");
+  assert.equal(resolveAssetKey(multiResult, "map"), "map_cover");
+  assert.equal(resolveAssetKey(multiResult, "sar"), "vv_amplitude");
+  assert.equal(resolveAssetKey(multiResult, "no2"), "tropospheric_no2_grid");
+  assert.equal(resolveAssetKey(multiResult, "ocean"), "chlorophyll_a_surface");
+  assert.equal(resolveAssetKey(multiResult, "altimetry"), "altimetry_l2_pass");
+  assert.equal(resolveAssetKey(multiResult, "precipitation"), "gpm_imerg_daily_accum");
+  assert.equal(resolveAssetKey(multiResult, "hydrology"), "surface_soil_moisture_level");
+  assert.equal(resolveAssetKey(multiResult, "nightlights"), "dnb_radiance_night");
+  assert.equal(resolveAssetKey(multiResult, "weather"), "weather_feed");
+  assert.equal(resolveAssetKey(multiResult, "soil"), "soil_profile");
+  assert.equal(resolveAssetKey(multiResult, "safe"), "safe_package");
 });
