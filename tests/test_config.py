@@ -16,8 +16,6 @@ def test_config_defaults():
 def test_config_all_credential_properties(monkeypatch, tmp_path):
     monkeypatch.setenv("DLR_USERNAME", "test_dlr_user")
     monkeypatch.setenv("DLR_PASSWORD", "test_dlr_pass")
-    monkeypatch.setenv("PRISMA_USERNAME", "test_prisma_user")
-    monkeypatch.setenv("PRISMA_PASSWORD", "test_prisma_pass")
     monkeypatch.setenv("EARTHDATA_USERNAME", "test_ed_user")
     monkeypatch.setenv("EARTHDATA_PASSWORD", "test_ed_pass")
     monkeypatch.setenv("CDSE_USERNAME", "test_cdse_user")
@@ -27,7 +25,6 @@ def test_config_all_credential_properties(monkeypatch, tmp_path):
     
     cfg = Config()
     assert cfg.dlr_credentials == ("test_dlr_user", "test_dlr_pass")
-    assert cfg.prisma_credentials == ("test_prisma_user", "test_prisma_pass")
     assert cfg.earthdata_credentials == ("test_ed_user", "test_ed_pass")
     assert cfg.cdse_credentials == ("test_cdse_user", "test_cdse_pass")
     assert cfg.s3_credentials == ("test_s3_key", "test_s3_secret")

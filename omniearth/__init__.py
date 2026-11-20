@@ -7,7 +7,7 @@ Author: Lokesh S. K. (https://lokeshsk.github.io)
 Repository: https://github.com/lokeshsk/omniearth
 """
 
-__version__ = "1.5.1"
+__version__ = "1.5.2"
 __author__ = "Lokesh Kumar"
 
 from omniearth.client import OmniEarth
@@ -25,6 +25,8 @@ from omniearth.indices import (
     calculate_mndwi,
 )
 
+from omniearth.version_checker import check_for_updates, whats_new
+
 __all__ = [
     "OmniEarth",
     "AOI",
@@ -33,6 +35,8 @@ __all__ = [
     "Asset",
     "Category",
     "FilterOptions",
+    "check_for_updates",
+    "whats_new",
     "compute_spectral_index",
     "calculate_ndvi",
     "calculate_ndwi",

@@ -66,6 +66,13 @@ export class OmniEarth {
     this.providers.set(Category.HYDROLOGY, new HydrologyProvider());
     this.providers.set(Category.NIGHTLIGHTS, new NightlightsProvider());
     this.cdseProvider = new CDSEProvider();
+
+    // Non-blocking version update check
+    try {
+      import("./version_checker.js")
+        .then((m) => m.checkForUpdates("1.5.2", { isCli: false }))
+        .catch(() => {});
+    } catch {}
   }
 
   public listCategories(): string[] {

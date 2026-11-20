@@ -2,7 +2,7 @@
 OmniEarth Spectral and Biophysical Index Engine
 ==============================================
 Sensor-agnostic radiometric and biophysical indices calculation across
-satellite modalities (Sentinel-2, Landsat, EnMAP, PRISMA).
+satellite modalities (Sentinel-2, Landsat, EnMAP, EMIT).
 Supported indices:
 - NDVI:  Normalized Difference Vegetation Index
 - NDWI:  Normalized Difference Water Index (McFeeters 1996)

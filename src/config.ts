@@ -39,12 +39,6 @@ export class Config {
     return [u, p];
   }
 
-  public get prismaCredentials(): [string | undefined, string | undefined] {
-    const u = process.env.PRISMA_USERNAME || process.env.ASI_USERNAME;
-    const p = process.env.PRISMA_PASSWORD || process.env.ASI_PASSWORD;
-    return [u, p];
-  }
-
   public get earthdataCredentials(): [string | undefined, string | undefined] {
     const u = process.env.EARTHDATA_USERNAME || process.env.NASA_USERNAME;
     const p = process.env.EARTHDATA_PASSWORD || process.env.NASA_PASSWORD;

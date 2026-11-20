@@ -1,3 +1,36 @@
+# OmniEarth v1.5.2 Release Notes
+
+**Release Date:** November 20, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.5.2](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.5.2](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.5.2 is a maintenance and feature patch release introducing a **Non-Blocking Version & Update Notification Engine** across Python and Node.js SDKs/CLIs, **Automated GitHub Release Notes Generation**, and streamlined **Hyperspectral Provider Routing** focused on NASA EMIT and DLR EnMAP.
+
+---
+
+## Key Highlights in v1.5.2
+
+### 1. Non-Blocking Version & Update Notification Engine
+Users are now automatically alerted when newer OmniEarth releases are published on PyPI or npm:
+- **24-Hour Cache**: Checked against local cache (`~/.cache/omniearth/version_check.json` / `npm_version_check.json`) with an aggressive 1.5s timeout. Queries remote registries only once daily.
+- **Non-Intrusive Stderr Banner**: Clean box banner sent to `sys.stderr`, preventing corruption of piped CLI JSON outputs or automated scripts.
+- **Opt-Out Controls**: Respects `OMNIEARTH_NO_UPDATE_CHECK=1`, `CI=true`, `--json`, and non-interactive TTY environments.
+- **Inspect New Releases**:
+  - CLI: `omniearth whatsnew` displays formatted highlights and changelog links.
+  - Python SDK: `omniearth.whats_new()`
+  - Node.js / TypeScript SDK: `whatsNew()`
+
+### 2. Automated GitHub Release Notes & Provenance
+- `publish.yml` integrates `softprops/action-gh-release@v2` with `generate_release_notes: true`, automatically compiling pull requests, commit highlights, and distributing signed wheel/sdist/npm artifacts upon tag push.
+- Full compliance with Keep a Changelog documented in `CHANGELOG.md`.
+
+### 3. Streamlined Hyperspectral Architecture
+- Decoupled ASI PRISMA routing from OmniEarth core while automated programmatic download protocol is finalized in a dedicated external pilot project (`prisma_pilot`).
+- Hyperspectral searches and downloads remain fully supported and focused on **NASA EMIT** (285 bands, 381-2493 nm) and **DLR EnMAP** (224 bands, 420-2450 nm).
+
+---
+
 # OmniEarth v1.5.1 Release Notes
 
 **Release Date:** November 20, 2026  
@@ -5,20 +38,19 @@
 **PyPI:** [omniearth 1.5.1](https://pypi.org/project/omniearth/)  
 **npm:** [omniearth 1.5.1](https://www.npmjs.com/package/omniearth)  
 
-OmniEarth v1.5.1 is a targeted patch release introducing **Direct Provider and Dataset Targeting** for hyperspectral missions (ASI PRISMA, NASA EMIT, DLR EnMAP) and elevation models (Copernicus DEM, SRTM, ALOS World 3D-30m), along with authenticated query routing for ASI PRISMA across both the Python and TypeScript SDKs.
+OmniEarth v1.5.1 is a targeted patch release introducing **Direct Provider and Dataset Targeting** for hyperspectral missions (NASA EMIT, DLR EnMAP) and elevation models (Copernicus DEM, SRTM, ALOS World 3D-30m) across both the Python and TypeScript SDKs.
 
 ---
 
 ## Key Highlights in v1.5.1
 
 ### 1. Direct Hyperspectral Provider and Dataset Routing
-Users can now query specific hyperspectral constellations directly from the CLI and SDK via `--provider` or `--dataset` (`prisma`, `emit`, `enmap`) without triggering the default multi-sensor cascade:
-- `--provider prisma` / `--dataset prisma`: Queries the ASI PRISMA catalogue with automatic basic authentication (`PRISMA_USERNAME`, `PRISMA_PASSWORD`).
+Users can now query specific hyperspectral constellations directly from the CLI and SDK via `--provider` or `--dataset` (`emit`, `enmap`) without triggering the default multi-sensor cascade:
 - `--provider emit` / `--dataset emit`: Queries the NASA LP DAAC STAC endpoint for EMIT L2A reflectance products.
 - `--provider enmap` / `--dataset enmap`: Queries DLR EOC WCS for EnMAP hyperspectral L2A data.
 - Example:
   ```bash
-  omniearth search --category hyperspectral --provider prisma --aoi 12.4 41.8 12.6 42.0 --year 2026
+  omniearth search --category hyperspectral --provider emit --aoi 12.4 41.8 12.6 42.0 --year 2026
   ```
 
 ### 2. Interchangeable Elevation Provider and Dataset Flags
@@ -186,7 +218,7 @@ Previously, searching and downloading required disconnected two-step commands. O
 ### 7. Direct STAC Item Resolution (`get_item`) & Hyperspectral Fix
 - **Direct Scene Resolution**: Added `get_item(category, item_id)` to `OmniEarth` and concrete provider classes (`OpticalProvider`, `SARProvider`, `HyperspectralProvider`, `ElevationProvider`, `LandcoverProvider`, `CDSEProvider`).
 - **EnMAP & EMIT Direct Resolution**: Resolves exact STAC metadata and 13+ asset URLs directly from DLR EOC STAC (`ENMAP_HSI_L2A`) and NASA LP DAAC CMR STAC (`EMITL2ARFL_001`) in $< 200\text{ms}$ without requiring an AOI query.
-- **Provider Auto-Detection**: Auto-detects provider backend (`dlr_enmap`, `nasa_lpdaac`, `asi_prisma`, `cdse`) from scene ID prefixes, completely eliminating fallback `Unknown hyperspectral provider` exceptions.
+- **Provider Auto-Detection**: Auto-detects provider backend (`dlr_enmap`, `nasa_lpdaac`, `cdse`) from scene ID prefixes, completely eliminating fallback `Unknown hyperspectral provider` exceptions.
 
 ### 8. Category-Wide Hardening Across All 14 Modalities
 - **Optical & SAR**: Direct STAC item querying via AWS Earth Search `{"ids": [item_id]}` in O(1) time. Added empty asset guards preventing unhandled `StopIteration`.
@@ -312,7 +344,7 @@ OmniEarth now provides explicit control over optical reflectance calibration via
 ### 2. Universal Chronological Descending Ordering Across All Modalities & Providers
 - **STAC Query Sortby**: All upstream STAC queries (Element84 Earth Search for Sentinel-1/2, NASA CMR STAC for EMIT, NSIDC, PODAAC, LPCLOUD) now explicitly pass `"sortby": [{"field": "properties.datetime", "direction": "desc"}]`.
 - **NASA CMR STAC Fix**: Resolved an issue where NASA CMR STAC defaulted to chronological ascending order, causing multi-provider searches to return oldest (2023) scenes first.
-- **Unified Multi-Provider Descending Sort**: In multi-satellite modalities (such as Hyperspectral merging German DLR EnMAP, NASA EMIT, and Italian ASI PRISMA), OmniEarth queries each archive, aggregates results, and enforces global chronological descending ordering (`reverse=True`).
+- **Unified Multi-Provider Descending Sort**: In multi-satellite modalities (such as Hyperspectral merging German DLR EnMAP and NASA EMIT), OmniEarth queries each archive, aggregates results, and enforces global chronological descending ordering (`reverse=True`).
 - **Newest Acquisitions Always First**: All search outputs in CLI, Python SDK, Node.js SDK, and REST calls now guarantee that the freshest acquisitions rank at index 0.
 
 ### 3. Expanded 9-Index Biophysical & Spectral Calculation Engine
@@ -438,7 +470,6 @@ OmniEarth is a decentralized aggregation engine. Every upstream provider is form
 - **ESA / Copernicus**: Open access under the [EU Copernicus Legal Notice](https://sentinels.copernicus.eu/web/sentinel/terms-conditions) (Sentinel-1, 2, 3, 5P, 6, Copernicus DEM, ESA WorldCover).
 - **NASA Earth Science**: Public domain and open access under [NASA Data and Information Policy](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/data-and-information-policy) (Landsat 8/9, NASA EMIT, NASA FIRMS, NASA GPM IMERG, NASA SMAP, Suomi-NPP / NOAA VIIRS Nighttime Lights).
 - **German Aerospace Center (DLR)**: Governed by the [DLR EnMAP Data Policy and User License](https://www.enmap.org/data/policy/).
-- **Italian Space Agency (ASI)**: Governed by the [ASI PRISMA Policy on Data Access and Utilization](https://prisma.asi.it/).
 - **Open-Meteo & ECMWF**: Open access under [CC BY 4.0](https://open-meteo.com/en/terms).
 - **ISRIC SoilGrids**: Open access under [CC BY 4.0](https://www.isric.org/about/data-policy).
 - **JAXA ALOS**: Open access under [JAXA Earth Observation Data Policy](https://earth.jaxa.jp/en/data/policy/).

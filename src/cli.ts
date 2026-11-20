@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { OmniEarth } from "./client.js";
 import { Category, resolveAssetKey } from "./types.js";
 import { config } from "./config.js";
+import { whatsNew, checkForUpdates } from "./version_checker.js";
 
 const ASCII_BANNER = `  ___  __  __ _   _ ___ _____    _    ____ _____ _   _ 
  / _ \\|  \\/  | \\ | |_ _| ____|  / \\  |  _ \\_   _| | | |
@@ -14,7 +15,7 @@ const program = new Command();
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.5.1")
+  .version("1.5.2")
   .addHelpText("before", `\n${ASCII_BANNER}\n`);
 
 program
@@ -31,8 +32,8 @@ program
     console.log("   Auth:     Zero-Config (Free public egress COGs)");
 
     console.log("\n[HYPERSPECTRAL] - Hyperspectral Data Cubes (200+ Bands)");
-    console.log("   Sensors:  DLR EnMAP (224 bands), NASA EMIT (285 bands), ASI PRISMA (240 bands)");
-    console.log("   Backend:  DLR EOC STAC, NASA CMR STAC, ASI PRISMA Portal");
+    console.log("   Sensors:  DLR EnMAP (224 bands), NASA EMIT (285 bands)");
+    console.log("   Backend:  DLR EOC STAC, NASA CMR STAC");
     console.log("   Auth:     DLR Credentials (Free) / NASA Earthdata (Free)");
 
     console.log("\n[SAR] - Synthetic Aperture Radar (SAR)");
@@ -104,17 +105,15 @@ program
     console.log(ASCII_BANNER);
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.5.1 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.5.2 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");
     console.log("\n[Credential & Environment Status]");
     const [dlrU] = config.dlrCredentials;
-    const [prismaU] = config.prismaCredentials;
     const [edU] = config.earthdataCredentials;
 
     console.log(`  * DLR Geoservice (EnMAP):     [${dlrU ? "Configured" : "Optional (Needed for EnMAP raw download)"}]`);
-    console.log(`  * ASI PRISMA Portal:          [${prismaU ? "Configured" : "Optional (Needed for PRISMA download)"}]`);
     console.log(`  * NASA Earthdata (EMIT):       [${edU ? "Configured" : "Optional (Needed for NASA EMIT direct cubes)"}]`);
     console.log("  * Open-Meteo (Weather):        [Native Zero-Config]");
     console.log("  * ISRIC SoilGrids (Soil):      [Native Zero-Config]");
@@ -364,11 +363,6 @@ program
                 coll = "emit-l2a-rfl";
                 const dlUrl = `https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/EMITL2ARFL.001/${tid}/${tid}.nc`;
                 assetsDict["data"] = { key: "data", href: dlUrl, title: "EMIT NetCDF Cube", mediaType: "application/x-netcdf" };
-              } else if (tid.startsWith("PRS") || tid.toLowerCase().includes("prisma")) {
-                prov = "asi_prisma";
-                coll = "asi-prisma-l2d";
-                const dlUrl = `https://prisma.asi.it/download/${tid}.he5`;
-                assetsDict["data"] = { key: "data", href: dlUrl, title: "PRISMA HDF5 Cube", mediaType: "application/x-hdf5" };
               } else {
                 prov = "dlr_enmap";
                 coll = "enmap-hsi-l2a";
@@ -609,7 +603,22 @@ program
     }
   });
 
-export function runCLI() {
+program
+  .command("whatsnew")
+  .description("Display latest release notes, new features, and upgrade information")
+  .action(() => {
+    whatsNew();
+  });
+
+export async function runCLI() {
+  const isJson = process.argv.includes("--json");
+  if (!process.argv.includes("whatsnew")) {
+    try {
+      await checkForUpdates("1.5.2", { isCli: true, jsonMode: isJson });
+    } catch {
+      // Non-blocking
+    }
+  }
   program.parse(process.argv);
 }
 

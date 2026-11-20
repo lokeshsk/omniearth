@@ -592,6 +592,16 @@ def test_client_download_folder_and_zip(tmp_path):
             assert os.path.exists(cdse_out2["zip"])
 
 
+def test_client_init_update_check_exception(monkeypatch):
+    monkeypatch.setattr(
+        "omniearth.version_checker.check_for_updates",
+        MagicMock(side_effect=RuntimeError("check failed"))
+    )
+    client = OmniEarth()
+    assert client is not None
+
+
+
 
 
 
