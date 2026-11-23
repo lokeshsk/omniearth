@@ -102,7 +102,15 @@ class AtmosphereProvider(BaseProvider):
             result.properties["_raw_data"] = data
             return [result]
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Atmosphere API query error: {e}")
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            reason = getattr(getattr(e, "response", None), "reason", None)
+            self.warn_upstream_issue(
+                provider="copernicus_s5p",
+                endpoint=self.AIR_QUALITY_URL,
+                status_code=status,
+                error=e if status is None else None,
+                reason=reason
+            )
             return []
 
     def download(

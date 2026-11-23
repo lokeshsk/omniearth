@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name("omniearth")
   .description("OmniEarth: Universal Multi-Modal Open Earth Observation & Environmental Data Engine")
-  .version("1.5.2")
+  .version("1.5.3")
   .addHelpText("before", `\n${ASCII_BANNER}\n`);
 
 program
@@ -105,7 +105,7 @@ program
     console.log(ASCII_BANNER);
     const width = 75;
     console.log("+" + "-".repeat(width - 2) + "+");
-    console.log("| OmniEarth Engine v1.5.2 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
+    console.log("| OmniEarth Engine v1.5.3 (Node.js SDK) Diagnostic Dashboard".padEnd(width - 1) + "|");
     console.log("| Author: Lokesh Kumar (lokesh.skshukla@gmail.com)".padEnd(width - 1) + "|");
     console.log("| Homepage: https://lokeshsk.github.io/omniearth/".padEnd(width - 1) + "|");
     console.log("+" + "-".repeat(width - 2) + "+");
@@ -614,7 +614,7 @@ export async function runCLI() {
   const isJson = process.argv.includes("--json");
   if (!process.argv.includes("whatsnew")) {
     try {
-      await checkForUpdates("1.5.2", { isCli: true, jsonMode: isJson });
+      await checkForUpdates("1.5.3", { isCli: true, jsonMode: isJson });
     } catch {
       // Non-blocking
     }

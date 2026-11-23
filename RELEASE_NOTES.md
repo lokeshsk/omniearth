@@ -1,3 +1,23 @@
+# OmniEarth v1.5.3 Release Notes
+
+**Release Date:** November 23, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.5.3](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.5.3](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.5.3 is a targeted bug-fix patch release upgrading the **DLR EnMAP Hyperspectral OGC STAC** API route to the official versioned endpoint (`/v1/`), resolving HTTP 502 Bad Gateway responses and restoring full EnMAP scene search and discovery across both Python and Node.js / TypeScript SDKs and the CLI.
+
+---
+
+## Key Highlights in v1.5.3
+
+### 1. DLR EnMAP Hyperspectral OGC STAC Route Fix
+- **Endpoint Update**: Upgraded German Aerospace Center (DLR) STAC catalog endpoint from unversioned to the official versioned route: `https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items`.
+- **Restored Hyperspectral Discovery**: Resolves intermittent HTTP 502 Bad Gateway responses emitted by DLR's gateway proxy, restoring seamless search and retrieval for all EnMAP 224-band Level-2A surface reflectance data cubes.
+- **Direct Scene Resolution (`get_item` / `getItem`)**: Updated direct scene metadata fetching for EnMAP IDs across both Python and TypeScript runtimes.
+
+---
+
 # OmniEarth v1.5.2 Release Notes
 
 **Release Date:** November 20, 2026  

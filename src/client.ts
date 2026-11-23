@@ -70,13 +70,29 @@ export class OmniEarth {
     // Non-blocking version update check
     try {
       import("./version_checker.js")
-        .then((m) => m.checkForUpdates("1.5.2", { isCli: false }))
+        .then((m) => m.checkForUpdates("1.5.3", { isCli: false }))
         .catch(() => {});
     } catch {}
   }
 
   public listCategories(): string[] {
     return Object.values(Category);
+  }
+
+  public static getWarnings(): string[] {
+    return BaseProvider.getWarnings();
+  }
+
+  public static clearWarnings(): void {
+    BaseProvider.clearWarnings();
+  }
+
+  public getWarnings(): string[] {
+    return BaseProvider.getWarnings();
+  }
+
+  public clearWarnings(): void {
+    BaseProvider.clearWarnings();
   }
 
   public aoiFromGeoJSON(geojson: string | Record<string, any>): AOI {
