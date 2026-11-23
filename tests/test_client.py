@@ -18,6 +18,22 @@ def test_client_initialization_and_categories():
     assert "soil" in categories
 
 
+def test_client_provider_warnings_methods():
+    client = OmniEarth()
+    client.clear_warnings()
+    assert client.get_warnings() == []
+    assert OmniEarth.get_provider_warnings() == []
+
+    from omniearth.providers.base import BaseProvider
+    BaseProvider.warn_upstream_issue("test_prov", "https://example.com/api", status_code=502)
+    assert len(client.get_warnings()) == 1
+    assert "502 Bad Gateway" in client.get_warnings()[0]
+    assert len(OmniEarth.get_provider_warnings()) == 1
+
+    OmniEarth.clear_provider_warnings()
+    assert client.get_warnings() == []
+
+
 def test_resolve_aoi():
     client = OmniEarth()
     

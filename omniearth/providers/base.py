@@ -20,6 +20,63 @@ class BaseProvider(ABC):
     category: Category
     name: str
 
+    _warnings: List[str] = []
+
+    @classmethod
+    def warn_upstream_issue(
+        cls,
+        provider: str,
+        endpoint: str,
+        status_code: Optional[int] = None,
+        error: Optional[Exception] = None,
+        reason: Optional[str] = None
+    ) -> str:
+        """
+        Emits a structured warning notification to sys.stderr when an upstream provider
+        returns an HTTP 5xx / 429 error, times out, or encounters a connection issue.
+        Silenced if OMNIEARTH_NO_WARNINGS=1 or OMNIEARTH_SILENT=1.
+        """
+        import sys
+        if status_code is not None:
+            status_desc = reason or (
+                "Bad Gateway" if status_code == 502
+                else "Service Unavailable" if status_code == 503
+                else "Gateway Timeout" if status_code == 504
+                else "Internal Server Error" if status_code == 500
+                else "Too Many Requests" if status_code == 429
+                else f"Status {status_code}"
+            )
+            msg = (
+                f"[omniearth:warning] Upstream provider '{provider}' ({endpoint}) "
+                f"returned HTTP {status_code} {status_desc}. "
+                "Upstream service may be undergoing maintenance or experiencing an outage."
+            )
+        elif error is not None:
+            err_type = type(error).__name__
+            msg = (
+                f"[omniearth:warning] Upstream provider '{provider}' ({endpoint}) "
+                f"request failed ({err_type}: {error}). "
+                "Upstream service may be down or experiencing high latency."
+            )
+        else:
+            msg = f"[omniearth:warning] Upstream provider '{provider}' ({endpoint}) request failed."
+
+        cls._warnings.append(msg)
+        if not (os.getenv("OMNIEARTH_NO_WARNINGS") == "1" or os.getenv("OMNIEARTH_SILENT") == "1"):
+            sys.stderr.write(f"\n{msg}\n")
+            sys.stderr.flush()
+        return msg
+
+    @classmethod
+    def get_warnings(cls) -> List[str]:
+        """Returns all recorded upstream provider warning notifications."""
+        return list(cls._warnings)
+
+    @classmethod
+    def clear_warnings(cls) -> None:
+        """Clears all recorded upstream provider warning notifications."""
+        cls._warnings.clear()
+
     @abstractmethod
     def search(
         self,

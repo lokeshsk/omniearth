@@ -70,6 +70,12 @@ class HyperspectralProvider(BaseProvider):
         try:
             resp = requests.get(self.DLR_STAC_URL, params=params, timeout=config.timeout)
             if resp.status_code != 200:
+                self.warn_upstream_issue(
+                    provider="dlr_enmap",
+                    endpoint=self.DLR_STAC_URL,
+                    status_code=resp.status_code,
+                    reason=getattr(resp, "reason", None)
+                )
                 return []
             data = resp.json()
             features = data.get("features", [])
@@ -102,7 +108,12 @@ class HyperspectralProvider(BaseProvider):
                     assets=assets_dict
                 ))
             return items
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            self.warn_upstream_issue(
+                provider="dlr_enmap",
+                endpoint=self.DLR_STAC_URL,
+                error=e
+            )
             return []
 
     def _search_emit(
@@ -128,6 +139,12 @@ class HyperspectralProvider(BaseProvider):
         try:
             resp = requests.post(self.NASA_EMIT_STAC_URL, json=payload, timeout=config.timeout)
             if resp.status_code != 200:
+                self.warn_upstream_issue(
+                    provider="nasa_lpdaac",
+                    endpoint=self.NASA_EMIT_STAC_URL,
+                    status_code=resp.status_code,
+                    reason=getattr(resp, "reason", None)
+                )
                 return []
             data = resp.json()
             features = data.get("features", [])
@@ -155,7 +172,12 @@ class HyperspectralProvider(BaseProvider):
                     assets=assets_dict
                 ))
             return items
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            self.warn_upstream_issue(
+                provider="nasa_lpdaac",
+                endpoint=self.NASA_EMIT_STAC_URL,
+                error=e
+            )
             return []
 
     def get_item(self, item_id: str) -> Optional[SearchResult]:
@@ -187,8 +209,19 @@ class HyperspectralProvider(BaseProvider):
                         properties=props,
                         assets=assets_dict
                     )
-            except requests.exceptions.RequestException:
-                pass
+                elif resp.status_code >= 400:
+                    self.warn_upstream_issue(
+                        provider="dlr_enmap",
+                        endpoint=url,
+                        status_code=resp.status_code,
+                        reason=getattr(resp, "reason", None)
+                    )
+            except requests.exceptions.RequestException as e:
+                self.warn_upstream_issue(
+                    provider="dlr_enmap",
+                    endpoint=url,
+                    error=e
+                )
 
         # 2. NASA EMIT (CMR STAC direct item endpoint)
         if item_id.startswith("EMIT") or "EMIT" in item_id:
@@ -217,8 +250,19 @@ class HyperspectralProvider(BaseProvider):
                         properties=props,
                         assets=assets_dict
                     )
-            except requests.exceptions.RequestException:
-                pass
+                elif resp.status_code >= 400:
+                    self.warn_upstream_issue(
+                        provider="nasa_lpdaac",
+                        endpoint=url,
+                        status_code=resp.status_code,
+                        reason=getattr(resp, "reason", None)
+                    )
+            except requests.exceptions.RequestException as e:
+                self.warn_upstream_issue(
+                    provider="nasa_lpdaac",
+                    endpoint=url,
+                    error=e
+                )
 
         return None
 

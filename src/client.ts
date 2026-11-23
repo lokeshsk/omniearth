@@ -79,6 +79,22 @@ export class OmniEarth {
     return Object.values(Category);
   }
 
+  public static getWarnings(): string[] {
+    return BaseProvider.getWarnings();
+  }
+
+  public static clearWarnings(): void {
+    BaseProvider.clearWarnings();
+  }
+
+  public getWarnings(): string[] {
+    return BaseProvider.getWarnings();
+  }
+
+  public clearWarnings(): void {
+    BaseProvider.clearWarnings();
+  }
+
   public aoiFromGeoJSON(geojson: string | Record<string, any>): AOI {
     let data: any = geojson;
     if (typeof geojson === "string") {

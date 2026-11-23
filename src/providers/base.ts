@@ -53,6 +53,57 @@ export abstract class BaseProvider {
   abstract category: Category;
   abstract name: string;
 
+  private static warnings: string[] = [];
+
+  static warnUpstreamIssue(
+    provider: string,
+    endpoint: string,
+    statusCode?: number,
+    error?: any,
+    reason?: string
+  ): string {
+    let msg: string;
+    if (statusCode !== undefined) {
+      const statusDesc = reason || (
+        statusCode === 502 ? "Bad Gateway"
+        : statusCode === 503 ? "Service Unavailable"
+        : statusCode === 504 ? "Gateway Timeout"
+        : statusCode === 500 ? "Internal Server Error"
+        : statusCode === 429 ? "Too Many Requests"
+        : `Status ${statusCode}`
+      );
+      msg = `[omniearth:warning] Upstream provider '${provider}' (${endpoint}) returned HTTP ${statusCode} ${statusDesc}. Upstream service may be undergoing maintenance or experiencing an outage.`;
+    } else if (error) {
+      msg = `[omniearth:warning] Upstream provider '${provider}' (${endpoint}) request failed (${error?.message || error}). Upstream service may be down or experiencing high latency.`;
+    } else {
+      msg = `[omniearth:warning] Upstream provider '${provider}' (${endpoint}) request failed.`;
+    }
+
+    BaseProvider.warnings.push(msg);
+    if (process.env.OMNIEARTH_NO_WARNINGS !== "1" && process.env.OMNIEARTH_SILENT !== "1") {
+      process.stderr.write(`\n${msg}\n`);
+    }
+    return msg;
+  }
+
+  static getWarnings(): string[] {
+    return [...BaseProvider.warnings];
+  }
+
+  static clearWarnings(): void {
+    BaseProvider.warnings = [];
+  }
+
+  warnUpstreamIssue(
+    provider: string,
+    endpoint: string,
+    statusCode?: number,
+    error?: any,
+    reason?: string
+  ): string {
+    return BaseProvider.warnUpstreamIssue(provider, endpoint, statusCode, error, reason);
+  }
+
   abstract search(
     aoi: AOI,
     startDate?: string,

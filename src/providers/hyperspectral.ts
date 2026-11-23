@@ -77,9 +77,11 @@ export class HyperspectralProvider extends BaseProvider {
             assets
           });
         }
+      } else {
+        this.warnUpstreamIssue("dlr_enmap", this.enmapStacUrl, res.status, undefined, res.statusText);
       }
-    } catch {
-      // Continue
+    } catch (err) {
+      this.warnUpstreamIssue("dlr_enmap", this.enmapStacUrl, undefined, err);
     }
     return results;
   }
@@ -131,9 +133,11 @@ export class HyperspectralProvider extends BaseProvider {
             assets
           });
         }
+      } else {
+        this.warnUpstreamIssue("nasa_emit", this.emitStacUrl, res.status, undefined, res.statusText);
       }
-    } catch {
-      // Handled
+    } catch (err) {
+      this.warnUpstreamIssue("nasa_emit", this.emitStacUrl, undefined, err);
     }
     return results;
   }
@@ -141,8 +145,9 @@ export class HyperspectralProvider extends BaseProvider {
   override async getItem(itemId: string): Promise<SearchResult | null> {
     // 1. DLR EnMAP STAC direct item endpoint
     if (itemId.startsWith("ENMAP") || itemId.includes("ENMAP")) {
+      const url = `${this.enmapStacUrl}/${itemId}`;
       try {
-        const res = await fetch(`${this.enmapStacUrl}/${itemId}`);
+        const res = await fetch(url);
         if (res.ok) {
           const feat = await res.json();
           const assets: Record<string, Asset> = {};
@@ -165,16 +170,19 @@ export class HyperspectralProvider extends BaseProvider {
             properties: { ...feat.properties, platform: "enmap" },
             assets
           };
+        } else if (res.status >= 400) {
+          this.warnUpstreamIssue("dlr_enmap", url, res.status, undefined, res.statusText);
         }
-      } catch {
-        // Fallback
+      } catch (err) {
+        this.warnUpstreamIssue("dlr_enmap", url, undefined, err);
       }
     }
 
     // 2. NASA EMIT STAC direct item endpoint
     if (itemId.startsWith("EMIT") || itemId.includes("EMIT")) {
+      const url = `https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL_001/items/${itemId}`;
       try {
-        const res = await fetch(`https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/EMITL2ARFL_001/items/${itemId}`);
+        const res = await fetch(url);
         if (res.ok) {
           const feat = await res.json();
           const assets: Record<string, Asset> = {};
@@ -197,9 +205,11 @@ export class HyperspectralProvider extends BaseProvider {
             properties: { ...feat.properties, platform: "emit" },
             assets
           };
+        } else if (res.status >= 400) {
+          this.warnUpstreamIssue("nasa_emit", url, res.status, undefined, res.statusText);
         }
-      } catch {
-        // Fallback
+      } catch (err) {
+        this.warnUpstreamIssue("nasa_emit", url, undefined, err);
       }
     }
 
