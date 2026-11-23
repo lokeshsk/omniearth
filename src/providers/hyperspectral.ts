@@ -8,7 +8,7 @@ export class HyperspectralProvider extends BaseProvider {
   category = Category.HYPERSPECTRAL;
   name = "hyperspectral";
 
-  private enmapStacUrl = "https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items";
+  private enmapStacUrl = "https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items";
   private emitStacUrl = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search";
 
   async search(

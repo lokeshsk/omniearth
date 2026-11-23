@@ -70,7 +70,7 @@ export class OmniEarth {
     // Non-blocking version update check
     try {
       import("./version_checker.js")
-        .then((m) => m.checkForUpdates("1.5.2", { isCli: false }))
+        .then((m) => m.checkForUpdates("1.5.3", { isCli: false }))
         .catch(() => {});
     } catch {}
   }

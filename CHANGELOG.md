@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-23
+
+### Fixed
+- **DLR EnMAP Hyperspectral OGC STAC Route**:
+  - Upgraded DLR STAC URL to official `/v1/` route (`https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items`), resolving HTTP 502 Bad Gateway responses and restoring full hyperspectral scene discovery across Python and TypeScript SDKs and CLI.
+
+---
+
 ## [1.5.2] - 2026-11-20
 
 ### Added
@@ -107,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Optical multispectral imagery (Sentinel-2 L2A/L1C and Landsat-8/9) via AWS Earth Search STAC.
   - Zero-config public cloud-optimized GeoTIFF streaming.
 
-[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.5.3...HEAD
+[1.5.3]: https://github.com/lokeshsk/omniearth/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/lokeshsk/omniearth/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/lokeshsk/omniearth/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/lokeshsk/omniearth/compare/v1.4.0...v1.5.0

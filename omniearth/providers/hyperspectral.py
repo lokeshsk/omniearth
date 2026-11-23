@@ -18,7 +18,7 @@ class HyperspectralProvider(BaseProvider):
     category = Category.HYPERSPECTRAL
     name = "hyperspectral"
 
-    DLR_STAC_URL = "https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items"
+    DLR_STAC_URL = "https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items"
     NASA_EMIT_STAC_URL = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search"
 
     def search(
@@ -162,7 +162,7 @@ class HyperspectralProvider(BaseProvider):
         """Directly retrieves a specific hyperspectral scene by STAC item ID."""
         # 1. EnMAP (DLR EOC STAC direct item endpoint)
         if item_id.startswith("ENMAP") or "ENMAP" in item_id:
-            url = f"https://geoservice.dlr.de/eoc/ogc/stac/collections/ENMAP_HSI_L2A/items/{item_id}"
+            url = f"https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items/{item_id}"
             try:
                 resp = requests.get(url, timeout=config.timeout)
                 if resp.status_code == 200:
