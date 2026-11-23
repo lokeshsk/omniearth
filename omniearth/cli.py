@@ -789,6 +789,18 @@ def main():
 
     args = parser.parse_args()
 
+    # Non-blocking CLI update check
+    if getattr(args, "command", None) != "whatsnew":
+        try:
+            from omniearth.version_checker import check_for_updates
+            check_for_updates(
+                current_version=omniearth.__version__,
+                json_mode=getattr(args, "json", False),
+                is_cli=True,
+            )
+        except Exception:
+            pass
+
     if not args.command:
         parser.print_help()
         sys.exit(0)
@@ -797,17 +809,6 @@ def main():
         from omniearth.version_checker import whats_new
         whats_new()
         sys.exit(0)
-
-    # Non-blocking CLI update check
-    try:
-        from omniearth.version_checker import check_for_updates
-        check_for_updates(
-            current_version=omniearth.__version__,
-            json_mode=getattr(args, "json", False),
-            is_cli=True,
-        )
-    except Exception:
-        pass
 
     client = OmniEarth(env_path=args.env)
 
