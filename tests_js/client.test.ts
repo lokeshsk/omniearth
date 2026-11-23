@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { OmniEarth } from "../src/client.js";
+import { BaseProvider } from "../src/providers/base.js";
 import { Category } from "../src/types.js";
 
 test("OmniEarth initializes and lists categories", () => {
@@ -1079,3 +1080,53 @@ test("resolveAssetKey resolves semantic aliases and falls back appropriately", a
   assert.equal(resolveAssetKey(multiResult, "soil"), "soil_profile");
   assert.equal(resolveAssetKey(multiResult, "safe"), "safe_package");
 });
+
+test("OmniEarth provider warning formatting, recording, and silencing", () => {
+  const client = new OmniEarth();
+  client.clearWarnings();
+  assert.deepEqual(client.getWarnings(), []);
+  assert.deepEqual(OmniEarth.getWarnings(), []);
+
+  // 1. Status codes
+  const w502 = BaseProvider.warnUpstreamIssue("dlr_enmap", "https://geoservice.dlr.de", 502);
+  assert.ok(w502.includes("502 Bad Gateway"));
+
+  const w503 = BaseProvider.warnUpstreamIssue("service", "https://api.test", 503);
+  assert.ok(w503.includes("503 Service Unavailable"));
+
+  const w504 = BaseProvider.warnUpstreamIssue("gw", "https://api.test", 504);
+  assert.ok(w504.includes("504 Gateway Timeout"));
+
+  const w500 = BaseProvider.warnUpstreamIssue("err", "https://api.test", 500);
+  assert.ok(w500.includes("500 Internal Server Error"));
+
+  const w429 = BaseProvider.warnUpstreamIssue("rate", "https://api.test", 429);
+  assert.ok(w429.includes("429 Too Many Requests"));
+
+  const w418 = BaseProvider.warnUpstreamIssue("tea", "https://api.test", 418);
+  assert.ok(w418.includes("Status 418"));
+
+  // 2. Error object
+  const wErr = BaseProvider.warnUpstreamIssue("net", "https://api.test", undefined, new Error("Connect timeout"));
+  assert.ok(wErr.includes("Connect timeout"));
+
+  // 3. Fallback
+  const wNone = BaseProvider.warnUpstreamIssue("unknown", "https://api.test");
+  assert.ok(wNone.includes("request failed"));
+
+  assert.equal(client.getWarnings().length, 8);
+  assert.equal(OmniEarth.getWarnings().length, 8);
+
+  // 4. Silencing
+  process.env.OMNIEARTH_NO_WARNINGS = "1";
+  BaseProvider.warnUpstreamIssue("silent", "https://api.test", 502);
+  delete process.env.OMNIEARTH_NO_WARNINGS;
+
+  process.env.OMNIEARTH_SILENT = "1";
+  BaseProvider.warnUpstreamIssue("silent2", "https://api.test", 502);
+  delete process.env.OMNIEARTH_SILENT;
+
+  OmniEarth.clearWarnings();
+  assert.deepEqual(client.getWarnings(), []);
+});
+

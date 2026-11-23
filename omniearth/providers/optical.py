@@ -89,7 +89,11 @@ class OpticalProvider(BaseProvider):
             results.sort(key=lambda x: x.datetime or "", reverse=True)
             return results[:limit]
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Optical STAC search error: {e}")
+            self.warn_upstream_issue(
+                provider="aws_earth_search",
+                endpoint=self.STAC_SEARCH_URL,
+                error=e
+            )
             return []
 
     def get_item(self, item_id: str) -> Optional[SearchResult]:
@@ -98,6 +102,13 @@ class OpticalProvider(BaseProvider):
         try:
             resp = requests.post(self.STAC_SEARCH_URL, json=payload, timeout=config.timeout)
             if resp.status_code != 200:
+                if resp.status_code >= 400:
+                    self.warn_upstream_issue(
+                        provider="aws_earth_search",
+                        endpoint=self.STAC_SEARCH_URL,
+                        status_code=resp.status_code,
+                        reason=getattr(resp, "reason", None)
+                    )
                 return None
             data = resp.json()
             features = data.get("features", [])
@@ -126,7 +137,12 @@ class OpticalProvider(BaseProvider):
                 properties=props,
                 assets=assets_dict
             )
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            self.warn_upstream_issue(
+                provider="aws_earth_search",
+                endpoint=self.STAC_SEARCH_URL,
+                error=e
+            )
             return None
 
     def download(

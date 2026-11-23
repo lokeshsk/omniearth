@@ -79,6 +79,24 @@ class OmniEarth:
         """Returns all supported data categories."""
         return [c.value for c in Category]
 
+    @classmethod
+    def get_provider_warnings(cls) -> List[str]:
+        """Returns all recorded upstream provider warning notifications."""
+        return BaseProvider.get_warnings()
+
+    @classmethod
+    def clear_provider_warnings(cls) -> None:
+        """Clears all recorded upstream provider warning notifications."""
+        BaseProvider.clear_warnings()
+
+    def get_warnings(self) -> List[str]:
+        """Returns all recorded upstream provider warning notifications."""
+        return BaseProvider.get_warnings()
+
+    def clear_warnings(self) -> None:
+        """Clears all recorded upstream provider warning notifications."""
+        BaseProvider.clear_warnings()
+
     def _resolve_aoi(
         self,
         aoi: Optional[AOI] = None,

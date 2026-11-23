@@ -1619,4 +1619,59 @@ def test_cdse_provider_items_nodes_and_downloads(tmp_path):
         assert res_no_tok == []
 
 
+def test_base_provider_warning_formatting_and_silencing(capsys, monkeypatch):
+    from omniearth.providers.base import BaseProvider
+
+    BaseProvider.clear_warnings()
+    assert BaseProvider.get_warnings() == []
+
+    # 1. Various status codes
+    w502 = BaseProvider.warn_upstream_issue("dlr", "http://dlr.de", status_code=502)
+    assert "502 Bad Gateway" in w502
+
+    w503 = BaseProvider.warn_upstream_issue("srv", "http://srv.de", status_code=503)
+    assert "503 Service Unavailable" in w503
+
+    w504 = BaseProvider.warn_upstream_issue("gw", "http://gw.de", status_code=504)
+    assert "504 Gateway Timeout" in w504
+
+    w500 = BaseProvider.warn_upstream_issue("err", "http://err.de", status_code=500)
+    assert "500 Internal Server Error" in w500
+
+    w429 = BaseProvider.warn_upstream_issue("rate", "http://rate.de", status_code=429)
+    assert "429 Too Many Requests" in w429
+
+    w418 = BaseProvider.warn_upstream_issue("teapot", "http://tea.de", status_code=418)
+    assert "Status 418" in w418
+
+    # 2. Error object
+    w_err = BaseProvider.warn_upstream_issue("net", "http://net.de", error=requests.exceptions.Timeout("Read timed out"))
+    assert "Timeout: Read timed out" in w_err
+
+    # 3. Neither status nor error (fallback line 62)
+    w_none = BaseProvider.warn_upstream_issue("unknown", "http://unknown.de")
+    assert "Upstream provider 'unknown' (http://unknown.de) request failed." in w_none
+
+    assert len(BaseProvider.get_warnings()) == 8
+    captured = capsys.readouterr()
+    assert "[omniearth:warning]" in captured.err
+
+    # 4. Silencing with OMNIEARTH_NO_WARNINGS
+    monkeypatch.setenv("OMNIEARTH_NO_WARNINGS", "1")
+    BaseProvider.warn_upstream_issue("silent1", "http://silent1.de", status_code=502)
+    captured2 = capsys.readouterr()
+    assert captured2.err == ""
+
+    # 5. Silencing with OMNIEARTH_SILENT
+    monkeypatch.delenv("OMNIEARTH_NO_WARNINGS", raising=False)
+    monkeypatch.setenv("OMNIEARTH_SILENT", "1")
+    BaseProvider.warn_upstream_issue("silent2", "http://silent2.de", status_code=502)
+    captured3 = capsys.readouterr()
+    assert captured3.err == ""
+
+    BaseProvider.clear_warnings()
+    assert BaseProvider.get_warnings() == []
+
+
+
 

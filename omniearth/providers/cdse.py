@@ -193,6 +193,11 @@ class CDSEProvider(BaseProvider):
         try:
             return self._search_stac(aoi, collection, start_date, end_date, filters, limit)
         except Exception as exc:
+            self.warn_upstream_issue(
+                provider="cdse",
+                endpoint=f"{self.STAC_URL}/search",
+                error=exc
+            )
             logger.debug(f"CDSE STAC query fallback to OData: {exc}")
             return self._search_odata(aoi, collection, start_date, end_date, filters, limit)
 
