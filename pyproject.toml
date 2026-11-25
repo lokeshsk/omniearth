@@ -49,7 +49,6 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Topic :: Scientific/Engineering :: GIS",
   "Topic :: Scientific/Engineering :: Atmospheric Science",
   "Programming Language :: Python :: 3",
