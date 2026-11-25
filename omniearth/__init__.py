@@ -7,7 +7,7 @@ Author: Lokesh S. K. (https://lokeshsk.github.io)
 Repository: https://github.com/lokeshsk/omniearth
 """
 
-__version__ = "1.5.3"
+__version__ = "1.6.0"
 __author__ = "Lokesh Kumar"
 
 from omniearth.client import OmniEarth

@@ -5,7 +5,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { OmniEarth } from "../src/client.js";
 import { BaseProvider } from "../src/providers/base.js";
-import { Category } from "../src/types.js";
+import { Category, SearchResults } from "../src/types.js";
 
 test("OmniEarth initializes and lists categories", () => {
   const client = new OmniEarth();
@@ -1128,5 +1128,24 @@ test("OmniEarth provider warning formatting, recording, and silencing", () => {
 
   OmniEarth.clearWarnings();
   assert.deepEqual(client.getWarnings(), []);
+});
+
+test("SearchResults toGeoJSON returns FeatureCollection in memory", () => {
+  const results = new SearchResults([
+    {
+      id: "s2_mem",
+      collection: "sentinel-2-l2a",
+      category: Category.OPTICAL,
+      provider: "aws",
+      bbox: [78.0, 20.0, 78.1, 20.1],
+      properties: {},
+      assets: { visual: { key: "visual", href: "https://example.com/v.tif" } }
+    }
+  ]);
+  const fc = results.toGeoJSON();
+  assert.equal(fc.type, "FeatureCollection");
+  assert.equal(fc.features.length, 1);
+  assert.equal(fc.features[0].id, "s2_mem");
+  assert.equal(fc.features[0].geometry.type, "Polygon");
 });
 

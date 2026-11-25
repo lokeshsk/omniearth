@@ -1,3 +1,33 @@
+# OmniEarth v1.6.0 Release Notes
+
+**Release Date:** November 25, 2026  
+**DOI:** [10.5281/zenodo.24359617](https://doi.org/10.5281/zenodo.24359617)  
+**PyPI:** [omniearth 1.6.0](https://pypi.org/project/omniearth/)  
+**npm:** [omniearth 1.6.0](https://www.npmjs.com/package/omniearth)  
+
+OmniEarth v1.6.0 is a major ecosystem and interoperability minor release migrating the project to the **Apache License 2.0**, introducing a **zero-dependency MCP Server (`omniearth-mcp`)**, adding **GeoPandas / xarray** helpers, shipping runnable **Google Colab notebooks**, and adding **upstream provider health notifications**.
+
+---
+
+## Key Highlights in v1.6.0
+
+### 1. Apache License 2.0 Migration (`LICENSE` + `NOTICE`)
+- Transitioned from the custom attribution license to standard OSI-approved **Apache-2.0**, enabling frictionless corporate adoption, **`conda-forge`** distribution, and downstream ecosystem integration while preserving upstream data provider notices in `NOTICE` and `CITATION.cff`.
+
+### 2. Zero-Dependency MCP Server (`omniearth-mcp`)
+- Added `omniearth/mcp_server.py` and the `omniearth-mcp` CLI entry point exposing `omniearth_info`, `omniearth_categories`, `omniearth_search`, `omniearth_timeseries`, and `omniearth_compute_index` to AI coding assistants over stdio JSON-RPC 2.0.
+
+### 3. GeoPandas & xarray GIS Integrations
+- `SearchResults.to_geodataframe()` converts footprints directly into an `EPSG:4326` GeoDataFrame.
+- `SearchResult.to_xarray()` downloads and loads raster assets via `rioxarray.open_rasterio`.
+- Added in-memory `SearchResults.to_geojson_dict()` (Python) and `SearchResults.toGeoJSON()` (TypeScript).
+
+### 4. Upstream Health Warnings & Colab Notebooks
+- Added structured `stderr` warnings across providers for HTTP 5xx, 429, and timeout failures (`OMNIEARTH_NO_WARNINGS=1` to mute).
+- Added 3 ready-to-run Jupyter/Colab workflows in `examples/`, `CONTRIBUTING.md`, GitHub Issue Templates, and JOSS paper draft (`paper/paper.md`).
+
+---
+
 # OmniEarth v1.5.3 Release Notes
 
 **Release Date:** November 23, 2026  

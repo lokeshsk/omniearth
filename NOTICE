@@ -1,0 +1,32 @@
+OmniEarth
+Copyright 2026 Lokesh Kumar <lokesh.skshukla@gmail.com> (https://lokeshsk.github.io)
+Project Repository: https://github.com/lokeshsk/omniearth
+
+This product includes software developed by Lokesh Kumar and contributors to the
+OmniEarth project.
+
+ACADEMIC & RESEARCH CITATION (REQUESTED)
+----------------------------------------
+If you use OmniEarth in academic research, publications, preprints, or public
+benchmarks, please cite the software using CITATION.cff or:
+
+  Lokesh Kumar. (2026). OmniEarth: A Universal Multi-Modal Earth Observation
+  and Environmental Data Engine. Zenodo. https://doi.org/10.5281/zenodo.24359617
+
+UPSTREAM DATA PROVIDER ATTRIBUTION & TERMS NOTICE
+-------------------------------------------------
+OmniEarth is an open-source orchestration and aggregation engine. It does not
+own, host, or re-license any upstream satellite imagery, meteorological feeds,
+soil models, or environmental datasets accessed through its adapters.
+
+Users and downstream applications remain solely responsible for complying with
+each upstream data provider's sovereign license and data usage terms, including:
+- ESA / Copernicus Open Access Policy (Sentinel-1, Sentinel-2, Sentinel-3,
+  Sentinel-5P, Sentinel-6, Copernicus DEM, ESA WorldCover)
+- USGS / NASA Open Data Policy (Landsat 8/9, NASA EMIT, NASA FIRMS,
+  NASA GPM IMERG, NASA SMAP, Suomi-NPP / NOAA VIIRS)
+- German Aerospace Center (DLR) EnMAP Data Policy and User License
+- Open-Meteo & ECMWF Public Terms (CC BY 4.0)
+- ISRIC SoilGrids Open Data License (CC BY 4.0)
+- JAXA ALOS AW3D30 Open Data Policy & OpenTopography S3 Archive
+- Climate Hazards Center CHIRPS v2.0 Data Policy (UC Santa Barbara)

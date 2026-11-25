@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-25
+
+### Added
+- **Zero-Dependency MCP Server (`omniearth-mcp`)**:
+  - Built-in stdio JSON-RPC 2.0 Model Context Protocol server (`omniearth/mcp_server.py`) exposing `omniearth_info`, `omniearth_categories`, `omniearth_search`, `omniearth_timeseries`, and `omniearth_compute_index` to Claude Desktop, Cursor, Antigravity, and MCP-compatible agents.
+- **First-Class GeoPandas & xarray GIS Helpers**:
+  - `SearchResults.to_geojson_dict()` & `SearchResults.to_geodataframe()` (`EPSG:4326` GeoPandas export), plus `SearchResult.to_xarray()` (`rioxarray.open_rasterio` wrapper).
+  - TypeScript parity method `SearchResults.toGeoJSON()`.
+- **Colab Notebooks, Community Templates & JOSS Manuscript**:
+  - Added runnable notebooks in `examples/` (Precision Agriculture, Hyperspectral EnMAP/EMIT, Wildfire & Disaster Fusion) with `Open in Colab` badges.
+  - Added `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/` forms, and JOSS paper draft (`paper/paper.md`, `paper/paper.bib`).
+
+### Changed
+- **OSI-Approved Apache License 2.0**:
+  - Migrated from custom attribution license to **Apache-2.0** (`LICENSE` + `NOTICE`), unblocking enterprise adoption, `conda-forge` packaging, and academic/open-source downstream integrations.
+- **README Quickstart**:
+  - Reorganized top of `README.md` with a 5-line zero-config quickstart, Colab links, and MCP setup snippet.
+
+### Fixed
+- **Bare CLI Update Check**:
+  - Executed non-blocking PyPI version check before subcommand dispatch in `omniearth/cli.py` so bare `omniearth` also notifies users of available updates.
+
 ## [1.5.3] - 2026-11-23
 
 ### Fixed
@@ -115,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Optical multispectral imagery (Sentinel-2 L2A/L1C and Landsat-8/9) via AWS Earth Search STAC.
   - Zero-config public cloud-optimized GeoTIFF streaming.
 
-[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.5.3...HEAD
+[Unreleased]: https://github.com/lokeshsk/omniearth/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/lokeshsk/omniearth/compare/v1.5.3...v1.6.0
 [1.5.3]: https://github.com/lokeshsk/omniearth/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/lokeshsk/omniearth/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/lokeshsk/omniearth/compare/v1.5.0...v1.5.1

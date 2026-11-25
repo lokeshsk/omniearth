@@ -1,0 +1,38 @@
+name: Bug Report
+description: Report an unexpected error, upstream API schema change, or CLI issue
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the issue and include any error tracebacks or upstream warnings.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal Reproduction (CLI command or code snippet)
+      render: bash
+    validations:
+      required: true
+  - type: dropdown
+    id: sdk
+    attributes:
+      label: Environment
+      options:
+        - Python CLI
+        - Python SDK
+        - Node.js / TypeScript CLI
+        - Node.js / TypeScript SDK
+        - MCP Server (omniearth-mcp)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OmniEarth Version & OS
+      placeholder: e.g., omniearth 1.6.0 on Ubuntu 24.04 / Python 3.11
+    validations:
+      required: true

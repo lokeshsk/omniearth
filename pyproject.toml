@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omniearth"
-version = "1.5.3"
+version = "1.6.0"
 description = "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine"
 readme = "README.md"
 requires-python = ">=3.8"
-license = "LicenseRef-OmniEarth-Attribution-1.0"
-license-files = ["LICENSE"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [
   { name = "Lokesh Kumar", email = "lokesh.skshukla@gmail.com" }
 ]
@@ -92,6 +92,7 @@ Security = "https://github.com/lokeshsk/omniearth/security/policy"
 
 [project.scripts]
 omniearth = "omniearth.cli:main"
+omniearth-mcp = "omniearth.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
