@@ -1,17 +1,17 @@
 cff-version: 1.2.0
-message: "If you use OmniEarth in your research or commercial application, please cite it as below."
+message: "If you use OmniEarth in your research or project, please cite it as below."
 authors:
   - family-names: "Kumar"
     given-names: "Lokesh"
     email: "lokesh.skshukla@gmail.com"
     website: "https://lokeshsk.github.io"
 title: "OmniEarth: A Universal Multi-Modal Earth Observation and Environmental Data Engine"
-version: 1.5.3
+version: 1.6.0
 doi: "10.5281/zenodo.24359617"
-date-released: 2026-11-23
+date-released: 2026-11-25
 url: "https://github.com/lokeshsk/omniearth"
 repository-code: "https://github.com/lokeshsk/omniearth"
-license: "Custom (Attribution & Citation)"
+license: "Apache-2.0"
 keywords:
   - earth-observation
   - remote-sensing

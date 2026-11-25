@@ -475,6 +475,24 @@ class SearchResult(BaseModel):
         """Return a JSON-serializable dictionary representation."""
         return self.model_dump(mode="json")
 
+    def to_xarray(
+        self,
+        asset_key: Optional[str] = None,
+        outdir: Optional[str] = None,
+        masked: bool = True,
+        **kwargs
+    ) -> Any:
+        """Download the target raster asset and open it as an xarray DataArray via rioxarray."""
+        try:
+            import rioxarray
+        except ImportError as exc:
+            raise ImportError(
+                "to_xarray() requires 'rioxarray' and 'xarray'. "
+                "Install with: pip install rioxarray xarray"
+            ) from exc
+        local_path = self.download(asset_key=asset_key, outdir=outdir, **kwargs)
+        return rioxarray.open_rasterio(local_path, masked=masked)
+
 
 class SearchResults(list):
     """
@@ -568,11 +586,8 @@ class SearchResults(list):
             **kwargs
         )
 
-    def export_geojson(self, output_path: Union[str, Path]) -> str:
-        """Export all search result footprints into a standard GeoJSON FeatureCollection."""
-        import json
-        p = Path(output_path)
-        p.parent.mkdir(parents=True, exist_ok=True)
+    def to_geojson_dict(self) -> Dict[str, Any]:
+        """Convert all search result footprints into an in-memory GeoJSON FeatureCollection dictionary."""
         features = []
         for r in self:
             feat = {
@@ -592,7 +607,41 @@ class SearchResults(list):
                 }
             }
             features.append(feat)
-        fc = {"type": "FeatureCollection", "features": features}
+        return {"type": "FeatureCollection", "features": features}
+
+    def to_geodataframe(self) -> Any:
+        """Convert search results into a geopandas GeoDataFrame (CRS EPSG:4326)."""
+        try:
+            import geopandas as gpd
+            from shapely.geometry import shape
+        except ImportError as exc:
+            raise ImportError(
+                "to_geodataframe() requires 'geopandas' and 'shapely'. "
+                "Install with: pip install 'omniearth[gis]'"
+            ) from exc
+        fc = self.to_geojson_dict()
+        if not fc["features"]:
+            return gpd.GeoDataFrame(
+                columns=[
+                    "id", "collection", "category", "provider",
+                    "datetime", "cloud_cover", "download_url", "assets", "geometry"
+                ],
+                geometry="geometry",
+                crs="EPSG:4326",
+            )
+        rows = []
+        for feat in fc["features"]:
+            props = dict(feat["properties"])
+            props["geometry"] = shape(feat["geometry"]) if feat.get("geometry") else None
+            rows.append(props)
+        return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
+
+    def export_geojson(self, output_path: Union[str, Path]) -> str:
+        """Export all search result footprints into a standard GeoJSON FeatureCollection."""
+        import json
+        p = Path(output_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fc = self.to_geojson_dict()
         with open(p, "w", encoding="utf-8") as f:
             json.dump(fc, f, indent=2, default=str)
         return str(p.resolve())

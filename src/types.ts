@@ -259,12 +259,7 @@ export class SearchResults extends Array<SearchResult> {
     return new SearchResults(filtered, this._client);
   }
 
-  public exportGeoJSON(outputPath: string): string {
-    const resolvedPath = path.resolve(outputPath);
-    const dir = path.dirname(resolvedPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+  public toGeoJSON(): Record<string, any> {
     const features = this.map((r) => {
       let geometry = r.properties?.geometry;
       if (!geometry && r.bbox && r.bbox.length === 4) {
@@ -316,7 +311,16 @@ export class SearchResults extends Array<SearchResult> {
       };
     });
 
-    const fc = { type: "FeatureCollection", features };
+    return { type: "FeatureCollection", features };
+  }
+
+  public exportGeoJSON(outputPath: string): string {
+    const resolvedPath = path.resolve(outputPath);
+    const dir = path.dirname(resolvedPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const fc = this.toGeoJSON();
     fs.writeFileSync(resolvedPath, JSON.stringify(fc, null, 2), "utf-8");
     return resolvedPath;
   }

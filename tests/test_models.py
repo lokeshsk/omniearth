@@ -627,6 +627,72 @@ def test_search_result_resolve_asset_key():
     assert multi_res.resolve_asset_key("safe") == "safe_package"
 
 
+def test_search_results_to_geodataframe_and_geojson_dict(monkeypatch):
+    import sys
+
+    res = SearchResult(
+        id="s2_gdf",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        bbox=[78.0, 20.0, 78.1, 20.1],
+        properties={"eo:cloud_cover": 4.2},
+        assets={"visual": Asset(key="visual", href="https://example.com/v.tif")},
+    )
+    results = SearchResults([res])
+    fc = results.to_geojson_dict()
+    assert fc["type"] == "FeatureCollection"
+    assert len(fc["features"]) == 1
+    assert fc["features"][0]["id"] == "s2_gdf"
+
+    gdf = results.to_geodataframe()
+    assert len(gdf) == 1
+    assert gdf.crs.to_string() == "EPSG:4326"
+    assert gdf.iloc[0]["id"] == "s2_gdf"
+
+    empty_gdf = SearchResults([]).to_geodataframe()
+    assert len(empty_gdf) == 0
+    assert empty_gdf.crs.to_string() == "EPSG:4326"
+
+    monkeypatch.setitem(sys.modules, "geopandas", None)
+    with pytest.raises(ImportError, match="geopandas"):
+        results.to_geodataframe()
+
+
+def test_search_result_to_xarray(monkeypatch, tmp_path):
+    import sys
+    from types import SimpleNamespace
+
+    res = SearchResult(
+        id="s2_xr",
+        collection="sentinel-2-l2a",
+        category=Category.OPTICAL,
+        provider="aws",
+        assets={"visual": Asset(key="visual", href="https://example.com/v.tif")},
+    )
+
+    monkeypatch.setitem(sys.modules, "rioxarray", None)
+    with pytest.raises(ImportError, match="rioxarray"):
+        res.to_xarray()
+
+    fake_tif = tmp_path / "v.tif"
+    fake_tif.write_bytes(b"fake")
+    captured = {}
+
+    def fake_open_rasterio(path, masked=True):
+        captured["path"] = path
+        captured["masked"] = masked
+        return "FAKE_DATAARRAY"
+
+    monkeypatch.setitem(sys.modules, "rioxarray", SimpleNamespace(open_rasterio=fake_open_rasterio))
+    monkeypatch.setattr(SearchResult, "download", lambda self, **kwargs: str(fake_tif))
+    da = res.to_xarray(asset_key="visual", outdir=str(tmp_path), masked=False)
+    assert da == "FAKE_DATAARRAY"
+    assert captured["path"] == str(fake_tif)
+    assert captured["masked"] is False
+
+
+
 
 
 

@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/lokeshsk/omniearth/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshsk/omniearth/actions)
 [![Documentation](https://img.shields.io/badge/docs-guide.html-blue.svg)](https://lokeshsk.github.io/omniearth/guide.html)
-[![Release](https://img.shields.io/badge/release-v1.5.3-brightgreen.svg)](RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen.svg)](RELEASE_NOTES.md)
 [![PyPI version](https://img.shields.io/pypi/v/omniearth.svg?color=blue)](https://pypi.org/project/omniearth/)
 [![npm version](https://img.shields.io/npm/v/omniearth.svg?color=green)](https://www.npmjs.com/package/omniearth)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/lokeshsk/omniearth)
@@ -14,11 +14,63 @@
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)](https://github.com/lokeshsk/omniearth)
 [![Python uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
-[![License](https://img.shields.io/badge/License-OmniEarth_Attribution_1.0-orange.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-> **Interactive Documentation & User Manual:** Read the complete in-depth guide with parameter tables, sensor physics, and tutorials at [**lokeshsk.github.io/omniearth/guide.html**](https://lokeshsk.github.io/omniearth/guide.html) or browse locally at [`docs/guide.html`](docs/guide.html). Main showcase website is at [`docs/index.html`](https://lokeshsk.github.io/omniearth/).
+> **Interactive Documentation & User Manual:** [**lokeshsk.github.io/omniearth/guide.html**](https://lokeshsk.github.io/omniearth/guide.html) | **Showcase:** [**lokeshsk.github.io/omniearth/**](https://lokeshsk.github.io/omniearth/)
 
-**OmniEarth** is an open-source, universal multi-modal Earth Observation (EO), hyperspectral cube, topography, and environmental data aggregation engine. It provides a unified **Python SDK**, **Node.js / TypeScript SDK**, and **Universal CLI** to discover, query, filter, and stream open earth observation data across all modalities:
+**Query 14 Earth Observation, Hyperspectral, Weather, Topography, and 3D Soil APIs with one unified Python SDK, Node.js/TypeScript SDK, CLI, and MCP Server.**  
+**12 of 14 modalities work with zero API keys or configuration.**
+
+---
+
+## 5-Line Quickstart (Zero Credentials Required)
+
+Stop stitching together separate STAC clients, OData tokens, weather REST APIs, and S3 DEM tile grids. Query them all with one `bbox`, `point`, or `GeoJSON`:
+
+```python
+from omniearth import OmniEarth
+
+client = OmniEarth()
+aoi = [78.50, 20.65, 78.60, 20.72]  # [min_lon, min_lat, max_lon, max_lat]
+
+s2 = client.search(category="optical", bbox=aoi, max_cloud_cover=15, limit=3)
+gdf = s2.to_geodataframe()          # Direct GeoPandas GeoDataFrame export
+weather = client.get_weather(bbox=aoi)
+soil = client.get_soil(bbox=aoi, depth="0-5cm")
+dem = client.get_elevation(bbox=aoi, dataset="copernicus")
+```
+
+Or directly from your terminal:
+```bash
+pip install omniearth   # or: npm install -g omniearth
+omniearth search --category optical --bbox 78.50 20.65 78.60 20.72 --max-cloud 15 --limit 3
+```
+
+### Try Live in Google Colab
+| Workflow | Notebook |
+| :--- | :--- |
+| **Multi-Modal Precision Ag** (Sentinel-2 + 3D Soil + ET0/VPD + DEM) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lokeshsk/omniearth/blob/main/examples/01_precision_agriculture_multimodal.ipynb) |
+| **Hyperspectral Cubes** (NASA EMIT 285-band & DLR EnMAP 224-band) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lokeshsk/omniearth/blob/main/examples/02_hyperspectral_enmap_emit.ipynb) |
+| **Wildfire & Disaster Fusion** (NASA FIRMS + Sentinel-5P + Sentinel-1 SAR) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lokeshsk/omniearth/blob/main/examples/03_wildfire_disaster_monitoring.ipynb) |
+
+### Use With AI Agents (Built-in MCP Server)
+Expose all 14 modalities, time-series extraction, and spectral indices to Claude Desktop, Cursor, or Antigravity via `omniearth-mcp`:
+```json
+{
+  "mcpServers": {
+    "omniearth": {
+      "command": "uvx",
+      "args": ["--from", "omniearth", "omniearth-mcp"]
+    }
+  }
+}
+```
+
+---
+
+## Supported Modalities Overview
+
+**OmniEarth** unifies access across all major open geospatial archives:
 
 - **Optical Multispectral**: Sentinel-2 (Level-2A Surface Reflectance & Level-1C Top-of-Atmosphere), Landsat-8/9 (30m) via AWS Open Data STAC.
 - **Hyperspectral Cubes**: DLR EnMAP (224 spectral bands, 420-2450 nm) and NASA EMIT (285 bands, 381-2493 nm).
@@ -47,7 +99,7 @@
 7. [High-Performance Engine Features](#high-performance-engine-features)
 8. [Authentication and Environment Configuration](#authentication-and-environment-configuration)
 9. [Security and Supply Chain Provenance](#security-and-supply-chain-provenance)
-10. [License and Mandatory Attribution](#license-and-mandatory-attribution)
+10. [License and Data Provider Policies](#license-and-data-provider-policies)
 11. [Citation](#citation)
 12. [Author and Maintainer](#author-and-maintainer)
 
@@ -851,14 +903,12 @@ OmniEarth is engineered with defense-in-depth principles, enterprise security st
 
 ---
 
-## License and Mandatory Attribution
+## License and Data Provider Policies
 
-OmniEarth is distributed under the **OmniEarth Open Source License with Mandatory Attribution & Academic Citation**. See [LICENSE](LICENSE) for the full legal text.
+OmniEarth is open-source software licensed under the **Apache License 2.0** ([LICENSE](LICENSE) and [NOTICE](NOTICE)).
 
-1. **Academic Citation**: Any research, preprint, paper, or published benchmark utilizing OmniEarth must cite the software using Zenodo DOI or the citation below.
-2. **Corporate & Commercial Attribution**: Any commercial SaaS platform, internal corporate dashboard, website, or data pipeline utilizing OmniEarth must display prominent attribution:  
-   *`"Powered by OmniEarth (https://github.com/lokeshsk/omniearth)"`* in user interfaces and technical documentation.
-3. **Upstream Data Provider Liability and Usage Policies**: OmniEarth is an orchestration and aggregation tool. It does not own, host, or re-license upstream satellite imagery, trace gas models, altimetry data, or meteorological feeds. All users and organizations are strictly and solely responsible for reviewing and complying with each provider's individual license:
+1. **Academic Citation (Appreciated)**: If you use OmniEarth in research, publications, or public benchmarks, please cite it using [CITATION.cff](CITATION.cff) or the BibTeX entry below.
+2. **Upstream Data Provider Usage Policies**: OmniEarth is an orchestration and aggregation tool. It does not own, host, or re-license upstream satellite imagery, trace gas models, altimetry data, or meteorological feeds. Users and downstream applications remain solely responsible for reviewing and complying with each provider's sovereign license:
    - **ESA / Copernicus Sentinel Data**: Open access under the [EU Copernicus Legal Notice](https://sentinels.copernicus.eu/web/sentinel/terms-conditions) (Sentinel-1, Sentinel-2, Sentinel-3, Sentinel-5P, Sentinel-6, Copernicus DEM, ESA WorldCover).
    - **NASA Open Data Policy**: Public domain and open access under [NASA Data and Information Policy](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/data-and-information-policy) (Landsat 8/9, NASA EMIT Hyperspectral, NASA FIRMS Active Fire, NASA GPM IMERG Precipitation, NASA SMAP Hydrology, Suomi-NPP / NOAA VIIRS Nighttime Lights).
    - **German Aerospace Center (DLR)**: Governed by the [DLR EnMAP Data Policy and User License](https://www.enmap.org/data/policy/).

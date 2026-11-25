@@ -1,0 +1,58 @@
+name: Dataset / Provider Request
+description: Request support for a new open satellite sensor, STAC catalog, or environmental API
+title: "[Provider]: "
+labels: ["enhancement", "provider-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest a new open Earth Observation dataset, STAC endpoint, or environmental API for OmniEarth.
+  - type: input
+    id: dataset_name
+    attributes:
+      label: Dataset or Provider Name
+      placeholder: e.g., MODIS Land Surface Temperature (MOD11A1), ERA5-Land, GEDI L2A
+    validations:
+      required: true
+  - type: input
+    id: endpoint_url
+    attributes:
+      label: Official Documentation / STAC / API URL
+      placeholder: https://...
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Modality Category
+      options:
+        - optical
+        - hyperspectral
+        - sar
+        - elevation
+        - landcover
+        - weather
+        - soil
+        - atmosphere
+        - fire
+        - ocean
+        - altimetry
+        - precipitation
+        - hydrology
+        - nightlights
+        - new-category
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication Requirement
+      options:
+        - Zero-Config (public open access / S3 / STAC)
+        - Free registration / API key required
+        - Unknown
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Primary Use Case
+      description: How would you use this dataset in Python, Node.js, or CLI?

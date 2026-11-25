@@ -1,6 +1,6 @@
 {
   "name": "omniearth",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "type": "module",
   "description": "Universal Multi-Modal Open Earth Observation, Hyperspectral, and Weather Data Engine",
   "main": "./dist/index.js",
@@ -16,6 +16,7 @@
     "dist/**/*.d.ts.map",
     "bin",
     "LICENSE",
+    "NOTICE",
     "SECURITY.md",
     "README.md"
   ],
@@ -44,7 +45,7 @@
     "soilgrids"
   ],
   "author": "Lokesh Kumar <lokesh.skshukla@gmail.com> (https://lokeshsk.github.io)",
-  "license": "LicenseRef-OmniEarth-Attribution-1.0",
+  "license": "Apache-2.0",
   "funding": {
     "type": "individual",
     "url": "https://github.com/sponsors/lokeshsk"

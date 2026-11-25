@@ -40,7 +40,7 @@
     "copernicus",
     "open-meteo"
   ],
-  "license": "other-open",
+  "license": "Apache-2.0",
   "upload_type": "software",
   "access_right": "open"
 }
