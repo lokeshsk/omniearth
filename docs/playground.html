@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root {
       --bg: #0a0f1d;
@@ -258,6 +258,114 @@
 
     .status-bar.ok { border-color: rgba(16, 185, 129, 0.45); color: var(--accent-light); }
     .status-bar.err { border-color: rgba(248, 113, 113, 0.45); color: var(--danger); }
+
+    /* Live query progress bar (semantic <progress> per modern-web-guidance) */
+    .progress-wrap {
+      margin-top: 0.85rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 8px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+    }
+
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 0.45rem;
+      color: var(--text-main);
+    }
+
+    .progress-count {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-light);
+    }
+
+    progress#query-progress {
+      appearance: none;
+      border: 0 solid;
+      overflow: clip;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #1e293b;
+      box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+      container-type: inline-size;
+      --progress-bar-indeterminate-size: 35%;
+      --progress-bar-indeterminate-animation-duration: 1.4s;
+      display: block;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      progress#query-progress {
+        --progress-bar-indeterminate-animation-duration: 10s;
+      }
+    }
+
+    progress#query-progress:indeterminate {
+      --progress-bar-animation: progress-indeterminate var(--progress-bar-indeterminate-animation-duration) infinite linear;
+    }
+
+    progress#query-progress::-webkit-progress-bar {
+      background: transparent;
+    }
+
+    progress#query-progress::-webkit-progress-value {
+      background: linear-gradient(90deg, var(--accent), var(--accent-blue));
+      border-radius: 999px;
+      transition: inline-size 0.25s ease;
+      animation: var(--progress-bar-animation, revert-rule);
+    }
+
+    progress#query-progress::-moz-progress-bar {
+      background: linear-gradient(90deg, var(--accent), var(--accent-blue));
+      border-radius: 999px;
+      transition: inline-size 0.25s ease;
+      animation: var(--progress-bar-animation, revert-rule);
+    }
+
+    @keyframes progress-indeterminate {
+      from, to {
+        inline-size: var(--progress-bar-indeterminate-size);
+        margin-right: auto;
+      }
+      from { translate: -100%; }
+      to { translate: 100cqi; }
+    }
+
+    .step-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.6rem;
+    }
+
+    .step-chip {
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .step-chip.running {
+      border-color: rgba(59, 130, 246, 0.55);
+      color: #93c5fd;
+    }
+
+    .step-chip.done {
+      border-color: rgba(16, 185, 129, 0.55);
+      color: var(--accent-light);
+    }
+
+    .step-chip.warn {
+      border-color: rgba(245, 158, 11, 0.55);
+      color: #fbbf24;
+    }
 
     .kpi-grid {
       display: grid;
@@ -547,8 +655,23 @@
         </form>
       </search>
 
+      <div class="progress-wrap">
+        <div class="progress-head">
+          <label id="progress-label" for="query-progress">Endpoint Progress</label>
+          <span class="progress-count" id="progress-count">0 / 5</span>
+        </div>
+        <progress id="query-progress" max="5" value="0" aria-labelledby="progress-label"></progress>
+        <div class="step-chips" id="step-chips" aria-label="Per-modality fetch status">
+          <span class="step-chip" data-step="optical">Optical STAC</span>
+          <span class="step-chip" data-step="sar">SAR STAC</span>
+          <span class="step-chip" data-step="emit">NASA EMIT</span>
+          <span class="step-chip" data-step="weather">Open-Meteo</span>
+          <span class="step-chip" data-step="soil">SoilGrids</span>
+        </div>
+      </div>
+
       <div id="status-bar" class="status-bar" role="status" aria-live="polite">
-        Ready. Click "Query Live EO &amp; Climate APIs" to fetch live public data.
+        Ready. Querying default coordinates...
       </div>
     </div>
   </div>
@@ -660,7 +783,7 @@
   </section>
 </main>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const latInput = document.getElementById("lat-input");
   const lonInput = document.getElementById("lon-input");
@@ -670,15 +793,53 @@
   const statusBar = document.getElementById("status-bar");
   const submitBtn = document.getElementById("submit-btn");
   const tbody = document.getElementById("results-tbody");
+  const progressBar = document.getElementById("query-progress");
+  const progressLabel = document.getElementById("progress-label");
+  const progressCount = document.getElementById("progress-count");
 
-  const map = L.map("map").setView([20.68, 78.55], 10);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors",
-    maxZoom: 18
-  }).addTo(map);
-
+  let map = null;
   let aoiRect = null;
-  const footprintLayer = L.layerGroup().addTo(map);
+  let footprintLayer = null;
+
+  if (typeof L !== "undefined") {
+    map = L.map("map", { zoomControl: true }).setView([20.68, 78.55], 10);
+
+    const esriSat = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { attribution: "Tiles &copy; Esri World Imagery", maxZoom: 18 }
+    );
+    const cartoDark = L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      { attribution: "&copy; OpenStreetMap &copy; CARTO", maxZoom: 19 }
+    );
+    const cartoVoyager = L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      { attribution: "&copy; OpenStreetMap &copy; CARTO", maxZoom: 19 }
+    );
+
+    esriSat.addTo(map);
+    L.control.layers(
+      {
+        "Satellite (Esri Imagery)": esriSat,
+        "Dark Basemap (CARTO)": cartoDark,
+        "Streets (CARTO Voyager)": cartoVoyager
+      },
+      null,
+      { position: "topright" }
+    ).addTo(map);
+
+    footprintLayer = L.layerGroup().addTo(map);
+    setTimeout(() => map.invalidateSize(), 200);
+    window.addEventListener("resize", () => map.invalidateSize());
+
+    map.on("click", (ev) => {
+      latInput.value = ev.latlng.lat.toFixed(4);
+      lonInput.value = ev.latlng.lng.toFixed(4);
+      syncAoiAndSnippets();
+    });
+  } else {
+    document.getElementById("map").textContent = "Interactive map library unavailable on this network—enter coordinates on the right to query APIs.";
+  }
 
   function getBbox() {
     const lat = Number(latInput.value);
@@ -701,12 +862,14 @@
 
     bboxReadout.textContent = `bbox: [${w}, ${s}, ${e}, ${n}]`;
 
-    if (aoiRect) map.removeLayer(aoiRect);
-    aoiRect = L.rectangle([[s, w], [n, e]], {
-      color: "#10b981",
-      weight: 2,
-      fillOpacity: 0.14
-    }).addTo(map);
+    if (map) {
+      if (aoiRect) map.removeLayer(aoiRect);
+      aoiRect = L.rectangle([[s, w], [n, e]], {
+        color: "#10b981",
+        weight: 2,
+        fillOpacity: 0.16
+      }).addTo(map);
+    }
 
     document.getElementById("code-python").textContent =
 `from omniearth import OmniEarth
@@ -755,17 +918,11 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
 //  and 0-5cm soil carbon near (${lat}, ${lon}) with bbox [${w}, ${s}, ${e}, ${n}]."`;
   }
 
-  map.on("click", (ev) => {
-    latInput.value = ev.latlng.lat.toFixed(4);
-    lonInput.value = ev.latlng.lng.toFixed(4);
-    syncAoiAndSnippets();
-  });
-
   document.querySelectorAll(".preset-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       latInput.value = btn.dataset.lat;
       lonInput.value = btn.dataset.lon;
-      map.setView([Number(btn.dataset.lat), Number(btn.dataset.lon)], 10);
+      if (map) map.setView([Number(btn.dataset.lat), Number(btn.dataset.lon)], 10);
       syncAoiAndSnippets();
       runLiveQuery();
     });
@@ -878,6 +1035,20 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
     }
   }
 
+  function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal })
+      .finally(() => clearTimeout(timer));
+  }
+
+  function setChipState(stepKey, stateClass, text) {
+    const chip = document.querySelector(`.step-chip[data-step="${stepKey}"]`);
+    if (!chip) return;
+    chip.className = `step-chip ${stateClass}`;
+    chip.textContent = text;
+  }
+
   async function runLiveQuery() {
     const bbox = getBbox();
     const lat = Number(latInput.value);
@@ -885,55 +1056,118 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
     const maxCloud = Number(cloudInput.value);
 
     submitBtn.disabled = true;
+    submitBtn.textContent = "Querying 5 Live APIs...";
     statusBar.className = "status-bar";
     statusBar.textContent = "Querying AWS Earth Search STAC, NASA CMR EMIT, Open-Meteo, and ISRIC SoilGrids...";
-    footprintLayer.clearLayers();
+    if (footprintLayer) footprintLayer.clearLayers();
+
+    // Start indeterminate while initial requests dispatch, then increment 1..5 live
+    let completed = 0;
+    const total = 5;
+    progressBar.removeAttribute("value");
+    progressLabel.textContent = "Querying 5 EO endpoints in parallel...";
+    progressCount.textContent = `0 / ${total}`;
+
+    const stepLabels = {
+      optical: "Optical STAC",
+      sar: "SAR STAC",
+      emit: "NASA EMIT",
+      weather: "Open-Meteo",
+      soil: "SoilGrids"
+    };
+    Object.entries(stepLabels).forEach(([k, label]) => {
+      setChipState(k, "running", `⏳ ${label}`);
+    });
+
+    document.getElementById("kpi-weather").textContent = "Loading...";
+    document.getElementById("kpi-soil").textContent = "Loading...";
+    document.getElementById("kpi-stac").textContent = "Loading...";
+    document.getElementById("kpi-emit").textContent = "Loading...";
+
+    function trackStep(stepKey, promise, okLabelFn) {
+      return promise.then(
+        (data) => {
+          completed += 1;
+          progressBar.value = completed;
+          progressCount.textContent = `${completed} / ${total}`;
+          setChipState(stepKey, "done", `✓ ${okLabelFn(data)}`);
+          return { status: "fulfilled", value: data };
+        },
+        (err) => {
+          completed += 1;
+          progressBar.value = completed;
+          progressCount.textContent = `${completed} / ${total}`;
+          setChipState(stepKey, "warn", `⚠ ${stepLabels[stepKey]}`);
+          return { status: "rejected", reason: err };
+        }
+      );
+    }
 
     const end = new Date().toISOString().slice(0, 10) + "T23:59:59Z";
     const startDt = new Date(Date.now() - 180 * 86400 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
 
-    const stacOptReq = fetch("https://earth-search.aws.element84.com/v1/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        collections: ["sentinel-2-l2a", "landsat-c2-l2"],
-        bbox,
-        datetime: `${startDt}/${end}`,
-        query: { "eo:cloud_cover": { lte: maxCloud } },
-        limit: 5
-      })
-    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Optical STAC HTTP ${r.status}`)));
+    const stacOptReq = trackStep(
+      "optical",
+      fetchWithTimeout("https://earth-search.aws.element84.com/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collections: ["sentinel-2-l2a", "landsat-c2-l2"],
+          bbox,
+          datetime: `${startDt}/${end}`,
+          query: { "eo:cloud_cover": { lte: maxCloud } },
+          limit: 5
+        })
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Optical STAC HTTP ${r.status}`))),
+      (d) => `Optical (${(d.features || []).length})`
+    );
 
-    const stacSarReq = fetch("https://earth-search.aws.element84.com/v1/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        collections: ["sentinel-1-grd"],
-        bbox,
-        datetime: `${startDt}/${end}`,
-        limit: 3
-      })
-    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SAR STAC HTTP ${r.status}`)));
+    const stacSarReq = trackStep(
+      "sar",
+      fetchWithTimeout("https://earth-search.aws.element84.com/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collections: ["sentinel-1-grd"],
+          bbox,
+          datetime: `${startDt}/${end}`,
+          limit: 3
+        })
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SAR STAC HTTP ${r.status}`))),
+      (d) => `SAR (${(d.features || []).length})`
+    );
 
-    const emitReq = fetch("https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        collections: ["EMITL2ARFL_001"],
-        bbox,
-        limit: 3
-      })
-    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`EMIT CMR HTTP ${r.status}`)));
+    const emitReq = trackStep(
+      "emit",
+      fetchWithTimeout("https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collections: ["EMITL2ARFL_001"],
+          bbox,
+          limit: 3
+        })
+      }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`EMIT CMR HTTP ${r.status}`))),
+      (d) => `EMIT (${(d.features || []).length})`
+    );
 
-    const wxReq = fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,vapour_pressure_deficit&daily=et0_fao_evapotranspiration&forecast_days=1`
-    ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Open-Meteo HTTP ${r.status}`)));
+    const wxReq = trackStep(
+      "weather",
+      fetchWithTimeout(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,vapour_pressure_deficit&daily=et0_fao_evapotranspiration&forecast_days=1`
+      ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Open-Meteo HTTP ${r.status}`))),
+      () => "Weather OK"
+    );
 
-    const soilReq = fetch(
-      `https://rest.isric.org/soilgrids/v2.0/properties/query?lon=${lon}&lat=${lat}&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm&value=mean`
-    ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SoilGrids HTTP ${r.status}`)));
+    const soilReq = trackStep(
+      "soil",
+      fetchWithTimeout(
+        `https://rest.isric.org/soilgrids/v2.0/properties/query?lon=${lon}&lat=${lat}&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm&value=mean`
+      ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SoilGrids HTTP ${r.status}`))),
+      () => "SoilGrids OK"
+    );
 
-    const [optRes, sarRes, emitRes, wxRes, soilRes] = await Promise.allSettled([
+    const [optRes, sarRes, emitRes, wxRes, soilRes] = await Promise.all([
       stacOptReq, stacSarReq, emitReq, wxReq, soilReq
     ]);
 
@@ -956,7 +1190,7 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
           cloud: typeof cc === "number" ? cc.toFixed(1) : "--",
           url: assetHref
         });
-        if (Array.isArray(f.bbox) && f.bbox.length === 4) {
+        if (map && footprintLayer && Array.isArray(f.bbox) && f.bbox.length === 4) {
           L.rectangle([[f.bbox[1], f.bbox[0]], [f.bbox[3], f.bbox[2]]], {
             color: "#3b82f6", weight: 1, fillOpacity: 0.03
           }).addTo(footprintLayer);
@@ -1028,9 +1262,11 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
     }
 
     renderTableRows(rows);
+    progressLabel.textContent = "All endpoints checked";
     statusBar.className = "status-bar ok";
     statusBar.textContent = `Live query complete: ${rows.length} satellite scenes + weather & soil retrieved for [${bbox.join(", ")}].`;
     submitBtn.disabled = false;
+    submitBtn.textContent = "Query Live EO & Climate APIs";
   }
 
   document.getElementById("query-form").addEventListener("submit", (e) => {
@@ -1044,6 +1280,7 @@ const soil = await client.getSoil(bbox, "0-5cm");`;
   });
 
   syncAoiAndSnippets();
+  setTimeout(runLiveQuery, 150);
 </script>
 </body>
 </html>
