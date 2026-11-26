@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniEarth Live Explorer — Zero-Config Multi-Modal Earth Observation Playground</title>
+  <meta name="description" content="Click anywhere on Earth to query live Sentinel-2, Sentinel-1 SAR, NASA EMIT Hyperspectral, Open-Meteo Weather, and ISRIC SoilGrids directly in your browser and generate Python, TypeScript, CLI, and MCP snippets.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <style>
+    :root {
+      --bg: #0a0f1d;
+      --surface: #111827;
+      --surface-elevated: #161f33;
+      --border: #1f293d;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #10b981;
+      --accent-light: #34d399;
+      --accent-blue: #3b82f6;
+      --accent-amber: #f59e0b;
+      --code-bg: #0d1322;
+      --danger: #f87171;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.9);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: #fff;
+    }
+
+    .brand-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--accent-light);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    .hero {
+      margin-bottom: 1.75rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      max-width: 780px;
+    }
+
+    .grid-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.95fr);
+      gap: 1.25rem;
+      align-items: start;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 960px) {
+      .grid-main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    #map {
+      height: 410px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0d1322;
+    }
+
+    .map-hint {
+      margin-top: 0.65rem;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    .table-wrapper:focus-visible {
+      outline: 3px solid var(--accent-blue);
+      outline-offset: 2px;
+    }
+
+    .preset-btn {
+      background: var(--surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      min-height: 36px;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent-light);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-block-end: 0.85rem;
+    }
+
+    .field label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .field input {
+      font: inherit;
+      font-size: max(1rem, 1em);
+      min-height: 48px;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: var(--code-bg);
+      color: var(--text-main);
+      width: 100%;
+    }
+
+    .field input:user-invalid {
+      border-color: var(--danger);
+    }
+
+    .hint-text {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .btn-submit {
+      width: 100%;
+      min-height: 48px;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #04130d;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: background 0.15s ease;
+    }
+
+    .btn-submit:hover {
+      background: var(--accent-light);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: progress;
+    }
+
+    .status-bar {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      min-height: 2.5rem;
+    }
+
+    .status-bar.ok { border-color: rgba(16, 185, 129, 0.45); color: var(--accent-light); }
+    .status-bar.err { border-color: rgba(248, 113, 113, 0.45); color: var(--danger); }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.15rem;
+    }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      color: #fff;
+    }
+
+    .kpi-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Responsive table pattern with sticky headers and @container card stack */
+    .table-wrapper {
+      overflow: auto;
+      max-inline-size: 100%;
+      max-block-size: min(460px, 70vh);
+      container-type: inline-size;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--code-bg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+
+    caption {
+      caption-side: top;
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      background: var(--surface-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: 2;
+      background: var(--surface-elevated);
+    }
+
+    th, td {
+      padding: 0.7rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    th {
+      color: var(--accent-light);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tbody th {
+      position: sticky;
+      inset-inline-start: 0;
+      background: var(--code-bg);
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      z-index: 1;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    @container (width < 600px) {
+      table, thead, tbody, tr, th, td {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        margin-block-end: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+        background: var(--surface-elevated);
+        border-radius: 8px 8px 0 0;
+      }
+
+      td {
+        white-space: normal;
+      }
+
+      table {
+        --label-2: "Modality";
+        --label-3: "Provider / Collection";
+        --label-4: "Acquired (UTC)";
+        --label-5: "Cloud (%)";
+        --label-6: "Asset";
+      }
+
+      td:nth-child(2)::before { content: var(--label-2) ": "; font-weight: 600; color: var(--text-muted); }
+      td:nth-child(3)::before { content: var(--label-3) ": "; font-weight: 600; color: var(--text-muted); }
+      td:nth-child(4)::before { content: var(--label-4) ": "; font-weight: 600; color: var(--text-muted); }
+      td:nth-child(5)::before { content: var(--label-5) ": "; font-weight: 600; color: var(--text-muted); }
+      td:nth-child(6)::before { content: var(--label-6) ": "; font-weight: 600; color: var(--text-muted); }
+    }
+
+    /* Accessible tabs pattern */
+    .tabs {
+      margin-top: 1.5rem;
+    }
+
+    .tablist {
+      display: flex;
+      overflow-x: auto;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+
+    [role="tab"] {
+      flex: none;
+      position: relative;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      min-height: 44px;
+    }
+
+    [role="tab"][aria-selected="true"] {
+      color: var(--accent-light);
+    }
+
+    [role="tab"][aria-selected="true"]::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      border-block-end: 3px solid var(--accent-light);
+    }
+
+    .tabpanel-inner {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 1rem;
+      position: relative;
+    }
+
+    .copy-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      gap: 0.75rem;
+    }
+
+    .copy-btn {
+      background: var(--surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      min-height: 36px;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--accent);
+    }
+
+    pre {
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="topbar" aria-label="Primary">
+  <a href="index.html" class="brand">
+    OmniEarth <span class="brand-badge">Live Playground v1.6.0</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Overview</a>
+    <a href="guide.html">User Guide</a>
+    <a href="https://colab.research.google.com/github/lokeshsk/omniearth/blob/main/examples/01_precision_agriculture_multimodal.ipynb" target="_blank" rel="noopener">Colab Demo</a>
+    <a href="https://github.com/lokeshsk/omniearth" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://pypi.org/project/omniearth/" target="_blank" rel="noopener">PyPI</a>
+  </div>
+</nav>
+
+<main class="container">
+  <section class="hero">
+    <h1>Zero-Config Multi-Modal Earth Explorer</h1>
+    <p>
+      Click anywhere on the map to query live <strong>Sentinel-2 L2A / Landsat STAC</strong>, <strong>Sentinel-1 SAR</strong>,
+      <strong>NASA EMIT Hyperspectral</strong>, <strong>Open-Meteo Weather (ET0 &amp; VPD)</strong>, and <strong>ISRIC 3D SoilGrids</strong>
+      directly from your browser—and generate the exact OmniEarth Python, TypeScript, CLI, and MCP commands for your area of interest.
+    </p>
+  </section>
+
+  <div class="grid-main">
+    <div class="panel">
+      <div class="panel-title">
+        <span>1. Pick an Area of Interest (AOI)</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="bbox-readout">bbox: [78.50, 20.65, 78.60, 20.72]</span>
+      </div>
+      <div id="map" role="application" aria-label="Interactive world map for selecting Earth Observation coordinates"></div>
+      <p class="map-hint">Click anywhere on the map to center the bounding box, or pick a preset region on the right.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>2. Query Parameters</span></div>
+      <div class="presets" aria-label="Preset study locations">
+        <button type="button" class="preset-btn" data-lat="20.68" data-lon="78.55">Nagpur Cropland, IN</button>
+        <button type="button" class="preset-btn" data-lat="38.55" data-lon="-121.75">Sacramento Valley, US</button>
+        <button type="button" class="preset-btn" data-lat="-3.12" data-lon="-60.02">Amazon Basin, BR</button>
+        <button type="button" class="preset-btn" data-lat="49.40" data-lon="8.67">Rhine Valley, DE</button>
+      </div>
+
+      <search>
+        <form id="query-form" aria-labelledby="form-heading">
+          <span id="form-heading" hidden>Multi-modal geospatial search form</span>
+          <div class="form-grid">
+            <div class="field">
+              <label for="lat-input">Latitude (-90 to 90)</label>
+              <input type="number" id="lat-input" name="lat" step="0.01" min="-90" max="90" value="20.68" required>
+            </div>
+            <div class="field">
+              <label for="lon-input">Longitude (-180 to 180)</label>
+              <input type="number" id="lon-input" name="lon" step="0.01" min="-180" max="180" value="78.55" required>
+            </div>
+            <div class="field">
+              <label for="radius-input">Half-Width (deg)</label>
+              <input type="number" id="radius-input" name="radius" step="0.01" min="0.01" max="1.0" value="0.05" required>
+              <span class="hint-text">0.05° ≈ 5.5 km radius</span>
+            </div>
+            <div class="field">
+              <label for="cloud-input">Max Cloud (%)</label>
+              <input type="number" id="cloud-input" name="max_cloud" step="1" min="0" max="100" value="25" required>
+              <span class="hint-text">Applied to Optical STAC</span>
+            </div>
+          </div>
+          <button type="submit" id="submit-btn" class="btn-submit">Query Live EO &amp; Climate APIs</button>
+        </form>
+      </search>
+
+      <div id="status-bar" class="status-bar" role="status" aria-live="polite">
+        Ready. Click "Query Live EO &amp; Climate APIs" to fetch live public data.
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE KPI SUMMARY -->
+  <section class="kpi-grid" aria-label="Live environmental summary">
+    <div class="kpi-card">
+      <div class="kpi-label">Weather &amp; ET0 (Open-Meteo)</div>
+      <div class="kpi-value" id="kpi-weather">--</div>
+      <div class="kpi-sub" id="kpi-weather-sub">Temperature, Solar &amp; VPD</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Topsoil 0-5cm (SoilGrids)</div>
+      <div class="kpi-value" id="kpi-soil">--</div>
+      <div class="kpi-sub" id="kpi-soil-sub">Clay, Sand, SOC &amp; pH</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Optical &amp; SAR Scenes</div>
+      <div class="kpi-value" id="kpi-stac">--</div>
+      <div class="kpi-sub" id="kpi-stac-sub">AWS Earth Search STAC</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Hyperspectral (NASA EMIT)</div>
+      <div class="kpi-value" id="kpi-emit">--</div>
+      <div class="kpi-sub" id="kpi-emit-sub">285-band LPCLOUD CMR STAC</div>
+    </div>
+  </section>
+
+  <!-- RESULTS TABLE -->
+  <section class="panel" style="margin-bottom: 1.5rem;">
+    <div tabindex="0" role="region" aria-labelledby="results-table-caption" class="table-wrapper">
+      <table>
+        <caption id="results-table-caption">Live Satellite Acquisitions Found</caption>
+        <thead>
+          <tr>
+            <th scope="col">Scene ID</th>
+            <th scope="col">Modality</th>
+            <th scope="col">Collection</th>
+            <th scope="col">Acquired (UTC)</th>
+            <th scope="col">Cloud (%)</th>
+            <th scope="col">Asset Link</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody">
+          <tr>
+            <th scope="row">Click "Query Live EO &amp; Climate APIs"</th>
+            <td>--</td>
+            <td>--</td>
+            <td>--</td>
+            <td>--</td>
+            <td>--</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CODE GENERATOR TABS -->
+  <section class="panel">
+    <div class="panel-title"><span>3. Run Locally With OmniEarth (Zero Credentials Needed)</span></div>
+    <div class="tabs">
+      <div class="tablist" role="tablist" aria-label="SDK and CLI code snippets">
+        <button type="button" role="tab" id="tab-python" aria-selected="true">Python SDK</button>
+        <button type="button" role="tab" id="tab-cli" aria-selected="false">Universal CLI</button>
+        <button type="button" role="tab" id="tab-ts" aria-selected="false">Node.js / TypeScript</button>
+        <button type="button" role="tab" id="tab-mcp" aria-selected="false">MCP Server (AI Agents)</button>
+      </div>
+
+      <div role="tabpanel" aria-labelledby="tab-python" tabindex="0">
+        <div class="tabpanel-inner">
+          <div class="copy-row">
+            <span class="hint-text">Install: <code>pip install "omniearth[gis]"</code></span>
+            <button type="button" class="copy-btn" data-copy-target="code-python">Copy Python</button>
+          </div>
+          <pre><code id="code-python"></code></pre>
+        </div>
+      </div>
+
+      <div role="tabpanel" aria-labelledby="tab-cli" hidden>
+        <div class="tabpanel-inner">
+          <div class="copy-row">
+            <span class="hint-text">Install: <code>uv tool install omniearth</code> or <code>npm install -g omniearth</code></span>
+            <button type="button" class="copy-btn" data-copy-target="code-cli">Copy CLI</button>
+          </div>
+          <pre><code id="code-cli"></code></pre>
+        </div>
+      </div>
+
+      <div role="tabpanel" aria-labelledby="tab-ts" hidden>
+        <div class="tabpanel-inner">
+          <div class="copy-row">
+            <span class="hint-text">Install: <code>pnpm add omniearth</code> or <code>npm install omniearth</code></span>
+            <button type="button" class="copy-btn" data-copy-target="code-ts">Copy TypeScript</button>
+          </div>
+          <pre><code id="code-ts"></code></pre>
+        </div>
+      </div>
+
+      <div role="tabpanel" aria-labelledby="tab-mcp" hidden>
+        <div class="tabpanel-inner">
+          <div class="copy-row">
+            <span class="hint-text">Claude Desktop / Cursor / Antigravity config + prompt</span>
+            <button type="button" class="copy-btn" data-copy-target="code-mcp">Copy MCP</button>
+          </div>
+          <pre><code id="code-mcp"></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script>
+  const latInput = document.getElementById("lat-input");
+  const lonInput = document.getElementById("lon-input");
+  const radiusInput = document.getElementById("radius-input");
+  const cloudInput = document.getElementById("cloud-input");
+  const bboxReadout = document.getElementById("bbox-readout");
+  const statusBar = document.getElementById("status-bar");
+  const submitBtn = document.getElementById("submit-btn");
+  const tbody = document.getElementById("results-tbody");
+
+  const map = L.map("map").setView([20.68, 78.55], 10);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 18
+  }).addTo(map);
+
+  let aoiRect = null;
+  const footprintLayer = L.layerGroup().addTo(map);
+
+  function getBbox() {
+    const lat = Number(latInput.value);
+    const lon = Number(lonInput.value);
+    const d = Number(radiusInput.value);
+    return [
+      Number((lon - d).toFixed(4)),
+      Number((lat - d).toFixed(4)),
+      Number((lon + d).toFixed(4)),
+      Number((lat + d).toFixed(4))
+    ];
+  }
+
+  function syncAoiAndSnippets() {
+    const bbox = getBbox();
+    const lat = Number(latInput.value).toFixed(4);
+    const lon = Number(lonInput.value).toFixed(4);
+    const cloud = Number(cloudInput.value);
+    const [w, s, e, n] = bbox;
+
+    bboxReadout.textContent = `bbox: [${w}, ${s}, ${e}, ${n}]`;
+
+    if (aoiRect) map.removeLayer(aoiRect);
+    aoiRect = L.rectangle([[s, w], [n, e]], {
+      color: "#10b981",
+      weight: 2,
+      fillOpacity: 0.14
+    }).addTo(map);
+
+    document.getElementById("code-python").textContent =
+`from omniearth import OmniEarth
+
+client = OmniEarth()
+aoi = [${w}, ${s}, ${e}, ${n}]
+
+optical = client.search(category="optical", bbox=aoi, max_cloud_cover=${cloud}, limit=5)
+gdf = optical.to_geodataframe()
+weather = client.get_weather(bbox=aoi)
+soil = client.get_soil(bbox=aoi, depth="0-5cm")
+dem = client.get_elevation(bbox=aoi, dataset="copernicus")
+emit = client.search(category="hyperspectral", provider="nasa_emit", bbox=aoi, limit=3)`;
+
+    document.getElementById("code-cli").textContent =
+`omniearth search --category optical --bbox ${w} ${s} ${e} ${n} --max-cloud ${cloud} --limit 5
+omniearth search --category sar --bbox ${w} ${s} ${e} ${n} --limit 3
+omniearth search --category hyperspectral --provider nasa_emit --bbox ${w} ${s} ${e} ${n} --limit 3
+omniearth search --category weather --bbox ${w} ${s} ${e} ${n}
+omniearth search --category soil --bbox ${w} ${s} ${e} ${n} --depth 0-5cm`;
+
+    document.getElementById("code-ts").textContent =
+`import { OmniEarth, Category } from "omniearth";
+
+const client = new OmniEarth();
+const bbox: [number, number, number, number] = [${w}, ${s}, ${e}, ${n}];
+
+const optical = await client.search({ category: Category.OPTICAL, bbox, maxCloudCover: ${cloud}, limit: 5 });
+const geojson = optical.toGeoJSON();
+const weather = await client.getWeather(bbox);
+const soil = await client.getSoil(bbox, "0-5cm");`;
+
+    document.getElementById("code-mcp").textContent =
+`// Add to claude_desktop_config.json or Cursor / Antigravity MCP settings:
+{
+  "mcpServers": {
+    "omniearth": {
+      "command": "uvx",
+      "args": ["--from", "omniearth", "omniearth-mcp"]
+    }
+  }
+}
+
+// Example prompt:
+// "Using omniearth_search, find cloud-free Sentinel-2 scenes, weather ET0,
+//  and 0-5cm soil carbon near (${lat}, ${lon}) with bbox [${w}, ${s}, ${e}, ${n}]."`;
+  }
+
+  map.on("click", (ev) => {
+    latInput.value = ev.latlng.lat.toFixed(4);
+    lonInput.value = ev.latlng.lng.toFixed(4);
+    syncAoiAndSnippets();
+  });
+
+  document.querySelectorAll(".preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      latInput.value = btn.dataset.lat;
+      lonInput.value = btn.dataset.lon;
+      map.setView([Number(btn.dataset.lat), Number(btn.dataset.lon)], 10);
+      syncAoiAndSnippets();
+      runLiveQuery();
+    });
+  });
+
+  [latInput, lonInput, radiusInput, cloudInput].forEach((el) => {
+    el.addEventListener("input", syncAoiAndSnippets);
+  });
+
+  // Accessible tabs implementation
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+  const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+
+  function selectTab(targetTab) {
+    tabs.forEach((tab, idx) => {
+      const selected = tab === targetTab;
+      tab.setAttribute("aria-selected", String(selected));
+      const panel = panels[idx];
+      panel.hidden = !selected;
+      if (selected) {
+        panel.setAttribute("tabindex", "0");
+      } else {
+        panel.removeAttribute("tabindex");
+      }
+    });
+  }
+
+  tabs.forEach((tab, idx) => {
+    tab.addEventListener("click", () => selectTab(tab));
+    tab.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") {
+        const next = tabs[(idx + 1) % tabs.length];
+        next.focus();
+        selectTab(next);
+      } else if (e.key === "ArrowLeft") {
+        const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+        prev.focus();
+        selectTab(prev);
+      }
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll(".copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      try {
+        await navigator.clipboard.writeText(target.textContent);
+        const orig = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = orig; }, 1600);
+      } catch {
+        btn.textContent = "Select & Copy";
+      }
+    });
+  });
+
+  function safeUrl(raw) {
+    if (typeof raw !== "string") return null;
+    if (raw.startsWith("https://") || raw.startsWith("http://")) return raw;
+    return null;
+  }
+
+  function renderTableRows(rows) {
+    tbody.replaceChildren();
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = "No matching scenes found for this AOI/cloud threshold";
+      tr.appendChild(th);
+      for (let i = 0; i < 5; i++) {
+        const td = document.createElement("td");
+        td.textContent = "--";
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = row.id;
+      tr.appendChild(th);
+
+      const cells = [row.modality, row.collection, row.datetime, row.cloud];
+      for (const val of cells) {
+        const td = document.createElement("td");
+        td.textContent = val;
+        tr.appendChild(td);
+      }
+
+      const tdLink = document.createElement("td");
+      const href = safeUrl(row.url);
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = "Open Asset";
+        tdLink.appendChild(a);
+      } else {
+        tdLink.textContent = "--";
+      }
+      tr.appendChild(tdLink);
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function runLiveQuery() {
+    const bbox = getBbox();
+    const lat = Number(latInput.value);
+    const lon = Number(lonInput.value);
+    const maxCloud = Number(cloudInput.value);
+
+    submitBtn.disabled = true;
+    statusBar.className = "status-bar";
+    statusBar.textContent = "Querying AWS Earth Search STAC, NASA CMR EMIT, Open-Meteo, and ISRIC SoilGrids...";
+    footprintLayer.clearLayers();
+
+    const end = new Date().toISOString().slice(0, 10) + "T23:59:59Z";
+    const startDt = new Date(Date.now() - 180 * 86400 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
+
+    const stacOptReq = fetch("https://earth-search.aws.element84.com/v1/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collections: ["sentinel-2-l2a", "landsat-c2-l2"],
+        bbox,
+        datetime: `${startDt}/${end}`,
+        query: { "eo:cloud_cover": { lte: maxCloud } },
+        limit: 5
+      })
+    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Optical STAC HTTP ${r.status}`)));
+
+    const stacSarReq = fetch("https://earth-search.aws.element84.com/v1/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collections: ["sentinel-1-grd"],
+        bbox,
+        datetime: `${startDt}/${end}`,
+        limit: 3
+      })
+    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SAR STAC HTTP ${r.status}`)));
+
+    const emitReq = fetch("https://cmr.earthdata.nasa.gov/stac/LPCLOUD/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collections: ["EMITL2ARFL_001"],
+        bbox,
+        limit: 3
+      })
+    }).then((r) => r.ok ? r.json() : Promise.reject(new Error(`EMIT CMR HTTP ${r.status}`)));
+
+    const wxReq = fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,vapour_pressure_deficit&daily=et0_fao_evapotranspiration&forecast_days=1`
+    ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`Open-Meteo HTTP ${r.status}`)));
+
+    const soilReq = fetch(
+      `https://rest.isric.org/soilgrids/v2.0/properties/query?lon=${lon}&lat=${lat}&property=clay&property=sand&property=soc&property=phh2o&depth=0-5cm&value=mean`
+    ).then((r) => r.ok ? r.json() : Promise.reject(new Error(`SoilGrids HTTP ${r.status}`)));
+
+    const [optRes, sarRes, emitRes, wxRes, soilRes] = await Promise.allSettled([
+      stacOptReq, stacSarReq, emitReq, wxReq, soilReq
+    ]);
+
+    const rows = [];
+    let optCount = 0;
+    let sarCount = 0;
+    let emitCount = 0;
+
+    if (optRes.status === "fulfilled") {
+      const feats = optRes.value.features || [];
+      optCount = feats.length;
+      for (const f of feats) {
+        const cc = f.properties?.["eo:cloud_cover"];
+        const assetHref = f.assets?.visual?.href || f.assets?.rendered_preview?.href || Object.values(f.assets || {})[0]?.href || "";
+        rows.push({
+          id: f.id,
+          modality: "Optical",
+          collection: f.collection || "sentinel-2-l2a",
+          datetime: (f.properties?.datetime || "").slice(0, 19).replace("T", " "),
+          cloud: typeof cc === "number" ? cc.toFixed(1) : "--",
+          url: assetHref
+        });
+        if (Array.isArray(f.bbox) && f.bbox.length === 4) {
+          L.rectangle([[f.bbox[1], f.bbox[0]], [f.bbox[3], f.bbox[2]]], {
+            color: "#3b82f6", weight: 1, fillOpacity: 0.03
+          }).addTo(footprintLayer);
+        }
+      }
+    }
+
+    if (sarRes.status === "fulfilled") {
+      const feats = sarRes.value.features || [];
+      sarCount = feats.length;
+      for (const f of feats) {
+        const assetHref = f.assets?.vv?.href || Object.values(f.assets || {})[0]?.href || "";
+        rows.push({
+          id: f.id,
+          modality: "SAR",
+          collection: f.collection || "sentinel-1-grd",
+          datetime: (f.properties?.datetime || "").slice(0, 19).replace("T", " "),
+          cloud: "N/A",
+          url: assetHref
+        });
+      }
+    }
+
+    if (emitRes.status === "fulfilled") {
+      const feats = emitRes.value.features || [];
+      emitCount = feats.length;
+      for (const f of feats) {
+        const assetHref = Object.values(f.assets || {})[0]?.href || "";
+        rows.push({
+          id: f.id,
+          modality: "Hyperspectral",
+          collection: f.collection || "EMITL2ARFL_001",
+          datetime: (f.properties?.datetime || "").slice(0, 19).replace("T", " "),
+          cloud: typeof f.properties?.["eo:cloud_cover"] === "number" ? f.properties["eo:cloud_cover"].toFixed(1) : "--",
+          url: assetHref
+        });
+      }
+    }
+
+    document.getElementById("kpi-stac").textContent = `${optCount} Opt / ${sarCount} SAR`;
+    document.getElementById("kpi-emit").textContent = emitRes.status === "fulfilled" ? `${emitCount} scenes` : "Unavailable";
+
+    if (wxRes.status === "fulfilled") {
+      const cur = wxRes.value.current || {};
+      const et0 = wxRes.value.daily?.et0_fao_evapotranspiration?.[0];
+      document.getElementById("kpi-weather").textContent =
+        cur.temperature_2m !== undefined ? `${cur.temperature_2m} °C` : "--";
+      document.getElementById("kpi-weather-sub").textContent =
+        `RH: ${cur.relative_humidity_2m ?? "--"}% | VPD: ${cur.vapour_pressure_deficit ?? "--"} kPa | ET0: ${et0 ?? "--"} mm`;
+    } else {
+      document.getElementById("kpi-weather").textContent = "Error";
+    }
+
+    if (soilRes.status === "fulfilled") {
+      const layers = soilRes.value.properties?.layers || [];
+      const findVal = (name) => layers.find((l) => l.name === name)?.depths?.[0]?.values?.mean;
+      const clay = findVal("clay");
+      const sand = findVal("sand");
+      const soc = findVal("soc");
+      const ph = findVal("phh2o");
+      document.getElementById("kpi-soil").textContent =
+        ph !== undefined && ph !== null ? `pH ${(ph / 10).toFixed(1)}` : "No pixel";
+      document.getElementById("kpi-soil-sub").textContent =
+        clay !== undefined && clay !== null
+          ? `Clay: ${(clay / 10).toFixed(1)}% | Sand: ${(sand / 10).toFixed(1)}% | SOC: ${(soc / 10).toFixed(1)} g/kg`
+          : "Ocean or masked land pixel";
+    } else {
+      document.getElementById("kpi-soil").textContent = "Unavailable";
+    }
+
+    renderTableRows(rows);
+    statusBar.className = "status-bar ok";
+    statusBar.textContent = `Live query complete: ${rows.length} satellite scenes + weather & soil retrieved for [${bbox.join(", ")}].`;
+    submitBtn.disabled = false;
+  }
+
+  document.getElementById("query-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!e.target.checkValidity()) {
+      const firstInvalid = e.target.querySelector(":invalid");
+      if (firstInvalid) firstInvalid.focus();
+      return;
+    }
+    runLiveQuery();
+  });
+
+  syncAoiAndSnippets();
+</script>
+</body>
+</html>

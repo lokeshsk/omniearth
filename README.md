@@ -16,7 +16,7 @@
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-> **Interactive Documentation & User Manual:** [**lokeshsk.github.io/omniearth/guide.html**](https://lokeshsk.github.io/omniearth/guide.html) | **Showcase:** [**lokeshsk.github.io/omniearth/**](https://lokeshsk.github.io/omniearth/)
+> **Live Browser Playground (No Install):** [**lokeshsk.github.io/omniearth/playground.html**](https://lokeshsk.github.io/omniearth/playground.html) | **User Manual:** [**guide.html**](https://lokeshsk.github.io/omniearth/guide.html) | **Showcase:** [**lokeshsk.github.io/omniearth/**](https://lokeshsk.github.io/omniearth/)
 
 **Query 14 Earth Observation, Hyperspectral, Weather, Topography, and 3D Soil APIs with one unified Python SDK, Node.js/TypeScript SDK, CLI, and MCP Server.**  
 **12 of 14 modalities work with zero API keys or configuration.**
